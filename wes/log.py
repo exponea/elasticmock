@@ -9,35 +9,35 @@ def _TIME():
 def _generate_caller_name():
     return sys._getframe(3).f_code.co_name
 
-def _LOG_INT(prefix, user_string_list):
-    #print("%sLOG::%s: %s" % (prefix, generate_caller_name(), ''.join(user_string_list)))
-    print("%s%s LOG :: %s" % (prefix, _TIME(), ''.join(user_string_list)))
+def _LOG_INT(prefix, msg):
+    #print("%sLOG::%s: %s" % (prefix, generate_caller_name(), msg))
+    print("%s%s LOG :: %s" % (prefix, _TIME(), str(msg)))
 
 # print colored short
-def _LOG_RED_B(prefix, user_string_list):
-    print("\33[1;37;41m%s%s ERROR::\33[0m %s" % (prefix, _TIME(), ''.join(user_string_list)))
+def _LOG_RED_B(prefix, msg):
+    print("\33[1;37;41m%s%s ERR ::\33[0m %s" % (prefix, _TIME(),  str(msg)))
 
-def _LOG_GREEN_B(prefix, user_string_list):
-    print("\33[1;37;42m%s%s LOG ::\33[0m %s" % (prefix, _TIME(), ''.join(user_string_list)))
+def _LOG_GREEN_B(prefix, msg):
+    print("\33[1;37;42m%s%s LOG ::\33[0m %s" % (prefix, _TIME(),  str(msg)))
 
-def _LOG_YELLOW_B(prefix, user_string_list):
-    print("\33[1;37;43m%s%s WARN ::\33[0m %s" % (prefix, _TIME(), ''.join(user_string_list)))
+def _LOG_YELLOW_B(prefix, msg):
+    print("\33[1;37;43m%s%s WARN::\33[0m %s" % (prefix, _TIME(),  str(msg)))
 
-def _LOG_BLUE_B(prefix, user_string_list):
-    print("\33[1;37;44m%s%s NOTE ::\33[0m %s" % (prefix, _TIME(), ''.join(user_string_list)))
+def _LOG_BLUE_B(prefix, msg):
+    print("\33[1;37;44m%s%s NOTI::\33[0m %s" % (prefix, _TIME(),  str(msg)))
 
 # print colored long
-def _LOG_RED_B_LONG(prefix, user_string_list):
-    print("\33[1;37;41m%s%s ERROR:: %s\33[0m" % (prefix, _TIME(), ''.join(user_string_list)))
+def _LOG_RED_B_LONG(prefix, msg):
+    print("\33[1;37;41m%s%s ERR :: %s\33[0m" % (prefix, _TIME(),  str(msg)))
 
-def _LOG_GREEN_B_LONG(prefix, user_string_list):
-    print("\33[1;37;42m%s%s LOG :: %s\33[0m" % (prefix, _TIME(), ''.join(user_string_list)))
+def _LOG_GREEN_B_LONG(prefix, msg):
+    print("\33[1;37;42m%s%s LOG :: %s\33[0m" % (prefix, _TIME(),  str(msg)))
 
-def _LOG_YELLOW_B_LONG(prefix, user_string_list):
-    print("\33[1;37;43m%s%s WARN :: %s\33[0m" % (prefix, _TIME(), ''.join(user_string_list)))
+def _LOG_YELLOW_B_LONG(prefix, msg):
+    print("\33[1;37;43m%s%s WARN:: %s\33[0m" % (prefix, _TIME(),  str(msg)))
 
-def _LOG_BLUE_B_LONG(prefix, user_string_list):
-    print("\33[1;37;44m%s%s NOTE :: %s\33[0m" % (prefix, _TIME(), ''.join(user_string_list)))
+def _LOG_BLUE_B_LONG(prefix, msg):
+    print("\33[1;37;44m%s%s NOTI:: %s\33[0m" % (prefix, _TIME(),  str(msg)))
 
 MSELINE = 80
 # cmd border
@@ -50,37 +50,31 @@ def _LOG_BORDER(LOG_CLBK, caller, result, cmd, name):
 # API print
 ############################################################################################
 
-# API no colors
-def LOG_DBG2(user_string_list):
-    print(user_string_list)
-def TEST_MARK():
-    print("\n==========================================================\n")
-
 # API time + no colors
-def LOG_DBG(user_string_list):
-    _LOG_INT("", user_string_list)
-def LOG(user_string_list):
-    _LOG_INT("", user_string_list)
+def LOG_DBG(msg):
+    _LOG_INT("", msg)
+def LOG(msg):
+    _LOG_INT("", msg)
 
 # API time + short background colours
-def LOG_OK(user_string_list):
-    _LOG_GREEN_B("", user_string_list)
-def LOG_ERR(user_string_list):
-    _LOG_RED_B("", user_string_list)
-def LOG_WARN(user_string_list):
-    _LOG_YELLOW_B("", user_string_list)
-def LOG_NOTI(user_string_list):
-    _LOG_BLUE_B("", user_string_list)
+def LOG_OK(msg):
+    _LOG_GREEN_B("", msg)
+def LOG_ERR(msg):
+    _LOG_RED_B("", msg)
+def LOG_WARN(msg):
+    _LOG_YELLOW_B("", msg)
+def LOG_NOTI(msg):
+    _LOG_BLUE_B("", msg)
 
 # API time + full background colours
-def LOG_OK_L(user_string_list):
-    _LOG_GREEN_B_LONG("", user_string_list)
-def LOG_ERR_L(user_string_list):
-    _LOG_RED_B_LONG("", user_string_list)
-def LOG_WARN_L(user_string_list):
-    _LOG_YELLOW_B_LONG("", user_string_list)
-def LOG_NOTI_L(user_string_list):
-    _LOG_BLUE_B_LONG("", user_string_list)
+def LOG_OK_L(msg):
+    _LOG_GREEN_B_LONG("", msg)
+def LOG_ERR_L(msg):
+    _LOG_RED_B_LONG("", msg)
+def LOG_WARN_L(msg):
+    _LOG_YELLOW_B_LONG("", msg)
+def LOG_NOTI_L(msg):
+    _LOG_BLUE_B_LONG("", msg)
 
 # API cmd border
 def LOG_BORDER_OK(caller, result, cmd, name):
@@ -131,7 +125,7 @@ class TestClog(unittest.TestCase):
         r1.append("one element")
         LOG_BORDER_RE(r1, "help_str", "pattern")
 
-        LOG_BEND_LOOP(None, LOG, "miso LOG_BEND_LOOP")
+        LOG_BEND_LOOP(None, LOG, "mse LOG_BEND_LOOP")
 
 if __name__ == '__main__':
      unittest.main()
