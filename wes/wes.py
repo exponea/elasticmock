@@ -1,15 +1,25 @@
 from elasticsearch import Elasticsearch
 from elasticsearch.client.utils import query_params
 
-import sys
 from error import *
 from log import *
 
-class Wes:
+class WesDefs():
+    # operation
+    OP_IND_CREATE = "OP_IND_CREATE"
+    OP_IND_EXIST  = "OP_IND_EXIST "
+    OP_IND_DELETE = "OP_IND_DELETE"
+    OP_DOC_ADD_UP = "OP_DOC_ADDUP "
+    OP_DOC_GET    = "OP_DOC_GET   "
 
-    IND_CREATE = "IND_CREATE"
-    IND_EXIST  = "IND_EXIST "
-    IND_DELETE = "IND_DELETE"
+    # RC - 3 codes
+    # - maybe useful later (low level could detect problem in data)
+    # - e.g. no exception but status is wrong TODO discuss wit petee
+    RC_EXCE    = "RC_EXCE"
+    RC_NOK     = "RC_NOK"
+    RC_OK      = "RC_OK"
+
+class Wes(WesDefs):
 
     def __init__(self):
         # self.es = Elasticsearch(HOST="http://localhost", PORT=9200)  # remote instance
@@ -20,14 +30,14 @@ class Wes:
         "timeout" "request_timeout",
         "wait_for_active_shards",
         "include_type_name",)
-    def ind_create(self, index, body=None, params=None) -> bool:
+    def ind_create(self, index, body=None, params=None):
         try:
             rc = self.es.indices.create(index, body=body, params=params)
-            WES_SUCCESS(Wes.IND_CREATE, rc)
-            return (True, rc)
+            WES_SUCCESS(Wes.OP_IND_CREATE, rc)
+            return (Wes.RC_OK, rc)
         except Exception as e:  # TODO petee is this ok or be more specific???
-            WES_EXCEPTION(Wes.IND_CREATE, e)
-            return (False, e)
+            WES_EXCEPTION(Wes.OP_IND_CREATE, e)
+            return (Wes.RC_EXCE, e)
 
     @query_params(
         "allow_no_indices",
@@ -40,11 +50,11 @@ class Wes:
     def ind_exist(self, index, params=None):
         try:
             rc = self.es.indices.exists(index, params=params)
-            WES_SUCCESS(Wes.IND_EXIST, rc)
-            return (True, rc)
+            WES_SUCCESS(Wes.OP_IND_EXIST, rc)
+            return (Wes.RC_OK, rc)
         except Exception as e:  # TODO petee is this ok or be more specific???
-            WES_EXCEPTION(Wes.IND_EXIST, e)
-            return (False, e)
+            WES_EXCEPTION(Wes.OP_IND_EXIST, e)
+            return (Wes.RC_EXCE, e)
 
     @query_params(
         "allow_no_indices",
@@ -57,11 +67,60 @@ class Wes:
     def ind_delete(self, index, params=None):
         try:
             rc = self.es.indices.delete(index, params=params)
-            WES_SUCCESS(Wes.IND_DELETE, rc)
-            return (True, rc)
+            WES_SUCCESS(Wes.OP_IND_DELETE, rc)
+            return (Wes.RC_OK, rc)
         except Exception as e:  # TODO petee is this ok or be more specific???
-            WES_EXCEPTION(Wes.IND_DELETE, e)
-            return (False, e)
+            WES_EXCEPTION(Wes.OP_IND_DELETE, e)
+            return (Wes.RC_EXCE, e)
+
+    @query_params(
+        "if_seq_no",
+        "if_primary_term",
+        "op_type",
+        "parent",
+        "pipeline",
+        "refresh",
+        "routing",
+        "timeout",
+        "timestamp",
+        "ttl",
+        "version",
+        "version_type",
+        "wait_for_active_shards",
+    )
+    def doc_addup(self, index, body, doc_type="_doc", id=None, params=None):
+        # TODO petee 'id' is important for get - shouldn't be mandatory???
+        try:
+            rc = self.es.index(index, body, doc_type=doc_type, id=id, params=params)
+            WES_SUCCESS(Wes.OP_DOC_ADD_UP, rc)
+            return (Wes.RC_OK, rc)
+        except Exception as e:  # TODO petee is this ok or be more specific???
+            WES_EXCEPTION(Wes.OP_DOC_ADD_UP, e)
+            return (Wes.RC_EXCE, e)
+
+    @query_params(
+        "_source",
+        "_source_exclude",
+        "_source_excludes",
+        "_source_include",
+        "_source_includes",
+        "parent",
+        "preference",
+        "realtime",
+        "refresh",
+        "routing",
+        "stored_fields",
+        "version",
+        "version_type",
+    )
+    def doc_get(self, index, id, doc_type="_doc", params=None):
+        try:
+            rc = self.es.get(index, id, doc_type=doc_type, params=params)
+            WES_SUCCESS(Wes.OP_DOC_GET, rc)
+            return (Wes.RC_OK, rc)
+        except Exception as e:  # TODO petee is this ok or be more specific???
+            WES_EXCEPTION(Wes.OP_DOC_GET, e)
+            return (Wes.RC_EXCE, e)
 
 
 ############################################################################################
@@ -69,17 +128,39 @@ class Wes:
 ############################################################################################
 
 class TestWes(unittest.TestCase):
-    def test_basic(self):
+    # def test_basic_ind(self):
+    #     wes = Wes()
+    #     ind_str = "first_pooooooooooooooo"
+    #     wes.ind_delete(ind_str)
+    #     wes.ind_create(ind_str)
+    #     wes.ind_create(ind_str)
+    #     wes.ind_exist(ind_str)
+    #     wes.ind_delete(ind_str)
+    #     wes.ind_exist(ind_str)
+    #     wes.ind_delete(ind_str)
+
+    def test_basic_doc(self):
         wes = Wes()
         ind_str = "first_pooooooooooooooo"
         wes.ind_delete(ind_str)
         wes.ind_create(ind_str)
-        wes.ind_create(ind_str)
-        wes.ind_exist(ind_str)
-        wes.ind_delete(ind_str)
-        wes.ind_exist(ind_str)
-        wes.ind_delete(ind_str)
+        doc1 = {"city": "Bratislava1", "coutry": "slovakia1"}
+        doc2 = {"city": "Bratislava2", "coutry": "slovakia2"}
+        doc3 = {"city": "Bratislava3", "coutry": "slovakia3"}
 
+        #                                                     MSE_NOTES:                      IntperOper    IntChangedByUpd
+        wes.doc_addup(ind_str, doc1, doc_type="any", id=1)  # MSE_NOTES: 'result': 'created' '_seq_no': 0  '_version': 1,
+        wes.doc_addup(ind_str, doc2, doc_type="any", id=2)  # MSE_NOTES: 'result': 'created' '_seq_no': 1  '_version': 1,
+        wes.doc_addup(ind_str, doc3, doc_type="any", id=3)  # MSE_NOTES: 'result': 'created' '_seq_no': 2  '_version': 1,
+        wes.doc_addup(ind_str, doc3, doc_type="any", id=3)  # MSE_NOTES: 'result': 'updated' '_seq_no': 3  '_version': 2,
+
+        #                                          MSE_NOTES:  IMPO ok/exc
+        wes.doc_get(ind_str, 1, doc_type="any")  # MSE_NOTES: 'found': True,                 '_seq_no': 0,
+        wes.doc_get(ind_str, 2, doc_type="any")  # MSE_NOTES: 'found': True,                 '_seq_no': 1,
+        wes.doc_get(ind_str, 3, doc_type="any")  # MSE_NOTES: 'found': True,                 '_seq_no': 2,
+        wes.doc_get(ind_str, 9, doc_type="any")  # MSE_NOTES:  WesNotFoundError !!!
+
+        wes.doc_addup(ind_str, doc3, doc_type="any", id=3)  # MSE_NOTES: 'result': 'updated' '_seq_no': 4
 
 
 if __name__ == '__main__':
