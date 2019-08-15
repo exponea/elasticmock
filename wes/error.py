@@ -1,4 +1,4 @@
-from elasticsearch import Elasticsearch
+from log import *
 
 # elasticsearch - base
 from elasticsearch.exceptions import ImproperlyConfigured as WesImproperlyConfigured
@@ -20,14 +20,18 @@ from elasticsearch.exceptions import NotFoundError as WesNotFoundError   # 404 s
 
 # wes - placeholder - will I need it ???
 
-def err_2_string(e) -> str:
+def WES_SUCCESS(oper, rc):
+    LOG_OK(f"{oper} {str(rc)}")
+
+def WES_EXCEPTION(oper, e):
     if isinstance(e, TransportError):
-        return f"{e.status_code} - {e.error} - {e.info} "
+        LOG_ERR(f"{oper} {e.status_code} - {e.error} - {e.info} ")
     elif isinstance(e, ConnectionError):
-        return f"{e.info}"
+        LOG_ERR(f"{oper} {e.info}")
     elif isinstance(e, WesSerializationError):
-        return "Serialization error"
+        LOG_ERR(f"{oper} Serialization error")
     elif isinstance(e, WesImproperlyConfigured):
-        return "Improperly configured"
+        LOG_ERR(f"{oper} Improperly configured")
     else:
-        raise("Unknow ...")
+        LOG_ERR(f"{oper} Unknow ...")
+        raise(e)

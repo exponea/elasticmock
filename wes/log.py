@@ -9,35 +9,47 @@ def _TIME():
 def _generate_caller_name():
     return sys._getframe(3).f_code.co_name
 
+def flush_io():
+    sys.stdout.flush()
+
 def _LOG_INT(prefix, msg):
     #print("%sLOG::%s: %s" % (prefix, generate_caller_name(), msg))
     print("%s%s LOG :: %s" % (prefix, _TIME(), str(msg)))
+    flush_io()
 
 # print colored short
 def _LOG_RED_B(prefix, msg):
     print("\33[1;37;41m%s%s ERR ::\33[0m %s" % (prefix, _TIME(),  str(msg)))
+    flush_io()
 
 def _LOG_GREEN_B(prefix, msg):
     print("\33[1;37;42m%s%s LOG ::\33[0m %s" % (prefix, _TIME(),  str(msg)))
+    flush_io()
 
 def _LOG_YELLOW_B(prefix, msg):
     print("\33[1;37;43m%s%s WARN::\33[0m %s" % (prefix, _TIME(),  str(msg)))
+    flush_io()
 
 def _LOG_BLUE_B(prefix, msg):
     print("\33[1;37;44m%s%s NOTI::\33[0m %s" % (prefix, _TIME(),  str(msg)))
+    flush_io()
 
 # print colored long
 def _LOG_RED_B_LONG(prefix, msg):
     print("\33[1;37;41m%s%s ERR :: %s\33[0m" % (prefix, _TIME(),  str(msg)))
+    flush_io()
 
 def _LOG_GREEN_B_LONG(prefix, msg):
     print("\33[1;37;42m%s%s LOG :: %s\33[0m" % (prefix, _TIME(),  str(msg)))
+    flush_io()
 
 def _LOG_YELLOW_B_LONG(prefix, msg):
     print("\33[1;37;43m%s%s WARN:: %s\33[0m" % (prefix, _TIME(),  str(msg)))
+    flush_io()
 
 def _LOG_BLUE_B_LONG(prefix, msg):
     print("\33[1;37;44m%s%s NOTI:: %s\33[0m" % (prefix, _TIME(),  str(msg)))
+    flush_io()
 
 MSELINE = 80
 # cmd border
