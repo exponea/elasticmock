@@ -35,7 +35,7 @@ class Wes(WesDefs):
             rc = self.es.indices.create(index, body=body, params=params)
             WES_DB_OK(Wes.OP_IND_CREATE, rc)
             return (Wes.RC_OK, rc)
-        except Exception as e:  # TODO petee is this ok or be more specific???
+        except Exception as e:
             WES_DB_ERR(Wes.OP_IND_CREATE, e)
             return (Wes.RC_EXCE, e)
 
@@ -63,7 +63,7 @@ class Wes(WesDefs):
             rc = self.es.indices.exists(index, params=params)
             WES_DB_OK(Wes.OP_IND_EXIST, rc)
             return (Wes.RC_OK, rc)
-        except Exception as e:  # TODO petee is this ok or be more specific???
+        except Exception as e:
             WES_DB_ERR(Wes.OP_IND_EXIST, e)
             return (Wes.RC_EXCE, e)
 
@@ -91,7 +91,7 @@ class Wes(WesDefs):
             rc = self.es.indices.delete(index, params=params)
             WES_DB_OK(Wes.OP_IND_DELETE, rc)
             return (Wes.RC_OK, rc)
-        except Exception as e:  # TODO petee is this ok or be more specific???
+        except Exception as e:
             WES_DB_ERR(Wes.OP_IND_DELETE, e)
             return (Wes.RC_EXCE, e)
 
@@ -123,11 +123,12 @@ class Wes(WesDefs):
     )
     def doc_addup(self, index, body, doc_type="_doc", id=None, params=None):
         # TODO petee 'id' is important for get - shouldn't be mandatory???
+        # TODO petee 'doc_type' is important for get - shouldn't be mandatory???
         try:
             rc = self.es.index(index, body, doc_type=doc_type, id=id, params=params)
             WES_DB_OK(Wes.OP_DOC_ADD_UP, rc)
             return (Wes.RC_OK, rc)
-        except Exception as e:  # TODO petee is this ok or be more specific???
+        except Exception as e:
             WES_DB_ERR(Wes.OP_DOC_ADD_UP, e)
             return (Wes.RC_EXCE, e)
 
@@ -162,7 +163,7 @@ class Wes(WesDefs):
             rc = self.es.get(index, id, doc_type=doc_type, params=params)
             WES_DB_OK(Wes.OP_DOC_GET, rc)
             return (Wes.RC_OK, rc)
-        except Exception as e:  # TODO petee is this ok or be more specific???
+        except Exception as e:
             WES_DB_ERR(Wes.OP_DOC_GET, e)
             return (Wes.RC_EXCE, e)
 

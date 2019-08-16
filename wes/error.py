@@ -65,7 +65,7 @@ def WES_INT_ERR(oper, e, LOG_FNC):
 
 
 def WES_RC_NOK(oper, e):
-    WES_INT_ERR(oper, e, LOG_ERR) # this is L1 - only warn
+    WES_INT_ERR(oper, e, LOG_ERR) # this is L2 - use error
 
 def WES_DB_ERR(oper, e):
     WES_INT_ERR(oper, e, LOG_WARN) # this is L1 - only warn
