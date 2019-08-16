@@ -98,6 +98,17 @@ class Wes(WesDefs):
             WES_DB_ERR(Wes.OP_DOC_ADD_UP, e)
             return (Wes.RC_EXCE, e)
 
+    def doc_addup_result(self, rc: tuple):
+        status, rc = rc
+        if status == Wes.RC_OK:
+            WES_RC_OK(Wes.OP_DOC_ADD_UP, f"KEY[{rc['_index']} <-> {rc['_type']} <-> {rc['_id']}] {rc['result']} {rc['_shards']}")
+        elif status == Wes.RC_NOK:
+            assert("not implemented") # TODO RC - 3 codes
+        elif status == Wes.RC_EXCE:
+            WES_RC_NOK(Wes.OP_DOC_ADD_UP, rc)
+        else:
+            raise ValueError(f"{Wes.OP_DOC_ADD_UP} unknown status - {status}")
+
     @query_params(
         "_source",
         "_source_exclude",
@@ -131,7 +142,7 @@ class Wes(WesDefs):
         elif status == Wes.RC_EXCE:
             WES_RC_NOK(Wes.OP_DOC_GET, rc)
         else:
-            raise ValueError("unknown status - " + str(status))
+            raise ValueError(f"{Wes.OP_DOC_GET} unknown status - {status}")
 
 
 ############################################################################################
@@ -162,11 +173,11 @@ class TestWes(unittest.TestCase):
         # TODO petee explain success priority???
         # 1. exception
         # 2. IMPO_AU_1 vs. IMPO_AU_2 consider 'RC - 3 codes'
-        #                                                     MSE_NOTES:      IMPO_AU_1          IntperOper    IntChangedByUpd                            IMPO_AU_2
-        wes.doc_addup(ind_str, doc1, doc_type="any", id=1)  # MSE_NOTES: 'result': 'created' '_seq_no': 0  '_version': 1,    '_shards': {'total': 2, 'successful': 1, 'failed': 0},
-        wes.doc_addup(ind_str, doc2, doc_type="any", id=2)  # MSE_NOTES: 'result': 'created' '_seq_no': 1  '_version': 1,    '_shards': {'total': 2, 'successful': 1, 'failed': 0},
-        wes.doc_addup(ind_str, doc3, doc_type="any", id=3)  # MSE_NOTES: 'result': 'created' '_seq_no': 2  '_version': 1,    '_shards': {'total': 2, 'successful': 1, 'failed': 0},
-        wes.doc_addup(ind_str, doc3, doc_type="any", id=3)  # MSE_NOTES: 'result': 'updated' '_seq_no': 3  '_version': 2,    '_shards': {'total': 2, 'successful': 1, 'failed': 0},
+        #                                                                           MSE_NOTES:      IMPO_AU_1          IntperOper    IntChangedByUpd                            IMPO_AU_2
+        wes.doc_addup_result(wes.doc_addup(ind_str, doc1, doc_type="any", id=1))  # MSE_NOTES: 'result': 'created' '_seq_no': 0  '_version': 1,    '_shards': {'total': 2, 'successful': 1, 'failed': 0},
+        wes.doc_addup_result(wes.doc_addup(ind_str, doc2, doc_type="any", id=2))  # MSE_NOTES: 'result': 'created' '_seq_no': 1  '_version': 1,    '_shards': {'total': 2, 'successful': 1, 'failed': 0},
+        wes.doc_addup_result(wes.doc_addup(ind_str, doc3, doc_type="any", id=3))  # MSE_NOTES: 'result': 'created' '_seq_no': 2  '_version': 1,    '_shards': {'total': 2, 'successful': 1, 'failed': 0},
+        wes.doc_addup_result(wes.doc_addup(ind_str, doc3, doc_type="any", id=3))  # MSE_NOTES: 'result': 'updated' '_seq_no': 3  '_version': 2,    '_shards': {'total': 2, 'successful': 1, 'failed': 0},
 
         #                                                              MSE_NOTES:  IMPO_GET_1 ok/exc                                    IMPO_GET_2
         wes.doc_get_result(wes.doc_get(ind_str, 1, doc_type="any"))  # MSE_NOTES: 'found': True,                 '_seq_no': 0,  '_source': {'city': 'Bratislava1', 'coutry': 'slovakia1'}

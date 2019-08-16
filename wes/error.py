@@ -3,9 +3,6 @@ from log import *
 from elasticsearch.exceptions import ImproperlyConfigured
 from elasticsearch.exceptions import ElasticsearchException
 from elasticsearch.exceptions import SerializationError
-from elasticsearch.exceptions import ImproperlyConfigured
-from elasticsearch.exceptions import ElasticsearchException
-from elasticsearch.exceptions import SerializationError
 from elasticsearch.exceptions import TransportError
 from elasticsearch.exceptions import NotFoundError
 from elasticsearch.exceptions import ConflictError
