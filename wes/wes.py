@@ -39,6 +39,17 @@ class Wes(WesDefs):
             WES_DB_ERR(Wes.OP_IND_CREATE, e)
             return (Wes.RC_EXCE, e)
 
+    def ind_create_result(self, rc: tuple):
+        status, rc = rc
+        if status == Wes.RC_OK:
+            WES_RC_OK(Wes.OP_IND_CREATE, f"KEY[{rc['index']}] ack[{rc['acknowledged']} - {rc['shards_acknowledged']}]")
+        elif status == Wes.RC_NOK:
+            assert("not implemented") # TODO RC - 3 codes
+        elif status == Wes.RC_EXCE:
+            WES_RC_NOK(Wes.OP_IND_CREATE, rc)
+        else:
+            raise ValueError(f"{Wes.OP_IND_CREATE} unknown status - {status}")
+
     @query_params(
         "allow_no_indices",
         "expand_wildcards",
@@ -56,6 +67,17 @@ class Wes(WesDefs):
             WES_DB_ERR(Wes.OP_IND_EXIST, e)
             return (Wes.RC_EXCE, e)
 
+    def ind_exist_result(self, index, rc: tuple):
+        status, rc = rc
+        if status == Wes.RC_OK:
+            WES_RC_OK(Wes.OP_IND_EXIST, f"KEY[{index}] {rc}")
+        elif status == Wes.RC_NOK:
+            assert("not implemented") # TODO RC - 3 codes
+        elif status == Wes.RC_EXCE:
+            WES_RC_NOK(Wes.OP_IND_EXIST, rc)
+        else:
+            raise ValueError(f"{Wes.OP_IND_EXIST} unknown status - {status}")
+
     @query_params(
         "allow_no_indices",
         "expand_wildcards",
@@ -72,6 +94,17 @@ class Wes(WesDefs):
         except Exception as e:  # TODO petee is this ok or be more specific???
             WES_DB_ERR(Wes.OP_IND_DELETE, e)
             return (Wes.RC_EXCE, e)
+
+    def ind_delete_result(self, index, rc: tuple):
+        status, rc = rc
+        if status == Wes.RC_OK:
+            WES_RC_OK(Wes.OP_IND_DELETE, f"KEY[{index}] {rc['acknowledged']}")
+        elif status == Wes.RC_NOK:
+            assert("not implemented") # TODO RC - 3 codes
+        elif status == Wes.RC_EXCE:
+            WES_RC_NOK(Wes.OP_IND_DELETE, rc)
+        else:
+            raise ValueError(f"{Wes.OP_IND_DELETE} unknown status - {status}")
 
     @query_params(
         "if_seq_no",
@@ -164,8 +197,12 @@ class TestWes(unittest.TestCase):
     def test_basic_doc(self):
         wes = Wes()
         ind_str = "first_pooooooooooooooo"
-        wes.ind_delete(ind_str)
-        wes.ind_create(ind_str)
+
+        wes.ind_delete_result(ind_str, wes.ind_delete(ind_str))
+        wes.ind_create_result(wes.ind_create(ind_str))
+        wes.ind_exist_result(ind_str, wes.ind_exist(ind_str))
+
+
         doc1 = {"city": "Bratislava1", "coutry": "slovakia1"}
         doc2 = {"city": "Bratislava2", "coutry": "slovakia2"}
         doc3 = {"city": "Bratislava3", "coutry": "slovakia3"}
