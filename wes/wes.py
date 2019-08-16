@@ -33,10 +33,10 @@ class Wes(WesDefs):
     def ind_create(self, index, body=None, params=None):
         try:
             rc = self.es.indices.create(index, body=body, params=params)
-            WES_SUCCESS(Wes.OP_IND_CREATE, rc)
+            WES_DB_OK(Wes.OP_IND_CREATE, rc)
             return (Wes.RC_OK, rc)
         except Exception as e:  # TODO petee is this ok or be more specific???
-            WES_EXCEPTION(Wes.OP_IND_CREATE, e)
+            WES_DB_ERR(Wes.OP_IND_CREATE, e)
             return (Wes.RC_EXCE, e)
 
     @query_params(
@@ -50,10 +50,10 @@ class Wes(WesDefs):
     def ind_exist(self, index, params=None):
         try:
             rc = self.es.indices.exists(index, params=params)
-            WES_SUCCESS(Wes.OP_IND_EXIST, rc)
+            WES_DB_OK(Wes.OP_IND_EXIST, rc)
             return (Wes.RC_OK, rc)
         except Exception as e:  # TODO petee is this ok or be more specific???
-            WES_EXCEPTION(Wes.OP_IND_EXIST, e)
+            WES_DB_ERR(Wes.OP_IND_EXIST, e)
             return (Wes.RC_EXCE, e)
 
     @query_params(
@@ -67,10 +67,10 @@ class Wes(WesDefs):
     def ind_delete(self, index, params=None):
         try:
             rc = self.es.indices.delete(index, params=params)
-            WES_SUCCESS(Wes.OP_IND_DELETE, rc)
+            WES_DB_OK(Wes.OP_IND_DELETE, rc)
             return (Wes.RC_OK, rc)
         except Exception as e:  # TODO petee is this ok or be more specific???
-            WES_EXCEPTION(Wes.OP_IND_DELETE, e)
+            WES_DB_ERR(Wes.OP_IND_DELETE, e)
             return (Wes.RC_EXCE, e)
 
     @query_params(
@@ -92,10 +92,10 @@ class Wes(WesDefs):
         # TODO petee 'id' is important for get - shouldn't be mandatory???
         try:
             rc = self.es.index(index, body, doc_type=doc_type, id=id, params=params)
-            WES_SUCCESS(Wes.OP_DOC_ADD_UP, rc)
+            WES_DB_OK(Wes.OP_DOC_ADD_UP, rc)
             return (Wes.RC_OK, rc)
         except Exception as e:  # TODO petee is this ok or be more specific???
-            WES_EXCEPTION(Wes.OP_DOC_ADD_UP, e)
+            WES_DB_ERR(Wes.OP_DOC_ADD_UP, e)
             return (Wes.RC_EXCE, e)
 
     @query_params(
@@ -116,11 +116,22 @@ class Wes(WesDefs):
     def doc_get(self, index, id, doc_type="_doc", params=None):
         try:
             rc = self.es.get(index, id, doc_type=doc_type, params=params)
-            WES_SUCCESS(Wes.OP_DOC_GET, rc)
+            WES_DB_OK(Wes.OP_DOC_GET, rc)
             return (Wes.RC_OK, rc)
         except Exception as e:  # TODO petee is this ok or be more specific???
-            WES_EXCEPTION(Wes.OP_DOC_GET, e)
+            WES_DB_ERR(Wes.OP_DOC_GET, e)
             return (Wes.RC_EXCE, e)
+
+    def doc_get_result(self, rc: tuple):
+        status, rc = rc
+        if status == Wes.RC_OK:
+            WES_RC_OK(Wes.OP_DOC_GET, f"KEY[{rc['_index']} <-> {rc['_type']} <-> {rc['_id']}] {rc['_source']}")
+        elif status == Wes.RC_NOK:
+            assert("not implemented") # TODO RC - 3 codes
+        elif status == Wes.RC_EXCE:
+            WES_RC_NOK(Wes.OP_DOC_GET, rc)
+        else:
+            raise ValueError("unknown status - " + str(status))
 
 
 ############################################################################################
@@ -148,17 +159,20 @@ class TestWes(unittest.TestCase):
         doc2 = {"city": "Bratislava2", "coutry": "slovakia2"}
         doc3 = {"city": "Bratislava3", "coutry": "slovakia3"}
 
-        #                                                     MSE_NOTES:                      IntperOper    IntChangedByUpd
-        wes.doc_addup(ind_str, doc1, doc_type="any", id=1)  # MSE_NOTES: 'result': 'created' '_seq_no': 0  '_version': 1,
-        wes.doc_addup(ind_str, doc2, doc_type="any", id=2)  # MSE_NOTES: 'result': 'created' '_seq_no': 1  '_version': 1,
-        wes.doc_addup(ind_str, doc3, doc_type="any", id=3)  # MSE_NOTES: 'result': 'created' '_seq_no': 2  '_version': 1,
-        wes.doc_addup(ind_str, doc3, doc_type="any", id=3)  # MSE_NOTES: 'result': 'updated' '_seq_no': 3  '_version': 2,
+        # TODO petee explain success priority???
+        # 1. exception
+        # 2. IMPO_AU_1 vs. IMPO_AU_2 consider 'RC - 3 codes'
+        #                                                     MSE_NOTES:      IMPO_AU_1          IntperOper    IntChangedByUpd                            IMPO_AU_2
+        wes.doc_addup(ind_str, doc1, doc_type="any", id=1)  # MSE_NOTES: 'result': 'created' '_seq_no': 0  '_version': 1,    '_shards': {'total': 2, 'successful': 1, 'failed': 0},
+        wes.doc_addup(ind_str, doc2, doc_type="any", id=2)  # MSE_NOTES: 'result': 'created' '_seq_no': 1  '_version': 1,    '_shards': {'total': 2, 'successful': 1, 'failed': 0},
+        wes.doc_addup(ind_str, doc3, doc_type="any", id=3)  # MSE_NOTES: 'result': 'created' '_seq_no': 2  '_version': 1,    '_shards': {'total': 2, 'successful': 1, 'failed': 0},
+        wes.doc_addup(ind_str, doc3, doc_type="any", id=3)  # MSE_NOTES: 'result': 'updated' '_seq_no': 3  '_version': 2,    '_shards': {'total': 2, 'successful': 1, 'failed': 0},
 
-        #                                          MSE_NOTES:  IMPO ok/exc
-        wes.doc_get(ind_str, 1, doc_type="any")  # MSE_NOTES: 'found': True,                 '_seq_no': 0,
-        wes.doc_get(ind_str, 2, doc_type="any")  # MSE_NOTES: 'found': True,                 '_seq_no': 1,
-        wes.doc_get(ind_str, 3, doc_type="any")  # MSE_NOTES: 'found': True,                 '_seq_no': 2,
-        wes.doc_get(ind_str, 9, doc_type="any")  # MSE_NOTES:  WesNotFoundError !!!
+        #                                                              MSE_NOTES:  IMPO_GET_1 ok/exc                                    IMPO_GET_2
+        wes.doc_get_result(wes.doc_get(ind_str, 1, doc_type="any"))  # MSE_NOTES: 'found': True,                 '_seq_no': 0,  '_source': {'city': 'Bratislava1', 'coutry': 'slovakia1'}
+        wes.doc_get_result(wes.doc_get(ind_str, 2, doc_type="any"))  # MSE_NOTES: 'found': True,                 '_seq_no': 1,  '_source': {'city': 'Bratislava1', 'coutry': 'slovakia2'}
+        wes.doc_get_result(wes.doc_get(ind_str, 3, doc_type="any"))  # MSE_NOTES: 'found': True,                 '_seq_no': 2,  '_source': {'city': 'Bratislava1', 'coutry': 'slovakia2'}
+        wes.doc_get_result(wes.doc_get(ind_str, 9, doc_type="any"))  # MSE_NOTES:  WesNotFoundError !!!
 
         wes.doc_addup(ind_str, doc3, doc_type="any", id=3)  # MSE_NOTES: 'result': 'updated' '_seq_no': 4
 
