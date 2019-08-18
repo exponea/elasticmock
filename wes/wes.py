@@ -73,6 +73,9 @@ class WesDefs():
                         # special cases
                         if isinstance(e, NotFoundError) and oper == WesDefs.OP_IND_DELETE:
                             LOG_FNC(f"{oper} KEY[{e.info['error']['index']}] - {e.status_code} - {e.info['error']['type']}")
+                        # special cases  - 'type': 'parsing_exception'
+                        elif isinstance(e, RequestError) and oper == WesDefs.OP_DOC_SEARCH:
+                            LOG_FNC(f"{oper} KEY[???] - {e.status_code} - {e.info['error']['type']} - {e.info['error']['reason']}")
                         # generic
                         else:
                             LOG_FNC(f"{oper} KEY[{e.info['_index']} <-> {e.info['_type']} <-> {e.info['_id']}] {str(e)}")
@@ -304,7 +307,7 @@ class Wes(WesDefs):
 
         def fmt_fnc_ok_per_line(rc_data) -> str:
             rec_list = rc_data['hits']['hits']
-            rec = '\n' + '\n'.join([ str(item) for item in rec_list])
+            rec = '\n' + '\n'.join([str(item) for item in rec_list])
             return f"NB REC[{rc_data['hits']['total']['value']}] <-> {rec}"
 
         fmt_fnc_ok = fmt_fnc_ok_per_line if is_per_line else fmt_fnc_ok_inline
@@ -337,9 +340,11 @@ class TestWes(unittest.TestCase):
         wes.ind_exist_result(ind_str, wes.ind_exist(ind_str))
 
 
-        doc1 = {"city": "Bratislava1", "country": "slovakia"}
-        doc2 = {"city": "Bratislava2", "country": "SLOVAKIA2"}
-        doc3 = {"city": "Bratislava3", "country": "slovakia"}
+        doc1 = {"city": "Bratislava1", "country": "slovakia ", "sentence": "The slovakia is a country"}
+        doc2 = {"city": "Bratislava2", "country": "SLOVAKIA2", "sentence": "The SLOVAKA is a country"}
+        doc3 = {"city": "Bratislava3", "country": "SLOVAKIA",  "sentence": "The slovakia is a country"}
+        doc4 = {"city": "Bratislava4", "country": "SLOVAKIA4", "sentence": "The small country is slovakia"}
+        doc5 = {"city": "Bratislava4", "country": "SLOVAKIA5", "sentence": "The small COUNTRy is slovakia"}
 
         # TODO petee explain success priority???
         # 1. exception
@@ -357,14 +362,53 @@ class TestWes(unittest.TestCase):
         wes.doc_get_result(wes.doc_get(ind_str, 9, doc_type="any"))  # MSE_NOTES:  WesNotFoundError !!!
 
         wes.doc_addup_result(wes.doc_addup(ind_str, doc3, doc_type="any", id=3))  # MSE_NOTES: 'result': 'updated' '_seq_no': 4
+        wes.doc_addup_result(wes.doc_addup(ind_str, doc4, doc_type="any", id=4))
+        wes.doc_addup_result(wes.doc_addup(ind_str, doc5, doc_type="any", id=5))
 
         wes.ind_flush_result("_all", wes.ind_flush(index="_all", wait_if_ongoing=True))
         wes.ind_refresh_result("_all", wes.ind_refresh(index="_all"))
 
+        wes.doc_search_result(wes.doc_search())                                                             # MSE_NOTES: #1 search ALL in DB
+        wes.doc_search_result(wes.doc_search(index=ind_str))                                                # MSE_NOTES: #2 search ALL in specific INDICE
+        wes.doc_search_result(wes.doc_search(index=ind_str, body={"query": {"match_all": {}}}))             # MSE_NOTES: #3 equivalent to #2
+        body = {"from": 0, "size": 10,                                                                      # MSE_NOTES: #4 hint list FILTER
+                 "query": {"match_all": {}}                                                                 #               - 'from' - specify START element in 'hintLIST' witch MATCH query
+               }                                                                                            #               - 'size' - specify RANGE/MAXIMUM from 'hintLIST' <'from', 'from'+'size')
+        wes.doc_search_result(wes.doc_search(index=ind_str, body=body))                                     #               E.G. "size": 0 == returns just COUNT
+
+
+        body = {"from": 0, "size": 10,                                                                      # MSE_NOTES: #5 QUERY(match) MATCH(subSentence+wholeWord) CASE(inSensitive)
+                #"query": {"match": {}}                                                                     #               - EXCEPTION:  400 - parsing_exception - No text specified for text query
+                "query": {"match": {"country": "slovakia"}}                                                 #
+               }                                                                                            #
+        wes.doc_search_result(wes.doc_search(index=ind_str, body=body))                                     # RESULTS: 2
+        body = {"from": 0, "size": 10,                                                                      # MSE_NOTES: #5 QUERY(match) MATCH(subSentence+wholeWord) CASE(in-sensitive)
+                "query": {"match": {"sentence": "slovakia"}}                                                #
+               }                                                                                            #
+        wes.doc_search_result(wes.doc_search(index=ind_str, body=body))                                     # RESULTS: 4
+
+
+        body = {"from": 0, "size": 10,                                                                      # MSE_NOTES: #6 QUERY(matchphrase) MATCH(subSentence+wholeWord+phraseOrder) CASE(in-sensitive)
+                "query": {"match_phrase": {"country": "slovakia"}}                                          #              - ORDER IGNORE spaces and punctation !!!
+               }                                                                                            #
+        wes.doc_search_result(wes.doc_search(index=ind_str, body=body))                                     # RESULTS: 2
+        body = {"from": 0, "size": 10,                                                                      # MSE_NOTES: #6 QUERY(matchphrase) MATCH(subSentence+wholeWord+phraseOrder) CASE(in-sensitive)
+                "query": {"match_phrase": {"sentence": "slovakia is"}}                                      #              - ORDER IGNORE spaces and punctation !!!
+               }                                                                                            #
+        wes.doc_search_result(wes.doc_search(index=ind_str, body=body))                                     # RESULTS: 2
+
         LOG_NOTI_L("--------------------------------------------------------------------------------------")
-        wes.doc_search_result(wes.doc_search())
-        wes.doc_search_result(wes.doc_search(index=ind_str))
-        wes.doc_search_result(wes.doc_search(index=ind_str, body={"query": {"match_all": {}}}))
+
+        body = {"from": 0, "size": 10,                                                                      # MSE_NOTES: #7 QUERY(term) MATCH(exact) CASE(in-sensitive)
+                "query": {"term": {"country": "slovakia"}}                                                  #
+               }                                                                                            #
+        wes.doc_search_result(wes.doc_search(index=ind_str, body=body))                                     # RESULTS: 2
+        body = {"from": 0, "size": 10,                                                                      # MSE_NOTES: #7 QUERY(term) MATCH(exact) CASE(in-sensitive)
+                "query": {"term": {"sentence": "slovakia is"}}                                              #
+               }                                                                                            #
+        wes.doc_search_result(wes.doc_search(index=ind_str, body=body))                                     # RESULTS: 2
+
+
 
 if __name__ == '__main__':
     # unittest.main() run all test (imported too) :(
