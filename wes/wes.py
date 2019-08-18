@@ -1,7 +1,19 @@
 from elasticsearch import Elasticsearch
 from elasticsearch.client.utils import query_params
 
-from error import *
+from elasticsearch.exceptions import ImproperlyConfigured
+from elasticsearch.exceptions import ElasticsearchException
+from elasticsearch.exceptions import SerializationError
+from elasticsearch.exceptions import TransportError
+from elasticsearch.exceptions import NotFoundError
+from elasticsearch.exceptions import ConflictError
+from elasticsearch.exceptions import RequestError
+from elasticsearch.exceptions import ConnectionError
+from elasticsearch.exceptions import SSLError
+from elasticsearch.exceptions import ConnectionTimeout
+from elasticsearch.exceptions import AuthenticationException
+from elasticsearch.exceptions import AuthorizationException
+
 from log import *
 
 class WesDefs():
@@ -22,6 +34,67 @@ class WesDefs():
     RC_NOK     = "RC_NOK"
     RC_OK      = "RC_OK"
 
+    def WES_INT_ERR(self, oper, e, is_l1, LOG_FNC):
+        # ImproperlyConfigured(Exception)
+        # ElasticsearchException(Exception)
+        # 	- SerializationError(ElasticsearchException)
+        #	- TransportError(ElasticsearchException)
+        # 		= ConnectionError(TransportError)       'N/A' status code
+        #			=> SSLError(ConnectionError)
+        #			=> ConnectionTimeout(ConnectionError)
+        # 		= NotFoundError(TransportError)          404  status code
+        # 		= ConflictError(TransportError)          409  status code
+        # 		= RequestError(TransportError)           400  status code
+        # 		= AuthenticationException(TransportError)401  status code
+        # 		= AuthorizationException(TransportError) 403  status code
+        if isinstance(e, ImproperlyConfigured):
+            LOG_FNC(f"{oper} {str(e)}")
+        elif isinstance(e, ElasticsearchException):
+            if isinstance(e, SerializationError):
+                LOG_FNC(f"{oper} {str(e)}")
+            elif isinstance(e, TransportError):
+                if isinstance(e, ConnectionError):
+                    if isinstance(e, SSLError) or isinstance(e, ConnectionTimeout):
+                        LOG_FNC(f"{oper} ConnectionError - {e.info}")
+                    else:
+                        LOG_FNC(f"{oper} ConnectionError (generic) - {e.info}")
+                else:
+                    # 		= NotFoundError(TransportError)          404  status code
+                    # 		= ConflictError(TransportError)          409  status code
+                    # 		= RequestError(TransportError)           400  status code
+                    # 		= AuthenticationException(TransportError)401  status code
+                    # 		= AuthorizationException(TransportError) 403  status code
+
+                    # print(type(e.error)) => <class 'str'>
+                    # print(type(e.info))  => <class 'dict'>
+                    if is_l1:
+                        LOG_FNC(f"{oper} {e.status_code} - {e.info} ")
+                    else:
+                        # special cases
+                        if isinstance(e, NotFoundError) and oper == WesDefs.OP_IND_DELETE:
+                            LOG_FNC(f"{oper} KEY[{e.info['error']['index']}] - {e.status_code} - {e.info['error']['type']}")
+                        # generic
+                        else:
+                            LOG_FNC(f"{oper} KEY[{e.info['_index']} <-> {e.info['_type']} <-> {e.info['_id']}] {str(e)}")
+            else:
+                LOG_ERR(f"{oper} Unknow L2 exception ... {str(e)}")
+                raise (e)
+        else:
+            LOG_ERR(f"{oper} Unknow L1 exception ... {str(e)}")
+            raise (e)
+
+    def WES_RC_NOK(self, oper, e):
+        self.WES_INT_ERR(oper, e, False, LOG_ERR)  # this is L2 - use error
+
+    def WES_DB_ERR(self, oper, e):
+        self.WES_INT_ERR(oper, e, True, LOG_WARN)  # this is L1 - only warn
+
+    def WES_RC_OK(self, oper, rc):
+        LOG_OK(f"{oper} {str(rc)}")
+
+    def WES_DB_OK(self, oper, rc):
+        LOG(f"{oper} {str(rc)}")
+
 class Wes(WesDefs):
 
     def __init__(self):
@@ -36,20 +109,20 @@ class Wes(WesDefs):
     def ind_create(self, index, body=None, params=None):
         try:
             rc = self.es.indices.create(index, body=body, params=params)
-            WES_DB_OK(Wes.OP_IND_CREATE, rc)
+            self.WES_DB_OK(Wes.OP_IND_CREATE, rc)
             return (Wes.RC_OK, rc)
         except Exception as e:
-            WES_DB_ERR(Wes.OP_IND_CREATE, e)
+            self.WES_DB_ERR(Wes.OP_IND_CREATE, e)
             return (Wes.RC_EXCE, e)
 
     def ind_create_result(self, rc: tuple):
         status, rc = rc
         if status == Wes.RC_OK:
-            WES_RC_OK(Wes.OP_IND_CREATE, f"KEY[{rc['index']}] ack[{rc['acknowledged']} - {rc['shards_acknowledged']}]")
+            self.WES_RC_OK(Wes.OP_IND_CREATE, f"KEY[{rc['index']}] ack[{rc['acknowledged']} - {rc['shards_acknowledged']}]")
         elif status == Wes.RC_NOK:
             assert("not implemented") # TODO RC - 3 codes
         elif status == Wes.RC_EXCE:
-            WES_RC_NOK(Wes.OP_IND_CREATE, rc)
+            self.WES_RC_NOK(Wes.OP_IND_CREATE, rc)
         else:
             raise ValueError(f"{Wes.OP_IND_CREATE} unknown status - {status}")
 
@@ -64,20 +137,20 @@ class Wes(WesDefs):
     def ind_exist(self, index, params=None):
         try:
             rc = self.es.indices.exists(index, params=params)
-            WES_DB_OK(Wes.OP_IND_EXIST, rc)
+            self.WES_DB_OK(Wes.OP_IND_EXIST, rc)
             return (Wes.RC_OK, rc)
         except Exception as e:
-            WES_DB_ERR(Wes.OP_IND_EXIST, e)
+            self.WES_DB_ERR(Wes.OP_IND_EXIST, e)
             return (Wes.RC_EXCE, e)
 
     def ind_exist_result(self, index, rc: tuple):
         status, rc = rc
         if status == Wes.RC_OK:
-            WES_RC_OK(Wes.OP_IND_EXIST, f"KEY[{index}] {rc}")
+            self.WES_RC_OK(Wes.OP_IND_EXIST, f"KEY[{index}] {rc}")
         elif status == Wes.RC_NOK:
             assert("not implemented") # TODO RC - 3 codes
         elif status == Wes.RC_EXCE:
-            WES_RC_NOK(Wes.OP_IND_EXIST, rc)
+            self.WES_RC_NOK(Wes.OP_IND_EXIST, rc)
         else:
             raise ValueError(f"{Wes.OP_IND_EXIST} unknown status - {status}")
 
@@ -92,20 +165,20 @@ class Wes(WesDefs):
     def ind_delete(self, index, params=None):
         try:
             rc = self.es.indices.delete(index, params=params)
-            WES_DB_OK(Wes.OP_IND_DELETE, rc)
+            self.WES_DB_OK(Wes.OP_IND_DELETE, rc)
             return (Wes.RC_OK, rc)
         except Exception as e:
-            WES_DB_ERR(Wes.OP_IND_DELETE, e)
+            self.WES_DB_ERR(Wes.OP_IND_DELETE, e)
             return (Wes.RC_EXCE, e)
 
     def ind_delete_result(self, index, rc: tuple):
         status, rc = rc
         if status == Wes.RC_OK:
-            WES_RC_OK(Wes.OP_IND_DELETE, f"KEY[{index}] {rc['acknowledged']}")
+            self.WES_RC_OK(Wes.OP_IND_DELETE, f"KEY[{index}] {rc['acknowledged']}")
         elif status == Wes.RC_NOK:
             assert("not implemented") # TODO RC - 3 codes
         elif status == Wes.RC_EXCE:
-            WES_RC_NOK(Wes.OP_IND_DELETE, rc)
+            self.WES_RC_NOK(Wes.OP_IND_DELETE, rc)
         else:
             raise ValueError(f"{Wes.OP_IND_DELETE} unknown status - {status}")
 
@@ -119,20 +192,20 @@ class Wes(WesDefs):
     def ind_flush(self, index=None, params=None):
         try:
             rc = self.es.indices.flush(index=index, params=params)
-            WES_DB_OK(Wes.OP_IND_FLUSH, rc)
+            self.WES_DB_OK(Wes.OP_IND_FLUSH, rc)
             return (Wes.RC_OK, rc)
         except Exception as e:
-            WES_DB_ERR(Wes.OP_IND_FLUSH, e)
+            self.WES_DB_ERR(Wes.OP_IND_FLUSH, e)
             return (Wes.RC_EXCE, e)
 
     def ind_flush_result(self, index, rc: tuple):
         status, rc = rc
         if status == Wes.RC_OK:
-            WES_RC_OK(Wes.OP_IND_FLUSH, f"KEY[{index}] {str(rc)}")
+            self.WES_RC_OK(Wes.OP_IND_FLUSH, f"KEY[{index}] {str(rc)}")
         elif status == Wes.RC_NOK:
             assert("not implemented") # TODO RC - 3 codes
         elif status == Wes.RC_EXCE:
-            WES_RC_NOK(Wes.OP_IND_FLUSH, rc)
+            self.WES_RC_NOK(Wes.OP_IND_FLUSH, rc)
         else:
             raise ValueError(f"{Wes.OP_IND_FLUSH} unknown status - {status}")
 
@@ -142,20 +215,20 @@ class Wes(WesDefs):
     def ind_refresh(self, index=None, params=None):
         try:
             rc = self.es.indices.refresh(index=index, params=params)
-            WES_DB_OK(Wes.OP_IND_REFRESH, rc)
+            self.WES_DB_OK(Wes.OP_IND_REFRESH, rc)
             return (Wes.RC_OK, rc)
         except Exception as e:
-            WES_DB_ERR(Wes.OP_IND_REFRESH, e)
+            self.WES_DB_ERR(Wes.OP_IND_REFRESH, e)
             return (Wes.RC_EXCE, e)
 
     def ind_refresh_result(self, index, rc: tuple):
         status, rc = rc
         if status == Wes.RC_OK:
-            WES_RC_OK(Wes.OP_IND_REFRESH, f"KEY[{index}] {str(rc)}")
+            self.WES_RC_OK(Wes.OP_IND_REFRESH, f"KEY[{index}] {str(rc)}")
         elif status == Wes.RC_NOK:
             assert("not implemented") # TODO RC - 3 codes
         elif status == Wes.RC_EXCE:
-            WES_RC_NOK(Wes.OP_IND_REFRESH, rc)
+            self.WES_RC_NOK(Wes.OP_IND_REFRESH, rc)
         else:
             raise ValueError(f"{Wes.OP_IND_REFRESH} unknown status - {status}")
 
@@ -179,20 +252,20 @@ class Wes(WesDefs):
         # TODO petee 'doc_type' is important for get - shouldn't be mandatory???
         try:
             rc = self.es.index(index, body, doc_type=doc_type, id=id, params=params)
-            WES_DB_OK(Wes.OP_DOC_ADD_UP, rc)
+            self.WES_DB_OK(Wes.OP_DOC_ADD_UP, rc)
             return (Wes.RC_OK, rc)
         except Exception as e:
-            WES_DB_ERR(Wes.OP_DOC_ADD_UP, e)
+            self.WES_DB_ERR(Wes.OP_DOC_ADD_UP, e)
             return (Wes.RC_EXCE, e)
 
     def doc_addup_result(self, rc: tuple):
         status, rc = rc
         if status == Wes.RC_OK:
-            WES_RC_OK(Wes.OP_DOC_ADD_UP, f"KEY[{rc['_index']} <-> {rc['_type']} <-> {rc['_id']}] {rc['result']} {rc['_shards']}")
+            self.WES_RC_OK(Wes.OP_DOC_ADD_UP, f"KEY[{rc['_index']} <-> {rc['_type']} <-> {rc['_id']}] {rc['result']} {rc['_shards']}")
         elif status == Wes.RC_NOK:
             assert("not implemented") # TODO RC - 3 codes
         elif status == Wes.RC_EXCE:
-            WES_RC_NOK(Wes.OP_DOC_ADD_UP, rc)
+            self.WES_RC_NOK(Wes.OP_DOC_ADD_UP, rc)
         else:
             raise ValueError(f"{Wes.OP_DOC_ADD_UP} unknown status - {status}")
 
@@ -214,20 +287,20 @@ class Wes(WesDefs):
     def doc_get(self, index, id, doc_type="_doc", params=None):
         try:
             rc = self.es.get(index, id, doc_type=doc_type, params=params)
-            WES_DB_OK(Wes.OP_DOC_GET, rc)
+            self.WES_DB_OK(Wes.OP_DOC_GET, rc)
             return (Wes.RC_OK, rc)
         except Exception as e:
-            WES_DB_ERR(Wes.OP_DOC_GET, e)
+            self.WES_DB_ERR(Wes.OP_DOC_GET, e)
             return (Wes.RC_EXCE, e)
 
     def doc_get_result(self, rc: tuple):
         status, rc = rc
         if status == Wes.RC_OK:
-            WES_RC_OK(Wes.OP_DOC_GET, f"KEY[{rc['_index']} <-> {rc['_type']} <-> {rc['_id']}] {rc['_source']}")
+            self.WES_RC_OK(Wes.OP_DOC_GET, f"KEY[{rc['_index']} <-> {rc['_type']} <-> {rc['_id']}] {rc['_source']}")
         elif status == Wes.RC_NOK:
             assert("not implemented") # TODO RC - 3 codes
         elif status == Wes.RC_EXCE:
-            WES_RC_NOK(Wes.OP_DOC_GET, rc)
+            self.WES_RC_NOK(Wes.OP_DOC_GET, rc)
         else:
             raise ValueError(f"{Wes.OP_DOC_GET} unknown status - {status}")
 
@@ -280,20 +353,20 @@ class Wes(WesDefs):
     def doc_search(self, index=None, body=None, params=None):
         try:
             rc = self.es.search(index=index, body=body, params=params)
-            WES_DB_OK(Wes.OP_DOC_SEARCH, rc)
+            self.WES_DB_OK(Wes.OP_DOC_SEARCH, rc)
             return (Wes.RC_OK, rc)
         except Exception as e:
-            WES_DB_ERR(Wes.OP_DOC_SEARCH, e)
+            self.WES_DB_ERR(Wes.OP_DOC_SEARCH, e)
             return (Wes.RC_EXCE, e)
 
     def doc_search_result(self, rc: tuple):
         status, rc = rc
         if status == Wes.RC_OK:
-            WES_RC_OK(Wes.OP_DOC_SEARCH, f"NB REC[{rc['hits']['total']['value']} <-> {rc['hits']['hits']}")
+            self.WES_RC_OK(Wes.OP_DOC_SEARCH, f"NB REC[{rc['hits']['total']['value']} <-> {rc['hits']['hits']}")
         elif status == Wes.RC_NOK:
             assert("not implemented") # TODO RC - 3 codes
         elif status == Wes.RC_EXCE:
-            WES_RC_NOK(Wes.OP_DOC_SEARCH, rc)
+            self.WES_RC_NOK(Wes.OP_DOC_SEARCH, rc)
         else:
             raise ValueError(f"{Wes.OP_DOC_SEARCH} unknown status - {status}")
 
