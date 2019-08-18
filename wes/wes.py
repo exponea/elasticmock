@@ -298,9 +298,17 @@ class Wes(WesDefs):
     def doc_search(self, index=None, body=None, params=None):
         return self.es.search(index=index, body=body, params=params)
 
-    def doc_search_result(self, rc: tuple):
-        def fmt_fnc_ok(rc_data) -> str:
-            return f"NB REC[{rc_data['hits']['total']['value']} <-> {rc_data['hits']['hits']}"
+    def doc_search_result(self, rc: tuple, is_per_line: bool = True):
+        def fmt_fnc_ok_inline(rc_data) -> str:
+            return f"NB REC[{rc_data['hits']['total']['value']}] <-> {rc_data['hits']['hits']}"
+
+        def fmt_fnc_ok_per_line(rc_data) -> str:
+            rec_list = rc_data['hits']['hits']
+            rec = '\n' + '\n'.join([ str(item) for item in rec_list])
+            return f"NB REC[{rc_data['hits']['total']['value']}] <-> {rec}"
+
+        fmt_fnc_ok = fmt_fnc_ok_per_line if is_per_line else fmt_fnc_ok_inline
+
         self._operation_result(Wes.OP_DOC_SEARCH, rc, fmt_fnc_ok)
 
 
@@ -353,10 +361,10 @@ class TestWes(unittest.TestCase):
         wes.ind_flush_result("_all", wes.ind_flush(index="_all", wait_if_ongoing=True))
         wes.ind_refresh_result("_all", wes.ind_refresh(index="_all"))
 
+        LOG_NOTI_L("--------------------------------------------------------------------------------------")
+        wes.doc_search_result(wes.doc_search())
+        wes.doc_search_result(wes.doc_search(index=ind_str))
         wes.doc_search_result(wes.doc_search(index=ind_str, body={"query": {"match_all": {}}}))
-
-
-
 
 if __name__ == '__main__':
     # unittest.main() run all test (imported too) :(
