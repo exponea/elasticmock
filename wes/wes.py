@@ -34,7 +34,7 @@ class WesDefs():
     RC_NOK     = "RC_NOK"
     RC_OK      = "RC_OK"
 
-    def WES_INT_ERR(self, oper, e, is_l1, LOG_FNC):
+    def _WES_INT_ERR(self, oper, e, is_l1, LOG_FNC):
         # ImproperlyConfigured(Exception)
         # ElasticsearchException(Exception)
         # 	- SerializationError(ElasticsearchException)
@@ -84,16 +84,28 @@ class WesDefs():
             raise (e)
 
     def WES_RC_NOK(self, oper, e):
-        self.WES_INT_ERR(oper, e, False, LOG_ERR)  # this is L2 - use error
+        self._WES_INT_ERR(oper, e, False, LOG_ERR)  # this is L2 - use error
 
     def WES_DB_ERR(self, oper, e):
-        self.WES_INT_ERR(oper, e, True, LOG_WARN)  # this is L1 - only warn
+        self._WES_INT_ERR(oper, e, True, LOG_WARN)  # this is L1 - only warn
 
     def WES_RC_OK(self, oper, rc):
         LOG_OK(f"{oper} {str(rc)}")
 
     def WES_DB_OK(self, oper, rc):
         LOG(f"{oper} {str(rc)}")
+
+    def _doc_operation_result(self, oper, rc: tuple, fmt_fnc_ok):
+        status, rc_data = rc
+        if status == Wes.RC_OK:
+            self.WES_RC_OK(oper, fmt_fnc_ok(rc_data))
+        elif status == Wes.RC_NOK:
+            assert("not implemented") # TODO RC - 3 codes
+        elif status == Wes.RC_EXCE:
+            self.WES_RC_NOK(oper, rc_data)
+        else:
+            raise ValueError(f"{oper} unknown status - {status}")
+
 
 class Wes(WesDefs):
 
@@ -116,15 +128,9 @@ class Wes(WesDefs):
             return (Wes.RC_EXCE, e)
 
     def ind_create_result(self, rc: tuple):
-        status, rc = rc
-        if status == Wes.RC_OK:
-            self.WES_RC_OK(Wes.OP_IND_CREATE, f"KEY[{rc['index']}] ack[{rc['acknowledged']} - {rc['shards_acknowledged']}]")
-        elif status == Wes.RC_NOK:
-            assert("not implemented") # TODO RC - 3 codes
-        elif status == Wes.RC_EXCE:
-            self.WES_RC_NOK(Wes.OP_IND_CREATE, rc)
-        else:
-            raise ValueError(f"{Wes.OP_IND_CREATE} unknown status - {status}")
+        def fmt_fnc_ok(rc_data) -> str:
+            return f"KEY[{rc_data['index']}] ack[{rc_data['acknowledged']} - {rc_data['shards_acknowledged']}]"
+        self._doc_operation_result(Wes.OP_IND_CREATE, rc, fmt_fnc_ok)
 
     @query_params(
         "allow_no_indices",
@@ -144,15 +150,9 @@ class Wes(WesDefs):
             return (Wes.RC_EXCE, e)
 
     def ind_exist_result(self, index, rc: tuple):
-        status, rc = rc
-        if status == Wes.RC_OK:
-            self.WES_RC_OK(Wes.OP_IND_EXIST, f"KEY[{index}] {rc}")
-        elif status == Wes.RC_NOK:
-            assert("not implemented") # TODO RC - 3 codes
-        elif status == Wes.RC_EXCE:
-            self.WES_RC_NOK(Wes.OP_IND_EXIST, rc)
-        else:
-            raise ValueError(f"{Wes.OP_IND_EXIST} unknown status - {status}")
+        def fmt_fnc_ok(rc_data) -> str:
+            return f"KEY[{index}] {rc_data}"
+        self._doc_operation_result(Wes.OP_IND_EXIST, rc, fmt_fnc_ok)
 
     @query_params(
         "allow_no_indices",
@@ -172,15 +172,9 @@ class Wes(WesDefs):
             return (Wes.RC_EXCE, e)
 
     def ind_delete_result(self, index, rc: tuple):
-        status, rc = rc
-        if status == Wes.RC_OK:
-            self.WES_RC_OK(Wes.OP_IND_DELETE, f"KEY[{index}] {rc['acknowledged']}")
-        elif status == Wes.RC_NOK:
-            assert("not implemented") # TODO RC - 3 codes
-        elif status == Wes.RC_EXCE:
-            self.WES_RC_NOK(Wes.OP_IND_DELETE, rc)
-        else:
-            raise ValueError(f"{Wes.OP_IND_DELETE} unknown status - {status}")
+        def fmt_fnc_ok(rc_data) -> str:
+            return f"KEY[{index}] {rc_data['acknowledged']}"
+        self._doc_operation_result(Wes.OP_IND_DELETE, rc, fmt_fnc_ok)
 
     @query_params(
         "allow_no_indices",
@@ -199,15 +193,9 @@ class Wes(WesDefs):
             return (Wes.RC_EXCE, e)
 
     def ind_flush_result(self, index, rc: tuple):
-        status, rc = rc
-        if status == Wes.RC_OK:
-            self.WES_RC_OK(Wes.OP_IND_FLUSH, f"KEY[{index}] {str(rc)}")
-        elif status == Wes.RC_NOK:
-            assert("not implemented") # TODO RC - 3 codes
-        elif status == Wes.RC_EXCE:
-            self.WES_RC_NOK(Wes.OP_IND_FLUSH, rc)
-        else:
-            raise ValueError(f"{Wes.OP_IND_FLUSH} unknown status - {status}")
+        def fmt_fnc_ok(rc_data) -> str:
+            return f"KEY[{index}] {str(rc_data)}"
+        self._doc_operation_result(Wes.OP_IND_FLUSH, rc, fmt_fnc_ok)
 
     @query_params("allow_no_indices",
                   "expand_wildcards",
@@ -222,15 +210,9 @@ class Wes(WesDefs):
             return (Wes.RC_EXCE, e)
 
     def ind_refresh_result(self, index, rc: tuple):
-        status, rc = rc
-        if status == Wes.RC_OK:
-            self.WES_RC_OK(Wes.OP_IND_REFRESH, f"KEY[{index}] {str(rc)}")
-        elif status == Wes.RC_NOK:
-            assert("not implemented") # TODO RC - 3 codes
-        elif status == Wes.RC_EXCE:
-            self.WES_RC_NOK(Wes.OP_IND_REFRESH, rc)
-        else:
-            raise ValueError(f"{Wes.OP_IND_REFRESH} unknown status - {status}")
+        def fmt_fnc_ok(rc_data) -> str:
+            return f"KEY[{index}] {str(rc_data)}"
+        self._doc_operation_result(Wes.OP_IND_REFRESH, rc, fmt_fnc_ok)
 
     @query_params(
         "if_seq_no",
@@ -259,15 +241,9 @@ class Wes(WesDefs):
             return (Wes.RC_EXCE, e)
 
     def doc_addup_result(self, rc: tuple):
-        status, rc = rc
-        if status == Wes.RC_OK:
-            self.WES_RC_OK(Wes.OP_DOC_ADD_UP, f"KEY[{rc['_index']} <-> {rc['_type']} <-> {rc['_id']}] {rc['result']} {rc['_shards']}")
-        elif status == Wes.RC_NOK:
-            assert("not implemented") # TODO RC - 3 codes
-        elif status == Wes.RC_EXCE:
-            self.WES_RC_NOK(Wes.OP_DOC_ADD_UP, rc)
-        else:
-            raise ValueError(f"{Wes.OP_DOC_ADD_UP} unknown status - {status}")
+        def fmt_fnc_ok(rc_data) -> str:
+            return f"KEY[{rc_data['_index']} <-> {rc_data['_type']} <-> {rc_data['_id']}] {rc_data['result']} {rc_data['_shards']}"
+        self._doc_operation_result(Wes.OP_DOC_ADD_UP, rc, fmt_fnc_ok)
 
     @query_params(
         "_source",
@@ -294,15 +270,10 @@ class Wes(WesDefs):
             return (Wes.RC_EXCE, e)
 
     def doc_get_result(self, rc: tuple):
-        status, rc = rc
-        if status == Wes.RC_OK:
-            self.WES_RC_OK(Wes.OP_DOC_GET, f"KEY[{rc['_index']} <-> {rc['_type']} <-> {rc['_id']}] {rc['_source']}")
-        elif status == Wes.RC_NOK:
-            assert("not implemented") # TODO RC - 3 codes
-        elif status == Wes.RC_EXCE:
-            self.WES_RC_NOK(Wes.OP_DOC_GET, rc)
-        else:
-            raise ValueError(f"{Wes.OP_DOC_GET} unknown status - {status}")
+        def fmt_fnc_ok(rc_data) -> str:
+            return f"KEY[{rc_data['_index']} <-> {rc_data['_type']} <-> {rc_data['_id']}] {rc_data['_source']}"
+        self._doc_operation_result(Wes.OP_DOC_GET, rc, fmt_fnc_ok)
+
 
     @query_params(
         "_source",
@@ -360,15 +331,9 @@ class Wes(WesDefs):
             return (Wes.RC_EXCE, e)
 
     def doc_search_result(self, rc: tuple):
-        status, rc = rc
-        if status == Wes.RC_OK:
-            self.WES_RC_OK(Wes.OP_DOC_SEARCH, f"NB REC[{rc['hits']['total']['value']} <-> {rc['hits']['hits']}")
-        elif status == Wes.RC_NOK:
-            assert("not implemented") # TODO RC - 3 codes
-        elif status == Wes.RC_EXCE:
-            self.WES_RC_NOK(Wes.OP_DOC_SEARCH, rc)
-        else:
-            raise ValueError(f"{Wes.OP_DOC_SEARCH} unknown status - {status}")
+        def fmt_fnc_ok(rc_data) -> str:
+            return f"NB REC[{rc_data['hits']['total']['value']} <-> {rc_data['hits']['hits']}"
+        self._doc_operation_result(Wes.OP_DOC_SEARCH, rc, fmt_fnc_ok)
 
 
 ############################################################################################
