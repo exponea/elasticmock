@@ -95,7 +95,7 @@ class WesDefs():
     def WES_DB_OK(self, oper, rc):
         LOG(f"{oper} {str(rc)}")
 
-    def _doc_operation_result(self, oper, rc: tuple, fmt_fnc_ok):
+    def _operation_result(self, oper, rc: tuple, fmt_fnc_ok):
         status, rc_data = rc
         if status == Wes.RC_OK:
             self.WES_RC_OK(oper, fmt_fnc_ok(rc_data))
@@ -106,6 +106,21 @@ class WesDefs():
         else:
             raise ValueError(f"{oper} unknown status - {status}")
 
+    class Decor:
+        @staticmethod
+        def operation_exec(oper):
+            def wrapper_mk(fnc):
+                def wrapper(self, *args, **kwargs):
+                    try:
+                        rc = fnc(self, *args, **kwargs)
+                        self.WES_DB_OK(oper, rc)
+                        return (Wes.RC_OK, rc)
+                    except Exception as e:
+                        self.WES_DB_ERR(oper, e)
+                        return (Wes.RC_EXCE, e)
+
+                return wrapper
+            return wrapper_mk
 
 class Wes(WesDefs):
 
@@ -118,19 +133,14 @@ class Wes(WesDefs):
         "timeout" "request_timeout",
         "wait_for_active_shards",
         "include_type_name",)
+    @WesDefs.Decor.operation_exec(WesDefs.OP_IND_CREATE)
     def ind_create(self, index, body=None, params=None):
-        try:
-            rc = self.es.indices.create(index, body=body, params=params)
-            self.WES_DB_OK(Wes.OP_IND_CREATE, rc)
-            return (Wes.RC_OK, rc)
-        except Exception as e:
-            self.WES_DB_ERR(Wes.OP_IND_CREATE, e)
-            return (Wes.RC_EXCE, e)
+        return self.es.indices.create(index, body=body, params=params)
 
     def ind_create_result(self, rc: tuple):
         def fmt_fnc_ok(rc_data) -> str:
             return f"KEY[{rc_data['index']}] ack[{rc_data['acknowledged']} - {rc_data['shards_acknowledged']}]"
-        self._doc_operation_result(Wes.OP_IND_CREATE, rc, fmt_fnc_ok)
+        self._operation_result(Wes.OP_IND_CREATE, rc, fmt_fnc_ok)
 
     @query_params(
         "allow_no_indices",
@@ -138,21 +148,15 @@ class Wes(WesDefs):
         "flat_settings",
         "ignore_unavailable",
         "include_defaults",
-        "local",
-    )
+        "local",)
+    @WesDefs.Decor.operation_exec(WesDefs.OP_IND_EXIST)
     def ind_exist(self, index, params=None):
-        try:
-            rc = self.es.indices.exists(index, params=params)
-            self.WES_DB_OK(Wes.OP_IND_EXIST, rc)
-            return (Wes.RC_OK, rc)
-        except Exception as e:
-            self.WES_DB_ERR(Wes.OP_IND_EXIST, e)
-            return (Wes.RC_EXCE, e)
+        return self.es.indices.exists(index, params=params)
 
     def ind_exist_result(self, index, rc: tuple):
         def fmt_fnc_ok(rc_data) -> str:
             return f"KEY[{index}] {rc_data}"
-        self._doc_operation_result(Wes.OP_IND_EXIST, rc, fmt_fnc_ok)
+        self._operation_result(Wes.OP_IND_EXIST, rc, fmt_fnc_ok)
 
     @query_params(
         "allow_no_indices",
@@ -160,59 +164,42 @@ class Wes(WesDefs):
         "ignore_unavailable",
         "timeout",
         "master_timeout",
-        "request_timeout",
-    )
+        "request_timeout",)
+    @WesDefs.Decor.operation_exec(WesDefs.OP_IND_DELETE)
     def ind_delete(self, index, params=None):
-        try:
-            rc = self.es.indices.delete(index, params=params)
-            self.WES_DB_OK(Wes.OP_IND_DELETE, rc)
-            return (Wes.RC_OK, rc)
-        except Exception as e:
-            self.WES_DB_ERR(Wes.OP_IND_DELETE, e)
-            return (Wes.RC_EXCE, e)
+        return self.es.indices.delete(index, params=params)
 
     def ind_delete_result(self, index, rc: tuple):
         def fmt_fnc_ok(rc_data) -> str:
             return f"KEY[{index}] {rc_data['acknowledged']}"
-        self._doc_operation_result(Wes.OP_IND_DELETE, rc, fmt_fnc_ok)
+        self._operation_result(Wes.OP_IND_DELETE, rc, fmt_fnc_ok)
 
     @query_params(
         "allow_no_indices",
         "expand_wildcards",
         "force",
         "ignore_unavailable",
-        "wait_if_ongoing",
-    )
+        "wait_if_ongoing",)
+    @WesDefs.Decor.operation_exec(WesDefs.OP_IND_FLUSH)
     def ind_flush(self, index=None, params=None):
-        try:
-            rc = self.es.indices.flush(index=index, params=params)
-            self.WES_DB_OK(Wes.OP_IND_FLUSH, rc)
-            return (Wes.RC_OK, rc)
-        except Exception as e:
-            self.WES_DB_ERR(Wes.OP_IND_FLUSH, e)
-            return (Wes.RC_EXCE, e)
+        return self.es.indices.flush(index=index, params=params)
 
     def ind_flush_result(self, index, rc: tuple):
         def fmt_fnc_ok(rc_data) -> str:
             return f"KEY[{index}] {str(rc_data)}"
-        self._doc_operation_result(Wes.OP_IND_FLUSH, rc, fmt_fnc_ok)
+        self._operation_result(Wes.OP_IND_FLUSH, rc, fmt_fnc_ok)
 
     @query_params("allow_no_indices",
                   "expand_wildcards",
                   "ignore_unavailable")
+    @WesDefs.Decor.operation_exec(WesDefs.OP_IND_REFRESH)
     def ind_refresh(self, index=None, params=None):
-        try:
-            rc = self.es.indices.refresh(index=index, params=params)
-            self.WES_DB_OK(Wes.OP_IND_REFRESH, rc)
-            return (Wes.RC_OK, rc)
-        except Exception as e:
-            self.WES_DB_ERR(Wes.OP_IND_REFRESH, e)
-            return (Wes.RC_EXCE, e)
+        return self.es.indices.refresh(index=index, params=params)
 
     def ind_refresh_result(self, index, rc: tuple):
         def fmt_fnc_ok(rc_data) -> str:
             return f"KEY[{index}] {str(rc_data)}"
-        self._doc_operation_result(Wes.OP_IND_REFRESH, rc, fmt_fnc_ok)
+        self._operation_result(Wes.OP_IND_REFRESH, rc, fmt_fnc_ok)
 
     @query_params(
         "if_seq_no",
@@ -227,23 +214,17 @@ class Wes(WesDefs):
         "ttl",
         "version",
         "version_type",
-        "wait_for_active_shards",
-    )
+        "wait_for_active_shards",)
+    @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_ADD_UP)
     def doc_addup(self, index, body, doc_type="_doc", id=None, params=None):
         # TODO petee 'id' is important for get - shouldn't be mandatory???
         # TODO petee 'doc_type' is important for get - shouldn't be mandatory???
-        try:
-            rc = self.es.index(index, body, doc_type=doc_type, id=id, params=params)
-            self.WES_DB_OK(Wes.OP_DOC_ADD_UP, rc)
-            return (Wes.RC_OK, rc)
-        except Exception as e:
-            self.WES_DB_ERR(Wes.OP_DOC_ADD_UP, e)
-            return (Wes.RC_EXCE, e)
+        return self.es.index(index, body, doc_type=doc_type, id=id, params=params)
 
     def doc_addup_result(self, rc: tuple):
         def fmt_fnc_ok(rc_data) -> str:
             return f"KEY[{rc_data['_index']} <-> {rc_data['_type']} <-> {rc_data['_id']}] {rc_data['result']} {rc_data['_shards']}"
-        self._doc_operation_result(Wes.OP_DOC_ADD_UP, rc, fmt_fnc_ok)
+        self._operation_result(Wes.OP_DOC_ADD_UP, rc, fmt_fnc_ok)
 
     @query_params(
         "_source",
@@ -258,22 +239,15 @@ class Wes(WesDefs):
         "routing",
         "stored_fields",
         "version",
-        "version_type",
-    )
+        "version_type",)
+    @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_GET)
     def doc_get(self, index, id, doc_type="_doc", params=None):
-        try:
-            rc = self.es.get(index, id, doc_type=doc_type, params=params)
-            self.WES_DB_OK(Wes.OP_DOC_GET, rc)
-            return (Wes.RC_OK, rc)
-        except Exception as e:
-            self.WES_DB_ERR(Wes.OP_DOC_GET, e)
-            return (Wes.RC_EXCE, e)
+        return self.es.get(index, id, doc_type=doc_type, params=params)
 
     def doc_get_result(self, rc: tuple):
         def fmt_fnc_ok(rc_data) -> str:
             return f"KEY[{rc_data['_index']} <-> {rc_data['_type']} <-> {rc_data['_id']}] {rc_data['_source']}"
-        self._doc_operation_result(Wes.OP_DOC_GET, rc, fmt_fnc_ok)
-
+        self._operation_result(Wes.OP_DOC_GET, rc, fmt_fnc_ok)
 
     @query_params(
         "_source",
@@ -319,21 +293,15 @@ class Wes(WesDefs):
         "track_scores",
         "track_total_hits",
         "typed_keys",
-        "version",
-    )
+        "version",)
+    @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_SEARCH)
     def doc_search(self, index=None, body=None, params=None):
-        try:
-            rc = self.es.search(index=index, body=body, params=params)
-            self.WES_DB_OK(Wes.OP_DOC_SEARCH, rc)
-            return (Wes.RC_OK, rc)
-        except Exception as e:
-            self.WES_DB_ERR(Wes.OP_DOC_SEARCH, e)
-            return (Wes.RC_EXCE, e)
+        return self.es.search(index=index, body=body, params=params)
 
     def doc_search_result(self, rc: tuple):
         def fmt_fnc_ok(rc_data) -> str:
             return f"NB REC[{rc_data['hits']['total']['value']} <-> {rc_data['hits']['hits']}"
-        self._doc_operation_result(Wes.OP_DOC_SEARCH, rc, fmt_fnc_ok)
+        self._operation_result(Wes.OP_DOC_SEARCH, rc, fmt_fnc_ok)
 
 
 ############################################################################################
