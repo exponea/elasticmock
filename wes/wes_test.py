@@ -177,9 +177,11 @@ class TestWes(unittest.TestCase):
         LOG_NOTI_L("--------------------------------------------------------------------------------------")
         wes.ind_get_mapping_result(wes.ind_get_mapping(ind_str, doc_type="any", include_type_name=True))
 
-    def test_mappings_get(self):
+    def mappings_get_put(self):
         # MSE_NOTES: mapping is process of defining how documents looks like (which fields contains, field types, how is filed indexed)
-        # types of mapping fileds:
+        # It enables in faster search retrieval and aggregations. Hence, your mapping defines how effectively you can handle your data.
+        # A bad mapping can have severe consequences on the performance of your system."
+        # types of mapping fields:
         # - keyword
         # - text
         # - datetime (is recognized based on format)
@@ -239,6 +241,91 @@ class TestWes(unittest.TestCase):
         #
         # IND[first_ind2]: Missing
         # mappings
+
+    def test_aggregations(self):
+        # MSE_NOTES: Date Histogram Aggregations,
+        #     Aggregations are one of the most important application of Elasticsearch.
+        #     It provides you with quick powerful analysis of your data! Below we have discussed aggregations over date values.,
+        #     A lot of analysis happen on a time-series scales. For example: Quaterly sales of iphone across the world.
+        #     Therefore it is essential to have an fast aggregation done over large dataset under different granular scales.
+        # 	  ES provides such an aggregation via date histogram aggregation. The granularities over which you can do aggregations are:\,
+        #     1. year,
+        #     2. quater",
+        #     "3. month,
+        #     "4. hour,
+        #     "5. week,
+        #     "6. day",
+        #     "7. hour",
+        #     "8. minute",
+        #     "9. second",
+        #     "10. milisecond",
+        # types of mapping fields:
+        # - keyword
+        # - text
+        # - datetime (is recognized based on format)
+        #  = setting correct times help aggregations
+        #  = u CANT CHANGE MAPPING if docs present in IND (DELETE IND FIRTS)
+        wes = Wes()
+        ind_str  = "first_ind1"
+
+        wes.ind_delete_result(ind_str, wes.ind_delete(ind_str))
+        wes.ind_create_result(wes.ind_create(ind_str))
+        wes.ind_exist_result(ind_str, wes.ind_exist(ind_str))
+
+        map_new = {
+            'properties': {'city': {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}},
+                           'country': {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}},
+                           # datetime': {'type': 'text',
+                           #              'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}},
+                           # MSE_NOTES: #1 CHANGE TYPE+FORMAT
+                           'datetime': {'type': 'date',
+                                        'format': "yyyy,MM,dd,hh,mm,ss" },
+                        }
+        }
+
+        wes.ind_put_mapping_result(wes.ind_put_mapping(map_new, doc_type="any", index=ind_str, include_type_name=True))
+
+        doc1 = {"city":"Bangalore", "country": "India", "datetime":"2018,01,01,10,20,00"} #datetime format: yyyy,MM,dd,hh,mm,ss",
+        doc2 = {"city":"London", "country": "England", "datetime":"2018,01,02,03,12,00"}
+        doc3 = {"city":"Los Angeles", "country": "USA", "datetime":"2018,04,19,05,02,00"}
+
+        wes.doc_addup_result(wes.doc_addup(ind_str, doc1, doc_type="any", id=1))
+        wes.doc_addup_result(wes.doc_addup(ind_str, doc2, doc_type="any", id=2))
+        wes.doc_addup_result(wes.doc_addup(ind_str, doc3, doc_type="any", id=3))
+
+        wes.ind_flush_result("_all", wes.ind_flush(index="_all", wait_if_ongoing=True))
+        wes.ind_refresh_result("_all", wes.ind_refresh(index="_all"))
+
+        wes.ind_get_mapping_result(wes.ind_get_mapping())
+
+        body = {"from": 0, "size": 10,
+                 "query": {"match_all": {}}
+               }
+        wes.doc_search_result(wes.doc_search(index=ind_str, body=body))
+
+        LOG_NOTI_L("--------------------------------------------------------------------------------------")
+        body = {"from": 0, "size": 10,                      # MSE_NOTES: #1 QUERY + AGGREGATION
+                "query": {"match_all": {}},                                                                 #
+                "aggs": { "country":                        # agg as result as 'country'
+                            { "date_histogram":             # kind of agg
+                                {
+                                    "field": "datetime",    # add over 'datetime' fiels
+                                    "interval": "year"      # interval
+                                }
+                            }
+                        }
+               }
+        wes.doc_search_result(wes.doc_search(index=ind_str, body=body))
+
+        LOG_NOTI_L("--------------------------------------------------------------------------------------")
+        doc4 = {"city":"Sydney", "country": "Australia", "datetime":"2019,04,19,05,02,00"}
+        wes.doc_addup_result(wes.doc_addup(ind_str, doc4, doc_type="any", id=4))
+
+        wes.ind_flush_result("_all", wes.ind_flush(index="_all", wait_if_ongoing=True))
+        wes.ind_refresh_result("_all", wes.ind_refresh(index="_all"))
+
+        wes.doc_search_result(wes.doc_search(index=ind_str, body=body))
+
 
 
 if __name__ == '__main__':

@@ -378,12 +378,21 @@ class Wes(WesDefs):
 
     def doc_search_result(self, rc: tuple, is_per_line: bool = True):
         def fmt_fnc_ok_inline(rc_data) -> str:
-            return f"NB REC[{rc_data['hits']['total']['value']}] <-> {rc_data['hits']['hits']}"
+            return f"NB REC[{rc_data['hits']['total']['value']}] <-> HITS[{rc_data['hits'].get('hits', 'hits empty')}] <-> AGGS[{rc_data.get('aggregations', 'aggs empty')}]"
 
         def fmt_fnc_ok_per_line(rc_data) -> str:
             rec_list = rc_data['hits']['hits']
-            rec = '\n' + '\n'.join([str(item) for item in rec_list])
-            return f"NB REC[{rc_data['hits']['total']['value']}] <-> {rec}"
+            rec = ''
+            rec = rec + '\nHITS:\n' + '\n'.join([str(item) for item in rec_list])
+            rec = rec + '\nAGGS:\n'
+            aggs = rc_data.get('aggregations', None)
+            if aggs:
+                for a in aggs.keys():
+                    rec = rec + a + '\n'
+                    for a_items in aggs[a]['buckets']:
+                        rec = rec + str(a_items) + '\n'
+
+            return f"NB REC[{rc_data['hits']['total']['value']}] : {rec}"
 
         fmt_fnc_ok = fmt_fnc_ok_per_line if is_per_line else fmt_fnc_ok_inline
 
