@@ -24,6 +24,7 @@ class WesDefs():
     OP_IND_EXIST    = "OP_IND_EXIST  "
     OP_IND_DELETE   = "OP_IND_DELETE "
     OP_IND_GET_MAP  = "OP_IND_GET_MAP"
+    OP_IND_PUT_MAP  = "OP_IND_PUT_MAP"
     OP_DOC_ADD_UP   = "OP_DOC_ADDUP  "
     OP_DOC_GET      = "OP_DOC_GET    "
     OP_DOC_SEARCH   = "OP_DOC_SEARCH "
@@ -81,7 +82,10 @@ class WesDefs():
                             LOG_FNC(f"{oper} KEY[???] - {e.status_code} - {e.info['error']['type']} - {e.info['error']['reason']}")
                         # generic
                         else:
-                            LOG_FNC(f"{oper} KEY[{e.info['_index']} <-> {e.info['_type']} <-> {e.info['_id']}] {str(e)}")
+                            if e.status_code == 405:
+                                LOG_FNC(f"{oper} KEY[???] - {e.status_code} - {e.info['error']}")
+                            else:
+                                LOG_FNC(f"{oper} KEY[{e.info['_index']} <-> {e.info['_type']} <-> {e.info['_id']}] {str(e)}")
             else:
                 LOG_ERR(f"{oper} Unknow L2 exception ... {str(e)}")
                 raise (e)
@@ -254,6 +258,26 @@ class Wes(WesDefs):
         fmt_fnc_ok = fmt_fnc_ok_per_line if is_per_line else fmt_fnc_ok_inline
 
         self._operation_result(Wes.OP_IND_GET_MAP, rc, fmt_fnc_ok)
+
+    @query_params(
+        "allow_no_indices",
+        "expand_wildcards",
+        "ignore_unavailable",
+        "master_timeout",
+        "timeout",
+        "request_timeout",
+        "include_type_name",)
+    @WesDefs.Decor.operation_exec(WesDefs.OP_IND_PUT_MAP)
+    def ind_put_mapping(self, body, doc_type=None, index=None, params=None):
+        # TODO petee 'index' is important - shouldn't be mandatory???
+        # TODO petee 'doc_type' is important - shouldn't be mandatory???
+        return self.es.indices.put_mapping(body, index=index, doc_type=doc_type, params=params)
+
+    def ind_put_mapping_result(self, rc: tuple, is_per_line: bool = True):
+        def fmt_fnc_ok(rc_data) -> str:
+            return f"MAPPING: <-> {str(rc_data)}"
+        self._operation_result(Wes.OP_IND_PUT_MAP, rc, fmt_fnc_ok)
+
 
     @query_params(
         "if_seq_no",

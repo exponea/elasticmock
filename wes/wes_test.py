@@ -135,8 +135,14 @@ class TestWes(unittest.TestCase):
                                                                                                 #   - must, must_not, should(improving relevance score, if none 'must' presents at least 1 'should' be present)
         wes.doc_search_result(wes.doc_search(index=ind_str, body={"query": q3}))                # RESULTS: 5
 
-    def test_mappings(self):
+    def mappings_get(self):
         # MSE_NOTES: mapping is process of defining how documents looks like (which fields contains, field types, how is filed indexed)
+        # types of mapping fileds:
+        # - keyword
+        # - text
+        # - datetime (is recognized based on format)
+        #  = setting correct times help aggregations
+        #  = u can't change mapping if docs present in IND
         wes = Wes()
         ind_str  = "first_ind1"
         ind_str2 = "first_ind2"
@@ -148,7 +154,6 @@ class TestWes(unittest.TestCase):
         wes.ind_delete_result(ind_str2, wes.ind_delete(ind_str2))
         wes.ind_create_result(wes.ind_create(ind_str2))
         wes.ind_exist_result(ind_str2, wes.ind_exist(ind_str2))
-
 
         doc1 = {"city": "Bratislava1", "country": "slovakia ", "sentence": "The slovakia is a country"}
         doc2 = {"city": "Bratislava2", "country": "SLOVAKIA2", "sentence": "The SLOVAKA is a country"}
@@ -171,6 +176,70 @@ class TestWes(unittest.TestCase):
         wes.ind_get_mapping_result(wes.ind_get_mapping(ind_str, doc_type="any"))
         LOG_NOTI_L("--------------------------------------------------------------------------------------")
         wes.ind_get_mapping_result(wes.ind_get_mapping(ind_str, doc_type="any", include_type_name=True))
+
+    def test_mappings_get(self):
+        # MSE_NOTES: mapping is process of defining how documents looks like (which fields contains, field types, how is filed indexed)
+        # types of mapping fileds:
+        # - keyword
+        # - text
+        # - datetime (is recognized based on format)
+        #  = setting correct times help aggregations
+        #  = u CANT CHANGE MAPPING if docs present in IND (DELETE IND FIRTS)
+        wes = Wes()
+        ind_str  = "first_ind1"
+        ind_str2 = "first_ind2"
+
+        wes.ind_delete_result(ind_str, wes.ind_delete(ind_str))
+        wes.ind_create_result(wes.ind_create(ind_str))
+        wes.ind_exist_result(ind_str, wes.ind_exist(ind_str))
+
+        wes.ind_delete_result(ind_str2, wes.ind_delete(ind_str2))
+        wes.ind_create_result(wes.ind_create(ind_str2))
+        wes.ind_exist_result(ind_str2, wes.ind_exist(ind_str2))
+
+        doc1 = {"city": "Bratislava1", "country": "slovakia ", "sentence": "The slovakia is a country", "datetime" : "2019,01,02,03,12,00"}
+        wes.doc_addup_result(wes.doc_addup(ind_str, doc1, doc_type="any", id=1))
+        wes.ind_get_mapping_result(wes.ind_get_mapping())
+        LOG_NOTI_L("--------------------------------------------------------------------------------------")
+        # {'first_ind1': {'mappings':
+        map_new = {
+            'properties': {'city': {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}},
+                           'country': {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}},
+                           # datetime': {'type': 'text',
+                           #              'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}},
+                           # MSE_NOTES: #1 CHANGE TYPE+FORMAT
+                           'datetime': {'type': 'date',
+                                        'format': "yyyy,MM,dd,hh,mm,ss" },
+                           'sentence': {'type': 'text',
+                                        'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}}}
+          }
+         # }, 'first_ind2': {'mappings': {}}}
+
+        # OP_IND_PUT_MAP 405 - {'error': 'Incorrect HTTP method for uri [/_mapping] and method [PUT], allowed: [GET]', 'status': 405}
+        wes.ind_put_mapping_result(wes.ind_put_mapping(map_new))
+        # OP_IND_PUT_MAP KEY[???] - 400 - illegal_argument_exception - Types cannot be provided in put mapping requests, unless the include_type_name parameter is set to true.
+        wes.ind_put_mapping_result(wes.ind_put_mapping(map_new, doc_type="any", index=ind_str))
+        # OP_IND_PUT_MAP KEY[???] - 400 - illegal_argument_exception - mapper [datetime] of different type, current_type [text], merged_type [date]
+        wes.ind_put_mapping_result(wes.ind_put_mapping(map_new, doc_type="any", index=ind_str, include_type_name=True))
+
+        # MSE_NOTES: #2 u can't change mapping if docs present in IND
+        wes.ind_delete_result(ind_str, wes.ind_delete(ind_str))
+        wes.ind_create_result(wes.ind_create(ind_str))
+        # MSE_NOTES: #3 u should specified IND + DOC_TYPE !!!
+        wes.ind_put_mapping_result(wes.ind_put_mapping(map_new, doc_type="any", index=ind_str, include_type_name=True))
+
+        LOG_NOTI_L("--------------------------------------------------------------------------------------")
+        wes.ind_get_mapping_result(wes.ind_get_mapping())
+        # MSE_NOTES: #4 type was changed :)
+        # IND[first_ind1]
+        # city: {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}}
+        # country: {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}}
+        # datetime: {'type': 'date', 'format': 'yyyy,MM,dd,hh,mm,ss'}
+        # sentence: {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}}
+        #
+        # IND[first_ind2]: Missing
+        # mappings
+
 
 if __name__ == '__main__':
     # unittest.main() run all test (imported too) :(
