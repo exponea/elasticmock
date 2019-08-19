@@ -74,8 +74,10 @@ class WesDefs():
                         # special cases
                         if isinstance(e, NotFoundError) and oper == WesDefs.OP_IND_DELETE:
                             LOG_FNC(f"{oper} KEY[{e.info['error']['index']}] - {e.status_code} - {e.info['error']['type']}")
-                        # special cases  - 'type': 'parsing_exception'
-                        elif isinstance(e, RequestError) and oper == WesDefs.OP_DOC_SEARCH:
+                        # special cases  - OP_DOC_SEARCH  'type': 'parsing_exception'
+                        # special cases  - OP_IND_CREATE  'type': 'invalid_index_name_exception',
+                        #                                 'reason': 'Invalid index name [first_IND1], must be lowercase'
+                        elif isinstance(e, RequestError):
                             LOG_FNC(f"{oper} KEY[???] - {e.status_code} - {e.info['error']['type']} - {e.info['error']['reason']}")
                         # generic
                         else:
@@ -216,9 +218,25 @@ class Wes(WesDefs):
     def ind_get_mapping(self, index=None, doc_type=None, params=None):
         return self.es.indices.get_mapping(index=index, doc_type=doc_type, params=params)
 
-    def ind_get_mapping_result(self, index, rc: tuple):
-        def fmt_fnc_ok(rc_data) -> str:
+    def ind_get_mapping_result(self, index, rc: tuple, is_per_line: bool = True):
+        def fmt_fnc_ok_inline(rc_data) -> str:
             return str(rc_data)   # f"KEY[{index}] {str(rc_data)}"
+
+        def fmt_fnc_ok_per_line(rc_data) -> str:
+            rec = ''
+            # print(type(rc_data))
+            # print(rc_data)
+            for rc_index in rc_data.keys():
+                rc_index_str = f"IND[{rc_index}]"
+                rec = rec + '\n' + rc_index_str + '\n'
+                props = rc_data[rc_index]['mappings'].get('properties', {"mse_undefined": "mse_undefined"})
+                for prop in props:
+                    rec = rec + str(prop) + ": " + str(props[prop]) + '\n'
+
+            return f"MAPPING: <-> {rec}"
+
+        fmt_fnc_ok = fmt_fnc_ok_per_line if is_per_line else fmt_fnc_ok_inline
+
         self._operation_result(Wes.OP_IND_GET_MAP, rc, fmt_fnc_ok)
 
     @query_params(

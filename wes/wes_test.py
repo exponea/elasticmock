@@ -1,5 +1,3 @@
-
-
 from wes import Wes
 from log import *
 import unittest
@@ -16,7 +14,7 @@ class TestWes(unittest.TestCase):
         wes.ind_exist(ind_str)
         wes.ind_delete(ind_str)
 
-    def test_basic_doc_and_query(self):
+    def basic_doc_and_query(self):
         wes = Wes()
         ind_str = "first_pooooooooooooooo"
 
@@ -137,17 +135,20 @@ class TestWes(unittest.TestCase):
                                                                                                 #   - must, must_not, should(improving relevance score, if none 'must' presents at least 1 'should' be present)
         wes.doc_search_result(wes.doc_search(index=ind_str, body={"query": q3}))                # RESULTS: 5
 
-    def mappings(self):
+    def test_mappings(self):
         # MSE_NOTES: mapping is process of defining how documents looks like (which fields contains, field types, how is filed indexed)
         wes = Wes()
-        ind_str = "first_pooooooooooooooo"
-
-        wes = Wes()
-        ind_str = "first_pooooooooooooooo"
+        ind_str  = "first_ind1"
+        ind_str2 = "first_ind2"
 
         wes.ind_delete_result(ind_str, wes.ind_delete(ind_str))
         wes.ind_create_result(wes.ind_create(ind_str))
         wes.ind_exist_result(ind_str, wes.ind_exist(ind_str))
+
+        wes.ind_delete_result(ind_str2, wes.ind_delete(ind_str2))
+        wes.ind_create_result(wes.ind_create(ind_str2))
+        wes.ind_exist_result(ind_str2, wes.ind_exist(ind_str2))
+
 
         doc1 = {"city": "Bratislava1", "country": "slovakia ", "sentence": "The slovakia is a country"}
         doc2 = {"city": "Bratislava2", "country": "SLOVAKIA2", "sentence": "The SLOVAKA is a country"}
@@ -161,8 +162,9 @@ class TestWes(unittest.TestCase):
         wes.doc_addup_result(wes.doc_addup(ind_str, doc4, doc_type="any", id=4))
         wes.doc_addup_result(wes.doc_addup(ind_str, doc5, doc_type="any", id=5))
 
+        wes.ind_get_mapping_result(ind_str, wes.ind_get_mapping())
         wes.ind_get_mapping_result(ind_str, wes.ind_get_mapping(ind_str))
-
+        wes.ind_get_mapping_result(ind_str, wes.ind_get_mapping(ind_str2))
 
 if __name__ == '__main__':
     # unittest.main() run all test (imported too) :(
