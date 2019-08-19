@@ -112,6 +112,11 @@ def LOG_BEND_LOOP(obj, PRINT_METHOD, str_to_print):
     else:
         PRINT_METHOD(str(str_to_print))
 
+__all__ = ["LOG_DBG", "LOG",
+           "LOG_OK", "LOG_ERR", "LOG_WARN", "LOG_NOTI",
+           "LOG_OK_L", "LOG_ERR_L", "LOG_WARN_L", "LOG_NOTI_L",
+           ]
+
 ############################################################################################
 # TEST
 ############################################################################################
