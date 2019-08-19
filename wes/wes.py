@@ -23,6 +23,7 @@ class WesDefs():
     OP_IND_REFRESH  = "OP_IND_REFRESH"
     OP_IND_EXIST    = "OP_IND_EXIST  "
     OP_IND_DELETE   = "OP_IND_DELETE "
+    OP_IND_GET_MAP  = "OP_IND_GET_MAP"
     OP_DOC_ADD_UP   = "OP_DOC_ADDUP  "
     OP_DOC_GET      = "OP_DOC_GET    "
     OP_DOC_SEARCH   = "OP_DOC_SEARCH "
@@ -203,6 +204,22 @@ class Wes(WesDefs):
         def fmt_fnc_ok(rc_data) -> str:
             return f"KEY[{index}] {str(rc_data)}"
         self._operation_result(Wes.OP_IND_REFRESH, rc, fmt_fnc_ok)
+
+    @query_params(
+        "allow_no_indices",
+        "expand_wildcards",
+        "ignore_unavailable",
+        "local",
+        "include_type_name",
+        "master_timeout",)
+    @WesDefs.Decor.operation_exec(WesDefs.OP_IND_GET_MAP)
+    def ind_get_mapping(self, index=None, doc_type=None, params=None):
+        return self.es.indices.get_mapping(index=index, doc_type=doc_type, params=params)
+
+    def ind_get_mapping_result(self, index, rc: tuple):
+        def fmt_fnc_ok(rc_data) -> str:
+            return str(rc_data)   # f"KEY[{index}] {str(rc_data)}"
+        self._operation_result(Wes.OP_IND_GET_MAP, rc, fmt_fnc_ok)
 
     @query_params(
         "if_seq_no",
