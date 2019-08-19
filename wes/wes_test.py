@@ -125,12 +125,12 @@ class TestWes(unittest.TestCase):
         q2 = {"match": {"sentence": "small"}}                                                   # MSE_NOTES: #2 QUERY(match) MATCH(subSentence+wholeWord) CASE(in-sensitive)
         wes.doc_search_result(wes.doc_search(index=ind_str, body={"query": q2}))                #  RESULTS: 2
 
+        LOG_NOTI_L("--------------------------------------------------------------------------------------")
 
         body = {"query": {"bool": { "must_not": q2, "should": q1 }}}                            # MSE_NOTES: #3 QUERY(bool) MATCH(must, must_not, should) CASE(in-sensitive)
                                                                                                 #   - must, must_not, should(improving relevance score, if none 'must' presents at least 1 'should' be present)
         wes.doc_search_result(wes.doc_search(index=ind_str, body=body))                         #  RESULTS: 2
 
-        LOG_NOTI_L("--------------------------------------------------------------------------------------")
         q3 = {"regexp": {"sentence": ".*"}}                                                     # MSE_NOTES: #4 QUERY(regexp) MATCH(regexp) CASE(in-sensitive)
                                                                                                 #   - must, must_not, should(improving relevance score, if none 'must' presents at least 1 'should' be present)
         wes.doc_search_result(wes.doc_search(index=ind_str, body={"query": q3}))                # RESULTS: 5
@@ -160,11 +160,17 @@ class TestWes(unittest.TestCase):
         wes.doc_addup_result(wes.doc_addup(ind_str, doc2, doc_type="any", id=2))
         wes.doc_addup_result(wes.doc_addup(ind_str, doc3, doc_type="any", id=3))
         wes.doc_addup_result(wes.doc_addup(ind_str, doc4, doc_type="any", id=4))
-        wes.doc_addup_result(wes.doc_addup(ind_str, doc5, doc_type="any", id=5))
 
-        wes.ind_get_mapping_result(ind_str, wes.ind_get_mapping())
-        wes.ind_get_mapping_result(ind_str, wes.ind_get_mapping(ind_str))
-        wes.ind_get_mapping_result(ind_str, wes.ind_get_mapping(ind_str2))
+        # MSE_NOTES: #1 400 - illegal_argument_exception - Rejecting mapping update to [first_ind1] as the final mapping would have more than 1 type: [any, any2]
+        wes.doc_addup_result(wes.doc_addup(ind_str, doc5, doc_type="any2", id=5))
+
+        wes.ind_get_mapping_result(wes.ind_get_mapping())                             # RESULT 2
+        wes.ind_get_mapping_result(wes.ind_get_mapping(ind_str))                      # RESULT 1
+
+        # MSE_NOTES: #1 400 - illegal_argument_exception - Types cannot be provided in get mapping requests, unless include_type_name is set to true.
+        wes.ind_get_mapping_result(wes.ind_get_mapping(ind_str, doc_type="any"))
+        LOG_NOTI_L("--------------------------------------------------------------------------------------")
+        wes.ind_get_mapping_result(wes.ind_get_mapping(ind_str, doc_type="any", include_type_name=True))
 
 if __name__ == '__main__':
     # unittest.main() run all test (imported too) :(

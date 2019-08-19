@@ -218,9 +218,9 @@ class Wes(WesDefs):
     def ind_get_mapping(self, index=None, doc_type=None, params=None):
         return self.es.indices.get_mapping(index=index, doc_type=doc_type, params=params)
 
-    def ind_get_mapping_result(self, index, rc: tuple, is_per_line: bool = True):
+    def ind_get_mapping_result(self, rc: tuple, is_per_line: bool = True):
         def fmt_fnc_ok_inline(rc_data) -> str:
-            return str(rc_data)   # f"KEY[{index}] {str(rc_data)}"
+            return  f"MAPPING: <-> {str(rc_data)}"
 
         def fmt_fnc_ok_per_line(rc_data) -> str:
             rec = ''
@@ -228,12 +228,28 @@ class Wes(WesDefs):
             # print(rc_data)
             for rc_index in rc_data.keys():
                 rc_index_str = f"IND[{rc_index}]"
-                rec = rec + '\n' + rc_index_str + '\n'
-                props = rc_data[rc_index]['mappings'].get('properties', {"mse_undefined": "mse_undefined"})
-                for prop in props:
-                    rec = rec + str(prop) + ": " + str(props[prop]) + '\n'
+                rec = rec + '\n' + rc_index_str
 
-            return f"MAPPING: <-> {rec}"
+                # mapping not exist
+                props = rc_data[rc_index].get('mappings', None)
+                if len(props) == 0:
+                    rec = rec + " : Missing mappings" + '\n'
+                    continue
+                else:
+                    propsCheck = props.get('properties', None)
+                    if propsCheck is None:
+                        # doc_type is nested
+                        nested_doc_type = list(props.keys())[0]
+                        rc_doc_type_str = f" : DOC[{nested_doc_type}]"
+                        rec = rec + rc_doc_type_str
+
+                        props = list(props.values())[0] # probably one
+                    rec = rec + '\n'
+                    props = props.get('properties', None)
+                    for prop in props:
+                        rec = rec + str(prop) + ": " + str(props[prop]) + '\n'
+
+            return f"MAPPING: {rec}"
 
         fmt_fnc_ok = fmt_fnc_ok_per_line if is_per_line else fmt_fnc_ok_inline
 
