@@ -1,4 +1,5 @@
 from elasticsearch import Elasticsearch
+from elasticsearch import helpers # for 'bulk'and 'scan' API
 from elasticsearch.client.utils import query_params
 
 from elasticsearch.exceptions import ImproperlyConfigured
@@ -28,6 +29,7 @@ class WesDefs():
     OP_DOC_ADD_UP   = "OP_DOC_ADDUP  "
     OP_DOC_GET      = "OP_DOC_GET    "
     OP_DOC_SEARCH   = "OP_DOC_SEARCH "
+    OP_DOC_BULK     = "OP_DOC_BULK   "
 
     # RC - 3 codes
     # - maybe useful later (low level could detect problem in data)
@@ -397,3 +399,13 @@ class Wes(WesDefs):
         fmt_fnc_ok = fmt_fnc_ok_per_line if is_per_line else fmt_fnc_ok_inline
 
         self._operation_result(Wes.OP_DOC_SEARCH, rc, fmt_fnc_ok)
+
+
+    @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_BULK)
+    def doc_bulk(self, actions, stats_only=False, *args, **kwargs):
+        return helpers.bulk(self.es, actions, stats_only=stats_only, *args, **kwargs)
+
+    def doc_bulk_result(self, rc: tuple):
+        def fmt_fnc_ok(rc_data) -> str:
+            return f"KEY[???] <-> {str(rc_data)}"
+        self._operation_result(Wes.OP_DOC_BULK, rc, fmt_fnc_ok)

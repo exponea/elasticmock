@@ -1,6 +1,8 @@
 from wes import Wes
 from log import *
 import unittest
+import time
+from datetime import datetime
 
 class TestWes(unittest.TestCase):
     def basic_ind(self):
@@ -242,11 +244,11 @@ class TestWes(unittest.TestCase):
         # IND[first_ind2]: Missing
         # mappings
 
-    def test_aggregations(self):
+    def aggregations(self):
         # MSE_NOTES: Date Histogram Aggregations,
         #     Aggregations are one of the most important application of Elasticsearch.
         #     It provides you with quick powerful analysis of your data! Below we have discussed aggregations over date values.,
-        #     A lot of analysis happen on a time-series scales. For example: Quaterly sales of iphone across the world.
+        #     A lot of analysis happen on a time-series scales. For example: Quarterly sales of iphone across the world.
         #     Therefore it is essential to have an fast aggregation done over large dataset under different granular scales.
         # 	  ES provides such an aggregation via date histogram aggregation. The granularities over which you can do aggregations are:\,
         #     1. year,
@@ -263,10 +265,10 @@ class TestWes(unittest.TestCase):
         # - keyword
         # - text
         # - datetime (is recognized based on format)
-        #  = setting correct times help aggregations
-        #  = u CANT CHANGE MAPPING if docs present in IND (DELETE IND FIRTS)
+        #  MSE_NOTES: setting correct times help aggregations
+        #  MSE_NOTES: u CAN'T CHANGE MAPPING if docs present in IND (DELETE IND FIRTS)
         wes = Wes()
-        ind_str  = "first_ind1"
+        ind_str = "first_ind1"
 
         wes.ind_delete_result(ind_str, wes.ind_delete(ind_str))
         wes.ind_create_result(wes.ind_create(ind_str))
@@ -305,10 +307,10 @@ class TestWes(unittest.TestCase):
 
         LOG_NOTI_L("--------------------------------------------------------------------------------------")
         body = {"from": 0, "size": 10,                      # MSE_NOTES: #1 QUERY + AGGREGATION
-                "query": {"match_all": {}},                                                                 #
-                "aggs": { "country":                        # agg as result as 'country'
-                            { "date_histogram":             # kind of agg
-                                {
+                "query": {"match_all": {}},                 #
+                "aggs": { "country":                        # agg on 'country' field
+                            { "date_histogram":             # kind of agg (provided by ES)
+                                {                           #
                                     "field": "datetime",    # add over 'datetime' fiels
                                     "interval": "year"      # interval
                                 }
@@ -316,6 +318,9 @@ class TestWes(unittest.TestCase):
                         }
                }
         wes.doc_search_result(wes.doc_search(index=ind_str, body=body))
+        # AGGS:
+        # country
+        # {'key_as_string': '2018,01,01,12,00,00', 'key': 1514764800000, 'doc_count': 3}
 
         LOG_NOTI_L("--------------------------------------------------------------------------------------")
         doc4 = {"city":"Sydney", "country": "Australia", "datetime":"2019,04,19,05,02,00"}
@@ -325,7 +330,39 @@ class TestWes(unittest.TestCase):
         wes.ind_refresh_result("_all", wes.ind_refresh(index="_all"))
 
         wes.doc_search_result(wes.doc_search(index=ind_str, body=body))
+        # AGGS:
+        # country
+        # {'key_as_string': '2018,01,01,12,00,00', 'key': 1514764800000, 'doc_count': 3}
+        # {'key_as_string': '2019,01,01,12,00,00', 'key': 1546300800000, 'doc_count': 1}
 
+    def test_bulk(self):
+        # MSE_NOTES: for 'bulk' and 'scan' API IMPORT 'from elasticsearch import helpers'
+
+        wes = Wes()
+        ind_str = "first_ind1"
+        doc_type = "my_doc_tupe"
+
+        wes.ind_delete_result(ind_str, wes.ind_delete(ind_str))
+        wes.ind_create_result(wes.ind_create(ind_str))
+        wes.ind_exist_result(ind_str, wes.ind_exist(ind_str))
+
+        actions = [
+            {
+                "_index": ind_str,
+                "_type": doc_type,
+                "_id": j,
+                "_source": {
+                    "any": "data" + str(j),
+                    "timestamp": str(datetime.now())
+                }
+            }
+            for j in range(0, 2)
+        ]
+        print('\n'.join([str(item) for item in actions]))
+        st = time.time()
+        wes.doc_bulk_result(wes.doc_bulk(actions))
+        end = time.time()
+        print("total time", end-st)
 
 
 if __name__ == '__main__':
