@@ -336,7 +336,7 @@ class TestWes(unittest.TestCase):
         # {'key_as_string': '2018,01,01,12,00,00', 'key': 1514764800000, 'doc_count': 3}
         # {'key_as_string': '2019,01,01,12,00,00', 'key': 1546300800000, 'doc_count': 1}
 
-    def test_bulk(self):
+    def bulk(self):
         # MSE_NOTES: for 'bulk' and 'scan' API IMPORT 'from elasticsearch import helpers'
 
         wes = Wes()
@@ -427,6 +427,43 @@ class TestWes(unittest.TestCase):
 
         body = {"query": {"match_all": {}}}
         wes.doc_search_result(wes.doc_search(index=ind_str, body=body))
+
+    def test_scan(self):
+        # MSE_NOTES: for 'bulk' and 'scan' API IMPORT 'from elasticsearch import helpers'
+
+        wes = Wes()
+        ind_str = "first_ind1"
+        doc_type = "my_doc_tupe"
+
+        wes.ind_delete_result(ind_str, wes.ind_delete(ind_str))
+        wes.ind_create_result(wes.ind_create(ind_str))
+        wes.ind_exist_result(ind_str, wes.ind_exist(ind_str))
+
+        actions = [
+            {
+                "_index": ind_str,
+                "_type": doc_type,
+                "_id": j,
+                "_source": {
+                    "any": "data" + str(j),
+                    "timestamp": str(datetime.now())
+                }
+            }
+            for j in range(0, 5)
+        ]
+
+        #st = time.time()
+        wes.doc_bulk_result(wes.doc_bulk(actions))
+
+        wes.ind_flush_result("_all", wes.ind_flush(index="_all", wait_if_ongoing=True))
+        wes.ind_refresh_result("_all", wes.ind_refresh(index="_all"))
+
+        body = {"query": {"match_all": {}}}
+        wes.doc_search_result(wes.doc_search(index=ind_str, body=body))
+
+        wes.doc_scan_result(wes.doc_scan(query=body))
+        LOG_NOTI_L("--------------------------------------------------------------------------------------")
+        wes.doc_scan_result(wes.doc_scan(index='pako', query=body))
 
 if __name__ == '__main__':
     # unittest.main() run all test (imported too) :(

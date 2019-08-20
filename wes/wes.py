@@ -33,7 +33,9 @@ class WesDefs():
     OP_DOC_ADD_UP   = "OP_DOC_ADDUP   : "
     OP_DOC_GET      = "OP_DOC_GET     : "
     OP_DOC_SEARCH   = "OP_DOC_SEARCH  : "
+    # batch operations
     OP_DOC_BULK     = "OP_DOC_BULK    : "
+    OP_DOC_SCAN     = "OP_DOC_SCAN    : "
 
     # RC - 3 codes
     # - maybe useful later (low level could detect problem in data)
@@ -88,8 +90,9 @@ class WesDefs():
                     if is_l1:
                         LOG_FNC(f"{oper} {e.status_code} - {e.info} ")
                     else:
-                        # special cases
-                        if isinstance(e, NotFoundError) and oper == WesDefs.OP_IND_DELETE:
+                        # special cases  - OP_IND_DELETE
+                        # special cases  - OP_DOC_SCAN
+                        if isinstance(e, NotFoundError):
                             LOG_FNC(f"{oper} KEY[{e.info['error']['index']}] - {e.status_code} - {e.info['error']['type']}")
                         # special cases  - OP_DOC_SEARCH  'type': 'parsing_exception'
                         # special cases  - OP_IND_CREATE  'type': 'invalid_index_name_exception',
@@ -428,7 +431,9 @@ class Wes(WesDefs):
         # -> 'delete' does not expect a source on the following line, and has the same semantics as the standard delete API.
         # -> 'update' expects that the partial doc, upsert and script and its options are specified on the next line.
         #
+        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         # MSE_NOTES: - exception behavior should be SUPPRESSED - some operations in batch could PASS
+        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         # It returns a tuple with summary information:
         # - number of successfully executed actions
         # - and either list of errors or number of errors if ``stats_only`` is set to ``True``.
@@ -457,3 +462,50 @@ class Wes(WesDefs):
 
         rc = status, rc_data
         self._operation_result(Wes.OP_DOC_BULK, rc, fmt_fnc_ok, fmt_fnc_nok)
+
+    @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_SCAN)
+    def doc_scan(self,
+                 query=None,
+                 scroll="5m",
+                 raise_on_error=True,
+                 preserve_order=False,
+                 size=1000,
+                 request_timeout=None,
+                 clear_scroll=True,
+                 scroll_kwargs=None,
+                 ** kwargs): #index
+
+        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # MSE_NOTES: - exception behavior should be SUPPRESSED - some operations in batch could PASS
+        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # - it returns generator
+        # - in case exception generator of generators
+        return helpers.scan(self.es,
+                            query=query,
+                            scroll=scroll,
+                            raise_on_error=raise_on_error,
+                            preserve_order=preserve_order,
+                            size=size,
+                            request_timeout=request_timeout,
+                            clear_scroll=clear_scroll,
+                            scroll_kwargs=scroll_kwargs,
+                            ** kwargs)
+
+    def doc_scan_result(self, rc: tuple):
+        # MSE_NOTE it doesn't fire exception
+        # in case NotFoundError(404) index
+        satus, rc_data = rc
+        try:
+            for a in rc_data:
+                break
+        except Exception as e:
+            rc = Wes.RC_EXCE, e
+
+        def fmt_fnc_ok(rc_data) -> str:
+            pass
+            rec = 'SCAN NB :\n'
+            for a in rc_data:
+                rec = rec + str(a) + '\n'
+            return f"{rec}"
+
+        self._operation_result(Wes.OP_DOC_SCAN, rc, fmt_fnc_ok)
