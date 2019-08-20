@@ -1,5 +1,4 @@
 from elasticsearch import Elasticsearch
-from elasticsearch import helpers # for 'bulk'and 'scan' API
 from elasticsearch.client.utils import query_params
 
 from elasticsearch.exceptions import ImproperlyConfigured
@@ -14,6 +13,11 @@ from elasticsearch.exceptions import SSLError
 from elasticsearch.exceptions import ConnectionTimeout
 from elasticsearch.exceptions import AuthenticationException
 from elasticsearch.exceptions import AuthorizationException
+
+# for 'bulk'and 'scan' API
+from elasticsearch import helpers
+from elasticsearch.helpers.errors import BulkIndexError
+from elasticsearch.helpers.errors import ScanError
 
 from log import *
 
@@ -42,6 +46,8 @@ class WesDefs():
         # ImproperlyConfigured(Exception)
         # ElasticsearchException(Exception)
         # 	- SerializationError(ElasticsearchException)
+        #   - BulkIndexError(ElasticsearchException)    NOT IN DOC
+        #   - ScanError(ElasticsearchException)         NOT IN DOC
         #	- TransportError(ElasticsearchException)
         # 		= ConnectionError(TransportError)       'N/A' status code
         #			=> SSLError(ConnectionError)
@@ -56,6 +62,14 @@ class WesDefs():
         elif isinstance(e, ElasticsearchException):
             if isinstance(e, SerializationError):
                 LOG_FNC(f"{oper} {str(e)}")
+            elif isinstance(e, BulkIndexError):
+                # MSE_NOTE:
+                # exception behavior should be SUPPRESSED - some operations in batch could PASS
+                # L2 result should check if error occurred (e.g. DOC_BULK operation)
+                LOG_FNC(f"{oper} BulkIndexError - NB ERRORS[{len(e.errors)}] {str(e)}")
+                raise e
+            elif isinstance(e, ScanError):
+                LOG_FNC(f"{oper} ScanError - {e.scroll_id} {str(e)}")
             elif isinstance(e, TransportError):
                 if isinstance(e, ConnectionError):
                     if isinstance(e, SSLError) or isinstance(e, ConnectionTimeout):
@@ -90,16 +104,19 @@ class WesDefs():
                                 LOG_FNC(f"{oper} KEY[{e.info['_index']} <-> {e.info['_type']} <-> {e.info['_id']}] {str(e)}")
             else:
                 LOG_ERR(f"{oper} Unknow L2 exception ... {str(e)}")
-                raise (e)
+                raise e
         else:
             LOG_ERR(f"{oper} Unknow L1 exception ... {str(e)}")
-            raise (e)
+            raise e
 
-    def WES_RC_NOK(self, oper, e):
+    def WES_RC_EXC(self, oper, e):
         self._WES_INT_ERR(oper, e, False, LOG_ERR)  # this is L2 - use error
 
     def WES_DB_ERR(self, oper, e):
         self._WES_INT_ERR(oper, e, True, LOG_WARN)  # this is L1 - only warn
+
+    def WES_RC_NOK(self, oper, rc):
+        LOG_ERR(f"{oper} {str(rc)}")
 
     def WES_RC_OK(self, oper, rc):
         LOG_OK(f"{oper} {str(rc)}")
@@ -107,14 +124,14 @@ class WesDefs():
     def WES_DB_OK(self, oper, rc):
         LOG(f"{oper} {str(rc)}")
 
-    def _operation_result(self, oper, rc: tuple, fmt_fnc_ok):
+    def _operation_result(self, oper, rc: tuple, fmt_fnc_ok=None, fmt_fnc_nok=None):
         status, rc_data = rc
         if status == Wes.RC_OK:
             self.WES_RC_OK(oper, fmt_fnc_ok(rc_data))
         elif status == Wes.RC_NOK:
-            assert("not implemented") # TODO RC - 3 codes
+            self.WES_RC_NOK(oper, fmt_fnc_nok(rc_data))
         elif status == Wes.RC_EXCE:
-            self.WES_RC_NOK(oper, rc_data)
+            self.WES_RC_EXC(oper, rc_data)
         else:
             raise ValueError(f"{oper} unknown status - {status}")
 
@@ -404,15 +421,39 @@ class Wes(WesDefs):
     @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_BULK)
     def doc_bulk(self, actions, stats_only=False, *args, **kwargs):
         # The bulk() api accepts 'index', 'create', 'delete', 'update' actions.
-        # '_op_type' field to specify an action (_op_type defaults to index):
+        # '_op_type' field to specify an action ( DEFAULTS to 'index'):
         # -> 'index' and 'create' expect a 'source' on the next line, and have the same semantics as the 'op_type' parameter to the standard index API
         #    - 'create' will fail if a document with the same index exists already,
-        #    - whereas 'index' will add or replace a document as necessary.
+        #    - 'index' will add or replace a document as necessary.
         # -> 'delete' does not expect a source on the following line, and has the same semantics as the standard delete API.
         # -> 'update' expects that the partial doc, upsert and script and its options are specified on the next line.
-        return helpers.bulk(self.es, actions, stats_only=stats_only, *args, **kwargs)
+        #
+        # MSE_NOTES: - exception behavior should be SUPPRESSED - some operations in batch could PASS
+        # It returns a tuple with summary information:
+        # - number of successfully executed actions
+        # - and either list of errors or number of errors if ``stats_only`` is set to ``True``.
+        # Note: that by default we raise a ``BulkIndexError`` when we encounter an error so
+        #  options like ``stats_only`` only apply when ``raise_on_error`` is set to ``False``.
+        return helpers.bulk(self.es, actions, raise_on_error=False, stats_only=stats_only, *args, **kwargs)
 
     def doc_bulk_result(self, rc: tuple):
-        def fmt_fnc_ok(rc_data) -> str:
-            return f"KEY[???] <-> {str(rc_data)}"
-        self._operation_result(Wes.OP_DOC_BULK, rc, fmt_fnc_ok)
+        status, rc_data = rc
+        fmt_fnc_ok = None
+        fmt_fnc_nok = None
+
+        if status == Wes.RC_OK:
+            nb_ok  = rc_data[0]
+            err    = rc_data[1]
+            nb_err = len(err)
+            nb_total = nb_ok + nb_err
+            ret_str = f"TOTAL[{nb_total}] <-> SUCCESS[{nb_ok}] <-> FAILED[{nb_err}]"
+
+            def fmt_fnc_ok(rc_data) -> str:
+                return ret_str + " ok ..."
+            def fmt_fnc_nok(rc_data) -> str:
+                return ret_str + " err ..."
+
+            status = Wes.RC_OK if len(rc_data[1]) == 0 else Wes.RC_NOK
+
+        rc = status, rc_data
+        self._operation_result(Wes.OP_DOC_BULK, rc, fmt_fnc_ok, fmt_fnc_nok)

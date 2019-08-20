@@ -384,7 +384,7 @@ class TestWes(unittest.TestCase):
                     "timestamp": str(datetime.now())
                 }
             }
-            for j in range(0, 2)
+            for j in range(3, 5)
         ]
 
         #st = time.time()
@@ -400,6 +400,33 @@ class TestWes(unittest.TestCase):
         body = {"query": {"match_all": {}}}
         wes.doc_search_result(wes.doc_search(index=ind_str, body=body))
 
+
+        actions = [
+            {
+                '_op_type': "create",
+                "_index": ind_str,
+                "_type": doc_type,
+                "_id": j,
+                "_source": {
+                    "any": "data" + str(j),
+                    "timestamp": str(datetime.now())
+                }
+            }
+            for j in range(2, 4)
+        ]
+
+        #st = time.time()
+        wes.doc_bulk_result(wes.doc_bulk(actions))
+        #end = time.time()
+        #print("total time", end-st)
+        #
+        LOG_NOTI_L("--------------------------------------------------------------------------------------")
+
+        wes.ind_flush_result("_all", wes.ind_flush(index="_all", wait_if_ongoing=True))
+        wes.ind_refresh_result("_all", wes.ind_refresh(index="_all"))
+
+        body = {"query": {"match_all": {}}}
+        wes.doc_search_result(wes.doc_search(index=ind_str, body=body))
 
 if __name__ == '__main__':
     # unittest.main() run all test (imported too) :(
