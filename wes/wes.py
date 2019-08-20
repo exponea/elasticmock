@@ -19,17 +19,17 @@ from log import *
 
 class WesDefs():
     # operation
-    OP_IND_CREATE   = "OP_IND_CREATE "
-    OP_IND_FLUSH    = "OP_IND_FLUSH  "
-    OP_IND_REFRESH  = "OP_IND_REFRESH"
-    OP_IND_EXIST    = "OP_IND_EXIST  "
-    OP_IND_DELETE   = "OP_IND_DELETE "
-    OP_IND_GET_MAP  = "OP_IND_GET_MAP"
-    OP_IND_PUT_MAP  = "OP_IND_PUT_MAP"
-    OP_DOC_ADD_UP   = "OP_DOC_ADDUP  "
-    OP_DOC_GET      = "OP_DOC_GET    "
-    OP_DOC_SEARCH   = "OP_DOC_SEARCH "
-    OP_DOC_BULK     = "OP_DOC_BULK   "
+    OP_IND_CREATE   = "OP_IND_CREATE  : "
+    OP_IND_FLUSH    = "OP_IND_FLUSH   : "
+    OP_IND_REFRESH  = "OP_IND_REFRESH : "
+    OP_IND_EXIST    = "OP_IND_EXIST   : "
+    OP_IND_DELETE   = "OP_IND_DELETE  : "
+    OP_IND_GET_MAP  = "OP_IND_GET_MAP : "
+    OP_IND_PUT_MAP  = "OP_IND_PUT_MAP : "
+    OP_DOC_ADD_UP   = "OP_DOC_ADDUP   : "
+    OP_DOC_GET      = "OP_DOC_GET     : "
+    OP_DOC_SEARCH   = "OP_DOC_SEARCH  : "
+    OP_DOC_BULK     = "OP_DOC_BULK    : "
 
     # RC - 3 codes
     # - maybe useful later (low level could detect problem in data)
@@ -403,6 +403,13 @@ class Wes(WesDefs):
 
     @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_BULK)
     def doc_bulk(self, actions, stats_only=False, *args, **kwargs):
+        # The bulk() api accepts 'index', 'create', 'delete', 'update' actions.
+        # '_op_type' field to specify an action (_op_type defaults to index):
+        # -> 'index' and 'create' expect a 'source' on the next line, and have the same semantics as the 'op_type' parameter to the standard index API
+        #    - 'create' will fail if a document with the same index exists already,
+        #    - whereas 'index' will add or replace a document as necessary.
+        # -> 'delete' does not expect a source on the following line, and has the same semantics as the standard delete API.
+        # -> 'update' expects that the partial doc, upsert and script and its options are specified on the next line.
         return helpers.bulk(self.es, actions, stats_only=stats_only, *args, **kwargs)
 
     def doc_bulk_result(self, rc: tuple):

@@ -1,7 +1,8 @@
 from wes import Wes
 from log import *
+
 import unittest
-import time
+#import time
 from datetime import datetime
 
 class TestWes(unittest.TestCase):
@@ -356,13 +357,48 @@ class TestWes(unittest.TestCase):
                     "timestamp": str(datetime.now())
                 }
             }
+            for j in range(0, 5)
+        ]
+
+        #st = time.time()
+        wes.doc_bulk_result(wes.doc_bulk(actions))
+        #end = time.time()
+        #print("total time", end-st)
+
+        LOG_NOTI_L("--------------------------------------------------------------------------------------")
+
+        wes.ind_flush_result("_all", wes.ind_flush(index="_all", wait_if_ongoing=True))
+        wes.ind_refresh_result("_all", wes.ind_refresh(index="_all"))
+
+        body = {"query": {"match_all": {}}}
+        wes.doc_search_result(wes.doc_search(index=ind_str, body=body))
+
+        actions = [
+            {
+                '_op_type': "delete",
+                "_index": ind_str,
+                "_type": doc_type,
+                "_id": j,
+                "_source": {
+                    "any": "data" + str(j),
+                    "timestamp": str(datetime.now())
+                }
+            }
             for j in range(0, 2)
         ]
-        print('\n'.join([str(item) for item in actions]))
-        st = time.time()
+
+        #st = time.time()
         wes.doc_bulk_result(wes.doc_bulk(actions))
-        end = time.time()
-        print("total time", end-st)
+        #end = time.time()
+        #print("total time", end-st)
+
+        LOG_NOTI_L("--------------------------------------------------------------------------------------")
+
+        wes.ind_flush_result("_all", wes.ind_flush(index="_all", wait_if_ongoing=True))
+        wes.ind_refresh_result("_all", wes.ind_refresh(index="_all"))
+
+        body = {"query": {"match_all": {}}}
+        wes.doc_search_result(wes.doc_search(index=ind_str, body=body))
 
 
 if __name__ == '__main__':
