@@ -229,7 +229,7 @@ class Wes(WesDefs):
         return self.es.indices.refresh(index=index, params=params)
 
     def ind_refresh_result(self, rc: ExecCode) -> ExecCode:
-        key_str = f"KEY[{rc.fnc_params[1].get('index', '???')}]"
+        key_str = f"KEY[{rc.fnc_params[1].get('index', '_all')}]"
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"{key_str} {str(rcv.data)}"
         return self._operation_result(Wes.OP_IND_REFRESH, key_str, rc, fmt_fnc_ok)

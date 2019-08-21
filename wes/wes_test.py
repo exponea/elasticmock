@@ -145,40 +145,31 @@ class TestWes(unittest.TestCase):
     def test_complex_queries(self):
         wes = Wes()
         ind_str = "first_pooooooooooooooo"
+        doc_type = "any"
 
-        wes.ind_delete_result(ind_str, wes.ind_delete(ind_str))
-        wes.ind_create_result(wes.ind_create(ind_str))
-        wes.ind_exist_result(ind_str, wes.ind_exist(ind_str))
+        self.indice_create_exists(wes, ind_str)
+        self.documents_create(wes, ind_str, doc_type)
 
-        doc1 = {"city": "Bratislava1", "country": "slovakia ", "sentence": "The slovakia is a country"}
-        doc2 = {"city": "Bratislava2", "country": "SLOVAKIA2", "sentence": "The SLOVAKA is a country"}
-        doc3 = {"city": "Bratislava3", "country": "SLOVAKIA",  "sentence": "The slovakia is a country"}
-        doc4 = {"city": "Bratislava4", "country": "SLOVAKIA4", "sentence": "The small country is slovakia"}
-        doc5 = {"city": "Bratislava4", "country": "SLOVAKIA5", "sentence": "The small COUNTRy is slovakia"}
-
-        wes.doc_addup_result(wes.doc_addup(ind_str, doc1, doc_type="any", id=1))
-        wes.doc_addup_result(wes.doc_addup(ind_str, doc2, doc_type="any", id=2))
-        wes.doc_addup_result(wes.doc_addup(ind_str, doc3, doc_type="any", id=3))
-        wes.doc_addup_result(wes.doc_addup(ind_str, doc4, doc_type="any", id=4))
-        wes.doc_addup_result(wes.doc_addup(ind_str, doc5, doc_type="any", id=5))
-
-        wes.ind_flush_result("_all", wes.ind_flush(index="_all", wait_if_ongoing=True))
-        wes.ind_refresh_result("_all", wes.ind_refresh(index="_all"))
-
-        q1 = {"match": {"sentence": "slovakia"}}                                                # MSE_NOTES: #1 QUERY(match) MATCH(subSentence+wholeWord) CASE(in-sensitive)
-        wes.doc_search_result(wes.doc_search(index=ind_str, body={"query": q1}))                #  RESULTS: 4
-        q2 = {"match": {"sentence": "small"}}                                                   # MSE_NOTES: #2 QUERY(match) MATCH(subSentence+wholeWord) CASE(in-sensitive)
-        wes.doc_search_result(wes.doc_search(index=ind_str, body={"query": q2}))                #  RESULTS: 2
+        # 1 QUERY(match) MATCH(subSentence+wholeWord) CASE(in-sensitive)
+        q1 = {"match": {"sentence": "slovakia"}}
+        self.assertEqual(4, wes.doc_search_result(wes.doc_search(index=ind_str, body={"query": q1})).data['hits']['total']['value'])
+        # 2 QUERY(match) MATCH(subSentence+wholeWord) CASE(in-sensitive)
+        q2 = {"match": {"sentence": "small"}}                                                   # MSE_NOTES:
+        self.assertEqual(2, wes.doc_search_result(wes.doc_search(index=ind_str, body={"query": q2})).data['hits']['total']['value'])
 
         Log.notice2("--------------------------------------------------------------------------------------")
+        ######################################################################################################################
+        # MSE_NOTES: #3 QUERY(bool) MATCH(must, must_not, should) CASE(in-sensitive)
+        #   - must, must_not, should(improving relevance score, if none 'must' presents at least 1 'should' be present)
+        ######################################################################################################################
+        body = {"query": {"bool": {"must_not": q2, "should": q1}}}
+        self.assertEqual(2, wes.doc_search_result(wes.doc_search(index=ind_str, body=body)).data['hits']['total']['value'])
 
-        body = {"query": {"bool": { "must_not": q2, "should": q1 }}}                            # MSE_NOTES: #3 QUERY(bool) MATCH(must, must_not, should) CASE(in-sensitive)
-                                                                                                #   - must, must_not, should(improving relevance score, if none 'must' presents at least 1 'should' be present)
-        wes.doc_search_result(wes.doc_search(index=ind_str, body=body))                         #  RESULTS: 2
-
-        q3 = {"regexp": {"sentence": ".*"}}                                                     # MSE_NOTES: #4 QUERY(regexp) MATCH(regexp) CASE(in-sensitive)
-                                                                                                #   - must, must_not, should(improving relevance score, if none 'must' presents at least 1 'should' be present)
-        wes.doc_search_result(wes.doc_search(index=ind_str, body={"query": q3}))                # RESULTS: 5
+        ######################################################################################################################
+        # MSE_NOTES: #4 QUERY(regexp) MATCH(regexp) CASE(in-sensitive)
+        ######################################################################################################################
+        q3 = {"regexp": {"sentence": ".*"}}
+        self.assertEqual(5, wes.doc_search_result(wes.doc_search(index=ind_str, body={"query": q3})).data['hits']['total']['value'])
 
     def test_mappings_get(self):
         # MSE_NOTES: mapping is process of defining how documents looks like (which fields contains, field types, how is filed indexed)
@@ -510,6 +501,6 @@ class TestWes(unittest.TestCase):
 if __name__ == '__main__':
     # unittest.main()
     suite = unittest.TestSuite()
-    suite.addTest(TestWes("test_query_basic"))
+    suite.addTest(TestWes("test_complex_queries"))
     runner = unittest.TextTestRunner()
     runner.run(suite)
