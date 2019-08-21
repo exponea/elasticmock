@@ -23,6 +23,12 @@ ind_str_doc_type = "first_ind2_docT"
 
 class TestWes(unittest.TestCase):
 
+    def force_reindex(self, wes):
+        self.assertEqual(Wes.RC_OK, wes.ind_flush_result(wes.ind_flush(wait_if_ongoing=True)).status)
+        self.assertEqual(Wes.RC_OK, wes.ind_refresh_result(wes.ind_refresh()).status)
+
+        self.assertEqual(Wes.RC_OK, wes.ind_get_mapping_result(wes.ind_get_mapping()).status)
+
     def indice_create_exists(self, wes, ind_str):
         wes.ind_delete_result(wes.ind_delete(ind_str))
         self.assertEqual(Wes.RC_OK, wes.ind_create_result(wes.ind_create(ind_str)).status)
@@ -65,10 +71,8 @@ class TestWes(unittest.TestCase):
         self.assertEqual("created", wes.doc_addup_result(wes.doc_addup(ind_str, doc4, doc_type=doc_type, id=4)).data['result'])
         self.assertEqual("created", wes.doc_addup_result(wes.doc_addup(ind_str, doc5, doc_type=doc_type, id=5)).data['result'])
 
-        self.assertEqual(Wes.RC_OK, wes.ind_flush_result(wes.ind_flush(wait_if_ongoing=True)).status)
-        self.assertEqual(Wes.RC_OK, wes.ind_refresh_result(wes.ind_refresh()).status)
+        self.force_reindex(wes)
 
-        self.assertEqual(Wes.RC_OK, wes.ind_get_mapping_result(wes.ind_get_mapping()).status)
 
     def test_documents_basic(self):
         wes = Wes()
@@ -295,11 +299,9 @@ class TestWes(unittest.TestCase):
         #  MSE_NOTES: setting correct times help aggregations
         #  MSE_NOTES: u CAN'T CHANGE MAPPING if docs present in IND (DELETE IND FIRTS)
         wes = Wes()
-        ind_str = "first_ind1"
-
-        wes.ind_delete_result(ind_str, wes.ind_delete(ind_str))
-        wes.ind_create_result(wes.ind_create(ind_str))
-        wes.ind_exist_result(ind_str, wes.ind_exist(ind_str))
+        global ind_str
+        global ind_str_doc_type
+        self.indice_create_exists(wes, ind_str)
 
         map_new = {
             'properties': {'city': {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}},
@@ -311,26 +313,19 @@ class TestWes(unittest.TestCase):
                                         'format': "yyyy,MM,dd,hh,mm,ss" },
                         }
         }
-
-        wes.ind_put_mapping_result(wes.ind_put_mapping(map_new, doc_type="any", index=ind_str, include_type_name=True))
+        self.assertEqual(Wes.RC_OK, wes.ind_put_mapping_result(wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str, include_type_name=True)).status)
 
         doc1 = {"city":"Bangalore", "country": "India", "datetime":"2018,01,01,10,20,00"} #datetime format: yyyy,MM,dd,hh,mm,ss",
         doc2 = {"city":"London", "country": "England", "datetime":"2018,01,02,03,12,00"}
         doc3 = {"city":"Los Angeles", "country": "USA", "datetime":"2018,04,19,05,02,00"}
+        self.assertEqual("created", wes.doc_addup_result(wes.doc_addup(ind_str, doc1, doc_type=ind_str_doc_type, id=1)).data['result'])
+        self.assertEqual("created", wes.doc_addup_result(wes.doc_addup(ind_str, doc2, doc_type=ind_str_doc_type, id=2)).data['result'])
+        self.assertEqual("created", wes.doc_addup_result(wes.doc_addup(ind_str, doc3, doc_type=ind_str_doc_type, id=3)).data['result'])
 
-        wes.doc_addup_result(wes.doc_addup(ind_str, doc1, doc_type="any", id=1))
-        wes.doc_addup_result(wes.doc_addup(ind_str, doc2, doc_type="any", id=2))
-        wes.doc_addup_result(wes.doc_addup(ind_str, doc3, doc_type="any", id=3))
+        self.force_reindex(wes)
 
-        wes.ind_flush_result("_all", wes.ind_flush(index="_all", wait_if_ongoing=True))
-        wes.ind_refresh_result("_all", wes.ind_refresh(index="_all"))
-
-        wes.ind_get_mapping_result(wes.ind_get_mapping())
-
-        body = {"from": 0, "size": 10,
-                 "query": {"match_all": {}}
-               }
-        wes.doc_search_result(wes.doc_search(index=ind_str, body=body))
+        body = {"from": 0, "size": 10,"query": {"match_all": {}}}
+        self.assertEqual(3, wes.doc_search_result(wes.doc_search(index=ind_str, body=body)).data['hits']['total']['value'])
 
         Log.notice2("--------------------------------------------------------------------------------------")
         body = {"from": 0, "size": 10,                      # MSE_NOTES: #1 QUERY + AGGREGATION
@@ -344,23 +339,29 @@ class TestWes(unittest.TestCase):
                             }
                         }
                }
-        wes.doc_search_result(wes.doc_search(index=ind_str, body=body))
+
         # AGGS:
         # country
         # {'key_as_string': '2018,01,01,12,00,00', 'key': 1514764800000, 'doc_count': 3}
+        rc = wes.doc_search_result(wes.doc_search(index=ind_str, body=body))
+        self.assertNotEqual(None, rc.data.get('aggregations', None))
+        print("kuk", rc.data.get('aggregations'))
+        self.assertEqual(1, len(rc.data['aggregations']['country']['buckets']))
 
         Log.notice2("--------------------------------------------------------------------------------------")
-        doc4 = {"city":"Sydney", "country": "Australia", "datetime":"2019,04,19,05,02,00"}
-        wes.doc_addup_result(wes.doc_addup(ind_str, doc4, doc_type="any", id=4))
+        doc4 = {"city": "Sydney", "country": "Australia", "datetime": "2019,04,19,05,02,00"}
+        self.assertEqual("created", wes.doc_addup_result(wes.doc_addup(ind_str, doc4, doc_type=ind_str_doc_type, id=4)).data['result'])
 
-        wes.ind_flush_result("_all", wes.ind_flush(index="_all", wait_if_ongoing=True))
-        wes.ind_refresh_result("_all", wes.ind_refresh(index="_all"))
+        self.force_reindex(wes)
 
-        wes.doc_search_result(wes.doc_search(index=ind_str, body=body))
         # AGGS:
         # country
         # {'key_as_string': '2018,01,01,12,00,00', 'key': 1514764800000, 'doc_count': 3}
         # {'key_as_string': '2019,01,01,12,00,00', 'key': 1546300800000, 'doc_count': 1}
+        rc = wes.doc_search_result(wes.doc_search(index=ind_str, body=body))
+        self.assertNotEqual(None, rc.data.get('aggregations', None))
+        print("kuk", rc.data.get('aggregations'))
+        self.assertEqual(2, len(rc.data['aggregations']['country']['buckets']))
 
     def test_bulk(self):
         # MSE_NOTES: for 'bulk' and 'scan' API IMPORT 'from elasticsearch import helpers'
@@ -494,6 +495,6 @@ class TestWes(unittest.TestCase):
 if __name__ == '__main__':
     # unittest.main()
     suite = unittest.TestSuite()
-    suite.addTest(TestWes("test_mappings_get_put"))
+    suite.addTest(TestWes("test_aggregations"))
     runner = unittest.TextTestRunner()
     runner.run(suite)
