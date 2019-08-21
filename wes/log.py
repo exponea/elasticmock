@@ -2,120 +2,135 @@ import unittest
 import sys
 from datetime import datetime
 
-def _TIME():
-    #return datetime.now().strftime('%Y/%m/%d %H:%m:%S.%f')[:-3]
-    return datetime.now().strftime('%H:%m:%S.%f')[:-3]
+__all__ = ["Log"]
 
-def _generate_caller_name():
-    return sys._getframe(3).f_code.co_name
+class LogInternal:
+    @staticmethod
+    def _time():
+        #return datetime.now().strftime('%Y/%m/%d %H:%m:%S.%f')[:-3]
+        return datetime.now().strftime('%H:%m:%S.%f')[:-3]
 
-def flush_io():
-    sys.stdout.flush()
+    @staticmethod
+    def _generate_caller_name():
+        return sys._getframe(3).f_code.co_name
 
-def _LOG_INT(prefix, msg):
-    #print("%sLOG::%s: %s" % (prefix, generate_caller_name(), msg))
-    print("%s%s LOG :: %s" % (prefix, _TIME(), str(msg)))
-    flush_io()
+    @staticmethod
+    def _flush_io():
+        sys.stdout.flush()
 
-# print colored short
-def _LOG_RED_B(prefix, msg):
-    print("\33[1;37;41m%s%s ERR ::\33[0m %s" % (prefix, _TIME(),  str(msg)))
-    flush_io()
+    @staticmethod
+    def _log_int(prefix, msg):
+        #print("%sLOG::%s: %s" % (prefix, generate_caller_name(), msg))
+        print("%s%s LOG :: %s" % (prefix, LogInternal._time(), str(msg)))
+        LogInternal._flush_io()
 
-def _LOG_GREEN_B(prefix, msg):
-    print("\33[1;37;42m%s%s LOG ::\33[0m %s" % (prefix, _TIME(),  str(msg)))
-    flush_io()
+    # print colored short
+    @staticmethod
+    def _log_red_background(prefix, msg):
+        print("\33[1;37;41m%s%s ERR ::\33[0m %s" % (prefix, LogInternal._time(),  str(msg)))
+        LogInternal._flush_io()
 
-def _LOG_YELLOW_B(prefix, msg):
-    print("\33[1;37;43m%s%s WARN::\33[0m %s" % (prefix, _TIME(),  str(msg)))
-    flush_io()
+    @staticmethod
+    def _log_green_background(prefix, msg):
+        print("\33[1;37;42m%s%s LOG ::\33[0m %s" % (prefix, LogInternal._time(),  str(msg)))
+        LogInternal._flush_io()
 
-def _LOG_BLUE_B(prefix, msg):
-    print("\33[1;37;44m%s%s NOTI::\33[0m %s" % (prefix, _TIME(),  str(msg)))
-    flush_io()
+    @staticmethod
+    def _log_yellow_background(prefix, msg):
+        print("\33[1;37;43m%s%s WARN::\33[0m %s" % (prefix, LogInternal._time(),  str(msg)))
+        LogInternal._flush_io()
 
-# print colored long
-def _LOG_RED_B_LONG(prefix, msg):
-    print("\33[1;37;41m%s%s ERR :: %s\33[0m" % (prefix, _TIME(),  str(msg)))
-    flush_io()
+    @staticmethod
+    def _log_blue_background(prefix, msg):
+        print("\33[1;37;44m%s%s NOTI::\33[0m %s" % (prefix, LogInternal._time(),  str(msg)))
+        LogInternal._flush_io()
 
-def _LOG_GREEN_B_LONG(prefix, msg):
-    print("\33[1;37;42m%s%s LOG :: %s\33[0m" % (prefix, _TIME(),  str(msg)))
-    flush_io()
+    # print colored long
+    @staticmethod
+    def _log_red_background_long(prefix, msg):
+        print("\33[1;37;41m%s%s ERR :: %s\33[0m" % (prefix, LogInternal._time(),  str(msg)))
+        LogInternal._flush_io()
 
-def _LOG_YELLOW_B_LONG(prefix, msg):
-    print("\33[1;37;43m%s%s WARN:: %s\33[0m" % (prefix, _TIME(),  str(msg)))
-    flush_io()
+    @staticmethod
+    def _log_green_background_long(prefix, msg):
+        print("\33[1;37;42m%s%s LOG :: %s\33[0m" % (prefix, LogInternal._time(),  str(msg)))
+        LogInternal._flush_io()
 
-def _LOG_BLUE_B_LONG(prefix, msg):
-    print("\33[1;37;44m%s%s NOTI:: %s\33[0m" % (prefix, _TIME(),  str(msg)))
-    flush_io()
+    @staticmethod
+    def _log_yellow_background_long(prefix, msg):
+        print("\33[1;37;43m%s%s WARN:: %s\33[0m" % (prefix, LogInternal._time(),  str(msg)))
+        LogInternal._flush_io()
 
-MSELINE = 80
-# cmd border
-def _LOG_BORDER(LOG_CLBK, caller, result, cmd, name):
-    _LOG_INT("", str(" %s cmd : %s"   % (caller, "*" * MSELINE)))
-    LOG_CLBK(" %s cmd : ***  %s  *** %s *** %s ***" % (caller, result, name, cmd))
-    _LOG_INT("", str(" %s cmd : %s\n" % (caller, "*" * MSELINE)))
+    @staticmethod
+    def _log_blue_background_long(prefix, msg):
+        print("\33[1;37;44m%s%s NOTI:: %s\33[0m" % (prefix, LogInternal._time(),  str(msg)))
+        LogInternal._flush_io()
+
+    # cmd border
+    MSELINE = 80
+    @staticmethod
+    def _log_border(log_clbk, caller, result, cmd, name):
+        LogInternal._log_int("", str(" %s cmd : %s"   % (caller, "*" * LogInternal.MSELINE)))
+        log_clbk(" %s cmd : ***  %s  *** %s *** %s ***" % (caller, result, name, cmd))
+        LogInternal._log_int("", str(" %s cmd : %s\n" % (caller, "*" * LogInternal.MSELINE)))
 
 ############################################################################################
 # API print
 ############################################################################################
 
-# API time + no colors
-def LOG_DBG(msg):
-    _LOG_INT("", msg)
-def LOG(msg):
-    _LOG_INT("", msg)
+class Log(LogInternal):
+    # API time + no colors
+    @staticmethod
+    def log(msg):
+        LogInternal._log_int("", msg)
 
-# API time + short background colours
-def LOG_OK(msg):
-    _LOG_GREEN_B("", msg)
-def LOG_ERR(msg):
-    _LOG_RED_B("", msg)
-def LOG_WARN(msg):
-    _LOG_YELLOW_B("", msg)
-def LOG_NOTI(msg):
-    _LOG_BLUE_B("", msg)
+    # API time + short background colours
+    @staticmethod
+    def ok(msg):
+        LogInternal._log_green_background("", msg)
+    @staticmethod
+    def err(msg):
+        LogInternal._log_red_background("", msg)
+    @staticmethod
+    def warn(msg):
+        LogInternal._log_yellow_background("", msg)
+    @staticmethod
+    def notice(msg):
+        LogInternal._log_blue_background("", msg)
 
-# API time + full background colours
-def LOG_OK_L(msg):
-    _LOG_GREEN_B_LONG("", msg)
-def LOG_ERR_L(msg):
-    _LOG_RED_B_LONG("", msg)
-def LOG_WARN_L(msg):
-    _LOG_YELLOW_B_LONG("", msg)
-def LOG_NOTI_L(msg):
-    _LOG_BLUE_B_LONG("", msg)
+    # API time + full background colours
+    @staticmethod
+    def ok2(msg):
+        LogInternal._log_green_background_long("", msg)
+    @staticmethod
+    def err2(msg):
+        LogInternal._log_red_background_long("", msg)
+    @staticmethod
+    def warn2(msg):
+        LogInternal._log_yellow_background_long("", msg)
+    @staticmethod
+    def notice2(msg):
+        LogInternal._log_blue_background_long("", msg)
 
-# API cmd border
-def LOG_BORDER_OK(caller, result, cmd, name):
-    _LOG_BORDER(LOG_OK_L, caller, result, cmd, name)
-def LOG_BORDER_ERR(caller, result, cmd, name):
-    _LOG_BORDER(LOG_ERR_L, caller, result, cmd, name)
+    # API cmd border
+    @staticmethod
+    def border_ok(caller, result, cmd, name):
+        LogInternal._log_border(Log.ok2, caller, result, cmd, name)
+    @staticmethod
+    def border_err(caller, result, cmd, name):
+        LogInternal._log_border(Log.err2, caller, result, cmd, name)
 
-# API re border
-def LOG_BORDER_RE(r, help_str, pattern):
+    # API re border
+    @staticmethod
+    def border_re(r, help_str, pattern):
         if len(r) > 0:
-            LOG(" -------")
-            LOG("  RE OK [%s] pattern '%s' found >> '%s' " % (help_str, pattern, r))
-            LOG(" -------\n")
+            Log.log(" -------")
+            Log.log("  RE OK [%s] pattern '%s' found >> '%s' " % (help_str, pattern, r))
+            Log.log(" -------\n")
         else:
-            LOG(" ------")
-            LOG(" RE NOK [%s] pattern '%s' not found >> NOTHING ..." % (help_str, pattern))
-            LOG(" ------\n")
-
-###
-def LOG_BEND_LOOP(obj, PRINT_METHOD, str_to_print):
-    if obj is not None:
-        obj.LOG(PRINT_METHOD, str_to_print)
-    else:
-        PRINT_METHOD(str(str_to_print))
-
-__all__ = ["LOG_DBG", "LOG",
-           "LOG_OK", "LOG_ERR", "LOG_WARN", "LOG_NOTI",
-           "LOG_OK_L", "LOG_ERR_L", "LOG_WARN_L", "LOG_NOTI_L",
-           ]
+            Log.log(" ------")
+            Log.log(" RE NOK [%s] pattern '%s' not found >> NOTHING ..." % (help_str, pattern))
+            Log.log(" ------\n")
 
 ############################################################################################
 # TEST
@@ -124,25 +139,23 @@ __all__ = ["LOG_DBG", "LOG",
 class TestClog(unittest.TestCase):
     def test_log_print(self):
         log_me = "log me"
-        LOG(log_me)
-        LOG_OK(log_me)
-        LOG_OK_L(log_me)
-        LOG_ERR(log_me)
-        LOG_ERR_L(log_me)
-        LOG_WARN(log_me)
-        LOG_WARN_L(log_me)
-        LOG_NOTI(log_me)
-        LOG_NOTI_L(log_me)
+        Log.log(log_me)
+        Log.ok(log_me)
+        Log.ok2(log_me)
+        Log.err(log_me)
+        Log.err2(log_me)
+        Log.warn(log_me)
+        Log.warn2(log_me)
+        Log.notice(log_me)
+        Log.notice2(log_me)
 
-        LOG_BORDER_OK("CALLER", "RES", "CMD", "NAME")
-        LOG_BORDER_ERR("CALLER", "RES", "CMD", "NAME")
+        Log.border_ok("CALLER", "RES", "CMD", "NAME")
+        Log.border_err("CALLER", "RES", "CMD", "NAME")
 
-        r1 = [ ]
-        LOG_BORDER_RE(r1, "help_str", "pattern")
+        r1 = []
+        Log.border_re(r1, "help_str", "pattern")
         r1.append("one element")
-        LOG_BORDER_RE(r1, "help_str", "pattern")
-
-        LOG_BEND_LOOP(None, LOG, "mse LOG_BEND_LOOP")
+        Log.border_re(r1, "help_str", "pattern")
 
 if __name__ == '__main__':
      unittest.main()

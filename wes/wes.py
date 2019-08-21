@@ -19,7 +19,9 @@ from elasticsearch import helpers
 from elasticsearch.helpers.errors import BulkIndexError
 from elasticsearch.helpers.errors import ScanError
 
-from log import *
+from log import Log
+
+__all__ = ["Wes"]
 
 class WesDefs():
     # operation
@@ -44,7 +46,7 @@ class WesDefs():
     RC_NOK     = "RC_NOK"
     RC_OK      = "RC_OK"
 
-    def _WES_INT_ERR(self, oper, e, is_l1, LOG_FNC):
+    def _dump_exeption(self, oper, e, is_l1, log_fnc):
         # ImproperlyConfigured(Exception)
         # ElasticsearchException(Exception)
         # 	- SerializationError(ElasticsearchException)
@@ -60,24 +62,24 @@ class WesDefs():
         # 		= AuthenticationException(TransportError)401  status code
         # 		= AuthorizationException(TransportError) 403  status code
         if isinstance(e, ImproperlyConfigured):
-            LOG_FNC(f"{oper} {str(e)}")
+            log_fnc(f"{oper} {str(e)}")
         elif isinstance(e, ElasticsearchException):
             if isinstance(e, SerializationError):
-                LOG_FNC(f"{oper} {str(e)}")
+                log_fnc(f"{oper} {str(e)}")
             elif isinstance(e, BulkIndexError):
                 # MSE_NOTE:
                 # exception behavior should be SUPPRESSED - some operations in batch could PASS
                 # L2 result should check if error occurred (e.g. DOC_BULK operation)
-                LOG_FNC(f"{oper} BulkIndexError - NB ERRORS[{len(e.errors)}] {str(e)}")
+                log_fnc(f"{oper} BulkIndexError - NB ERRORS[{len(e.errors)}] {str(e)}")
                 raise e
             elif isinstance(e, ScanError):
-                LOG_FNC(f"{oper} ScanError - {e.scroll_id} {str(e)}")
+                log_fnc(f"{oper} ScanError - {e.scroll_id} {str(e)}")
             elif isinstance(e, TransportError):
                 if isinstance(e, ConnectionError):
                     if isinstance(e, SSLError) or isinstance(e, ConnectionTimeout):
-                        LOG_FNC(f"{oper} ConnectionError - {e.info}")
+                        log_fnc(f"{oper} ConnectionError - {e.info}")
                     else:
-                        LOG_FNC(f"{oper} ConnectionError (generic) - {e.info}")
+                        log_fnc(f"{oper} ConnectionError (generic) - {e.info}")
                 else:
                     # 		= NotFoundError(TransportError)          404  status code
                     # 		= ConflictError(TransportError)          409  status code
@@ -88,53 +90,38 @@ class WesDefs():
                     # print(type(e.error)) => <class 'str'>
                     # print(type(e.info))  => <class 'dict'>
                     if is_l1:
-                        LOG_FNC(f"{oper} {e.status_code} - {e.info} ")
+                        log_fnc(f"{oper} {e.status_code} - {e.info} ")
                     else:
                         # special cases  - OP_IND_DELETE
                         # special cases  - OP_DOC_SCAN
                         if isinstance(e, NotFoundError):
-                            LOG_FNC(f"{oper} KEY[{e.info['error']['index']}] - {e.status_code} - {e.info['error']['type']}")
+                            log_fnc(f"{oper} KEY[{e.info['error']['index']}] - {e.status_code} - {e.info['error']['type']}")
                         # special cases  - OP_DOC_SEARCH  'type': 'parsing_exception'
                         # special cases  - OP_IND_CREATE  'type': 'invalid_index_name_exception',
                         #                                 'reason': 'Invalid index name [first_IND1], must be lowercase'
                         elif isinstance(e, RequestError):
-                            LOG_FNC(f"{oper} KEY[???] - {e.status_code} - {e.info['error']['type']} - {e.info['error']['reason']}")
+                            log_fnc(f"{oper} KEY[???] - {e.status_code} - {e.info['error']['type']} - {e.info['error']['reason']}")
                         # generic
                         else:
                             if e.status_code == 405:
-                                LOG_FNC(f"{oper} KEY[???] - {e.status_code} - {e.info['error']}")
+                                log_fnc(f"{oper} KEY[???] - {e.status_code} - {e.info['error']}")
                             else:
-                                LOG_FNC(f"{oper} KEY[{e.info['_index']} <-> {e.info['_type']} <-> {e.info['_id']}] {str(e)}")
+                                log_fnc(f"{oper} KEY[{e.info['_index']} <-> {e.info['_type']} <-> {e.info['_id']}] {str(e)}")
             else:
-                LOG_ERR(f"{oper} Unknow L2 exception ... {str(e)}")
+                Log.err(f"{oper} Unknow L2 exception ... {str(e)}")
                 raise e
         else:
-            LOG_ERR(f"{oper} Unknow L1 exception ... {str(e)}")
+            Log.err(f"{oper} Unknow L1 exception ... {str(e)}")
             raise e
-
-    def WES_RC_EXC(self, oper, e):
-        self._WES_INT_ERR(oper, e, False, LOG_ERR)  # this is L2 - use error
-
-    def WES_DB_ERR(self, oper, e):
-        self._WES_INT_ERR(oper, e, True, LOG_WARN)  # this is L1 - only warn
-
-    def WES_RC_NOK(self, oper, rc):
-        LOG_ERR(f"{oper} {str(rc)}")
-
-    def WES_RC_OK(self, oper, rc):
-        LOG_OK(f"{oper} {str(rc)}")
-
-    def WES_DB_OK(self, oper, rc):
-        LOG(f"{oper} {str(rc)}")
 
     def _operation_result(self, oper, rc: tuple, fmt_fnc_ok=None, fmt_fnc_nok=None):
         status, rc_data = rc
         if status == Wes.RC_OK:
-            self.WES_RC_OK(oper, fmt_fnc_ok(rc_data))
+            Log.ok(f"{oper} {fmt_fnc_ok(rc_data)}")
         elif status == Wes.RC_NOK:
-            self.WES_RC_NOK(oper, fmt_fnc_nok(rc_data))
+            Log.err(f"{oper} {fmt_fnc_nok(rc_data)}")
         elif status == Wes.RC_EXCE:
-            self.WES_RC_EXC(oper, rc_data)
+            self._dump_exeption(oper, rc_data, False, Log.err)  # this is L2 - use error
         else:
             raise ValueError(f"{oper} unknown status - {status}")
 
@@ -145,12 +132,11 @@ class WesDefs():
                 def wrapper(self, *args, **kwargs):
                     try:
                         rc = fnc(self, *args, **kwargs)
-                        self.WES_DB_OK(oper, rc)
-                        return (Wes.RC_OK, rc)
+                        Log.log(f"{oper} {str(rc)}")                  # this is L1 - log as is
+                        return Wes.RC_OK, rc
                     except Exception as e:
-                        self.WES_DB_ERR(oper, e)
-                        return (Wes.RC_EXCE, e)
-
+                        self._dump_exeption(oper, e, True, Log.warn)  # this is L1 - only warn
+                        return Wes.RC_EXCE, e
                 return wrapper
             return wrapper_mk
 

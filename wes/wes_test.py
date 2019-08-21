@@ -1,8 +1,7 @@
 from wes import Wes
-from log import *
+from log import Log
 
 import unittest
-#import time
 from datetime import datetime
 
 class TestWes(unittest.TestCase):
@@ -17,7 +16,7 @@ class TestWes(unittest.TestCase):
         wes.ind_exist(ind_str)
         wes.ind_delete(ind_str)
 
-    def basic_doc_and_query(self):
+    def test_basic_doc_and_query(self):
         wes = Wes()
         ind_str = "first_pooooooooooooooo"
 
@@ -93,7 +92,7 @@ class TestWes(unittest.TestCase):
                }                                                                                            #
         wes.doc_search_result(wes.doc_search(index=ind_str, body=body))                                     # RESULTS: 2
 
-        LOG_NOTI_L("--------------------------------------------------------------------------------------")
+        Log.notice2("--------------------------------------------------------------------------------------")
         body = {"from": 0, "size": 10,                                                                      # MSE_NOTES: #8 QUERY(bool) MATCH(must, must_not, should) CASE(in-sensitive)
                 "query": {"term": {"country": "slovakia"}}                                                  #   - must, must_not, should(improving relevance score, if none 'must' presents at least 1 'should' be present)
                }                                                                                            #   -
@@ -128,7 +127,7 @@ class TestWes(unittest.TestCase):
         q2 = {"match": {"sentence": "small"}}                                                   # MSE_NOTES: #2 QUERY(match) MATCH(subSentence+wholeWord) CASE(in-sensitive)
         wes.doc_search_result(wes.doc_search(index=ind_str, body={"query": q2}))                #  RESULTS: 2
 
-        LOG_NOTI_L("--------------------------------------------------------------------------------------")
+        Log.notice2("--------------------------------------------------------------------------------------")
 
         body = {"query": {"bool": { "must_not": q2, "should": q1 }}}                            # MSE_NOTES: #3 QUERY(bool) MATCH(must, must_not, should) CASE(in-sensitive)
                                                                                                 #   - must, must_not, should(improving relevance score, if none 'must' presents at least 1 'should' be present)
@@ -177,7 +176,7 @@ class TestWes(unittest.TestCase):
 
         # MSE_NOTES: #1 400 - illegal_argument_exception - Types cannot be provided in get mapping requests, unless include_type_name is set to true.
         wes.ind_get_mapping_result(wes.ind_get_mapping(ind_str, doc_type="any"))
-        LOG_NOTI_L("--------------------------------------------------------------------------------------")
+        Log.notice2("--------------------------------------------------------------------------------------")
         wes.ind_get_mapping_result(wes.ind_get_mapping(ind_str, doc_type="any", include_type_name=True))
 
     def mappings_get_put(self):
@@ -205,7 +204,7 @@ class TestWes(unittest.TestCase):
         doc1 = {"city": "Bratislava1", "country": "slovakia ", "sentence": "The slovakia is a country", "datetime" : "2019,01,02,03,12,00"}
         wes.doc_addup_result(wes.doc_addup(ind_str, doc1, doc_type="any", id=1))
         wes.ind_get_mapping_result(wes.ind_get_mapping())
-        LOG_NOTI_L("--------------------------------------------------------------------------------------")
+        Log.notice2("--------------------------------------------------------------------------------------")
         # {'first_ind1': {'mappings':
         map_new = {
             'properties': {'city': {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}},
@@ -233,7 +232,7 @@ class TestWes(unittest.TestCase):
         # MSE_NOTES: #3 u should specified IND + DOC_TYPE !!!
         wes.ind_put_mapping_result(wes.ind_put_mapping(map_new, doc_type="any", index=ind_str, include_type_name=True))
 
-        LOG_NOTI_L("--------------------------------------------------------------------------------------")
+        Log.notice2("--------------------------------------------------------------------------------------")
         wes.ind_get_mapping_result(wes.ind_get_mapping())
         # MSE_NOTES: #4 type was changed :)
         # IND[first_ind1]
@@ -306,7 +305,7 @@ class TestWes(unittest.TestCase):
                }
         wes.doc_search_result(wes.doc_search(index=ind_str, body=body))
 
-        LOG_NOTI_L("--------------------------------------------------------------------------------------")
+        Log.notice2("--------------------------------------------------------------------------------------")
         body = {"from": 0, "size": 10,                      # MSE_NOTES: #1 QUERY + AGGREGATION
                 "query": {"match_all": {}},                 #
                 "aggs": { "country":                        # agg on 'country' field
@@ -323,7 +322,7 @@ class TestWes(unittest.TestCase):
         # country
         # {'key_as_string': '2018,01,01,12,00,00', 'key': 1514764800000, 'doc_count': 3}
 
-        LOG_NOTI_L("--------------------------------------------------------------------------------------")
+        Log.notice2("--------------------------------------------------------------------------------------")
         doc4 = {"city":"Sydney", "country": "Australia", "datetime":"2019,04,19,05,02,00"}
         wes.doc_addup_result(wes.doc_addup(ind_str, doc4, doc_type="any", id=4))
 
@@ -365,7 +364,7 @@ class TestWes(unittest.TestCase):
         #end = time.time()
         #print("total time", end-st)
 
-        LOG_NOTI_L("--------------------------------------------------------------------------------------")
+        Log.notice2("--------------------------------------------------------------------------------------")
 
         wes.ind_flush_result("_all", wes.ind_flush(index="_all", wait_if_ongoing=True))
         wes.ind_refresh_result("_all", wes.ind_refresh(index="_all"))
@@ -392,7 +391,7 @@ class TestWes(unittest.TestCase):
         #end = time.time()
         #print("total time", end-st)
 
-        LOG_NOTI_L("--------------------------------------------------------------------------------------")
+        Log.notice2("--------------------------------------------------------------------------------------")
 
         wes.ind_flush_result("_all", wes.ind_flush(index="_all", wait_if_ongoing=True))
         wes.ind_refresh_result("_all", wes.ind_refresh(index="_all"))
@@ -420,7 +419,7 @@ class TestWes(unittest.TestCase):
         #end = time.time()
         #print("total time", end-st)
         #
-        LOG_NOTI_L("--------------------------------------------------------------------------------------")
+        Log.notice2("--------------------------------------------------------------------------------------")
 
         wes.ind_flush_result("_all", wes.ind_flush(index="_all", wait_if_ongoing=True))
         wes.ind_refresh_result("_all", wes.ind_refresh(index="_all"))
@@ -428,7 +427,7 @@ class TestWes(unittest.TestCase):
         body = {"query": {"match_all": {}}}
         wes.doc_search_result(wes.doc_search(index=ind_str, body=body))
 
-    def test_scan(self):
+    def scan(self):
         # MSE_NOTES: for 'bulk' and 'scan' API IMPORT 'from elasticsearch import helpers'
 
         wes = Wes()
@@ -462,7 +461,7 @@ class TestWes(unittest.TestCase):
         wes.doc_search_result(wes.doc_search(index=ind_str, body=body))
 
         wes.doc_scan_result(wes.doc_scan(query=body))
-        LOG_NOTI_L("--------------------------------------------------------------------------------------")
+        Log.notice2("--------------------------------------------------------------------------------------")
         wes.doc_scan_result(wes.doc_scan(index='pako', query=body))
 
 if __name__ == '__main__':
