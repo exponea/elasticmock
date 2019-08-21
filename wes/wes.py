@@ -19,9 +19,13 @@ from elasticsearch import helpers
 from elasticsearch.helpers.errors import BulkIndexError
 from elasticsearch.helpers.errors import ScanError
 
+from collections import namedtuple
+
 from log import Log
 
-__all__ = ["Wes"]
+__all__ = ["Wes", "ExecCode"]
+
+ExecCode = namedtuple('ExecCode', 'status data fnc_params')
 
 class WesDefs():
     # operation
@@ -92,14 +96,18 @@ class WesDefs():
                     if is_l1:
                         log_fnc(f"{oper} {e.status_code} - {e.info} ")
                     else:
-                        # special cases  - OP_IND_DELETE
-                        # special cases  - OP_DOC_SCAN
                         if isinstance(e, NotFoundError):
-                            log_fnc(f"{oper} KEY[{e.info['error']['index']}] - {e.status_code} - {e.info['error']['type']}")
-                        # special cases  - OP_DOC_SEARCH  'type': 'parsing_exception'
-                        # special cases  - OP_IND_CREATE  'type': 'invalid_index_name_exception',
-                        #                                 'reason': 'Invalid index name [first_IND1], must be lowercase'
+                            if oper in {WesDefs.OP_IND_DELETE,
+                                        WesDefs.OP_DOC_SCAN }:
+                                log_fnc(f"{oper} KEY[{e.info['error']['index']}] - {e.status_code} - {e.info['error']['type']}")
+                            else:
+                                log_fnc(f"{oper} KEY[{e.info['_index']} <-> {e.info['_type']} <-> {e.info['_id']}] {str(e)}")
                         elif isinstance(e, RequestError):
+                            #
+                            # OP_DOC_SEARCH  'type': 'parsing_exception'
+                            # OP_IND_CREATE  'type': 'invalid_index_name_exception',
+                            #                        'reason': 'Invalid index name [first_IND1], must be lowercase'
+
                             log_fnc(f"{oper} KEY[???] - {e.status_code} - {e.info['error']['type']} - {e.info['error']['reason']}")
                         # generic
                         else:
@@ -114,29 +122,29 @@ class WesDefs():
             Log.err(f"{oper} Unknow L1 exception ... {str(e)}")
             raise e
 
-    def _operation_result(self, oper, rc: tuple, fmt_fnc_ok=None, fmt_fnc_nok=None):
-        status, rc_data = rc
-        if status == Wes.RC_OK:
-            Log.ok(f"{oper} {fmt_fnc_ok(rc_data)}")
-        elif status == Wes.RC_NOK:
-            Log.err(f"{oper} {fmt_fnc_nok(rc_data)}")
-        elif status == Wes.RC_EXCE:
-            self._dump_exeption(oper, rc_data, False, Log.err)  # this is L2 - use error
+    def _operation_result(self, oper: str, rc: ExecCode, fmt_fnc_ok=None, fmt_fnc_nok=None) -> ExecCode:
+        if rc.status == Wes.RC_OK:
+            Log.ok(f"{oper} {fmt_fnc_ok(rc)}")
+        elif rc.status == Wes.RC_NOK:
+            Log.err(f"{oper} {fmt_fnc_nok(rc)}")
+        elif rc.status == Wes.RC_EXCE:
+            self._dump_exeption(oper, rc.data, False, Log.err)  # this is L2 - use error
         else:
-            raise ValueError(f"{oper} unknown status - {status}")
+            raise ValueError(f"{oper} unknown status - {rc.status}")
+        return rc
 
     class Decor:
         @staticmethod
         def operation_exec(oper):
             def wrapper_mk(fnc):
-                def wrapper(self, *args, **kwargs):
+                def wrapper(self, *args, **kwargs) -> ExecCode:
                     try:
                         rc = fnc(self, *args, **kwargs)
                         Log.log(f"{oper} {str(rc)}")                  # this is L1 - log as is
-                        return Wes.RC_OK, rc
+                        return ExecCode(status=WesDefs.RC_OK, data=rc, fnc_params=([*args], {**kwargs}))
                     except Exception as e:
                         self._dump_exeption(oper, e, True, Log.warn)  # this is L1 - only warn
-                        return Wes.RC_EXCE, e
+                        return ExecCode(status=WesDefs.RC_EXCE, data=e, fnc_params=([*args], {**kwargs}))
                 return wrapper
             return wrapper_mk
 
@@ -155,10 +163,10 @@ class Wes(WesDefs):
     def ind_create(self, index, body=None, params=None):
         return self.es.indices.create(index, body=body, params=params)
 
-    def ind_create_result(self, rc: tuple):
-        def fmt_fnc_ok(rc_data) -> str:
-            return f"KEY[{rc_data['index']}] ack[{rc_data['acknowledged']} - {rc_data['shards_acknowledged']}]"
-        self._operation_result(Wes.OP_IND_CREATE, rc, fmt_fnc_ok)
+    def ind_create_result(self, rc: ExecCode) -> ExecCode:
+        def fmt_fnc_ok(rcv: ExecCode) -> str:
+            return f"KEY[{rcv.data['index']}] ack[{rcv.data['acknowledged']} - {rcv.data['shards_acknowledged']}]"
+        return self._operation_result(Wes.OP_IND_CREATE, rc, fmt_fnc_ok)
 
     @query_params(
         "allow_no_indices",
@@ -171,10 +179,10 @@ class Wes(WesDefs):
     def ind_exist(self, index, params=None):
         return self.es.indices.exists(index, params=params)
 
-    def ind_exist_result(self, index, rc: tuple):
-        def fmt_fnc_ok(rc_data) -> str:
-            return f"KEY[{index}] {rc_data}"
-        self._operation_result(Wes.OP_IND_EXIST, rc, fmt_fnc_ok)
+    def ind_exist_result(self, rc: ExecCode) -> ExecCode:
+        def fmt_fnc_ok(rcv: ExecCode) -> str:
+            return f"KEY{rcv.fnc_params[0]} {rcv.data}"
+        return self._operation_result(Wes.OP_IND_EXIST, rc, fmt_fnc_ok)
 
     @query_params(
         "allow_no_indices",
@@ -187,10 +195,10 @@ class Wes(WesDefs):
     def ind_delete(self, index, params=None):
         return self.es.indices.delete(index, params=params)
 
-    def ind_delete_result(self, index, rc: tuple):
-        def fmt_fnc_ok(rc_data) -> str:
-            return f"KEY[{index}] {rc_data['acknowledged']}"
-        self._operation_result(Wes.OP_IND_DELETE, rc, fmt_fnc_ok)
+    def ind_delete_result(self, rc: ExecCode) -> ExecCode:
+        def fmt_fnc_ok(rcv: ExecCode) -> str:
+            return f"KEY{rcv.fnc_params[0]} {rcv.data['acknowledged']}"
+        return self._operation_result(Wes.OP_IND_DELETE, rc, fmt_fnc_ok)
 
     @query_params(
         "allow_no_indices",
@@ -202,10 +210,10 @@ class Wes(WesDefs):
     def ind_flush(self, index=None, params=None):
         return self.es.indices.flush(index=index, params=params)
 
-    def ind_flush_result(self, index, rc: tuple):
-        def fmt_fnc_ok(rc_data) -> str:
-            return f"KEY[{index}] {str(rc_data)}"
-        self._operation_result(Wes.OP_IND_FLUSH, rc, fmt_fnc_ok)
+    def ind_flush_result(self, index, rc: ExecCode) -> ExecCode:
+        def fmt_fnc_ok(rcv: ExecCode) -> str:
+            return f"KEY[{index}] {str(rcv.data)}"
+        return self._operation_result(Wes.OP_IND_FLUSH, rc, fmt_fnc_ok)
 
     @query_params("allow_no_indices",
                   "expand_wildcards",
@@ -214,10 +222,10 @@ class Wes(WesDefs):
     def ind_refresh(self, index=None, params=None):
         return self.es.indices.refresh(index=index, params=params)
 
-    def ind_refresh_result(self, index, rc: tuple):
-        def fmt_fnc_ok(rc_data) -> str:
-            return f"KEY[{index}] {str(rc_data)}"
-        self._operation_result(Wes.OP_IND_REFRESH, rc, fmt_fnc_ok)
+    def ind_refresh_result(self, index, rc: ExecCode) -> ExecCode:
+        def fmt_fnc_ok(rcv: ExecCode) -> str:
+            return f"KEY[{index}] {str(rcv.data)}"
+        return self._operation_result(Wes.OP_IND_REFRESH, rc, fmt_fnc_ok)
 
     @query_params(
         "allow_no_indices",
@@ -230,9 +238,9 @@ class Wes(WesDefs):
     def ind_get_mapping(self, index=None, doc_type=None, params=None):
         return self.es.indices.get_mapping(index=index, doc_type=doc_type, params=params)
 
-    def ind_get_mapping_result(self, rc: tuple, is_per_line: bool = True):
-        def fmt_fnc_ok_inline(rc_data) -> str:
-            return  f"MAPPING: <-> {str(rc_data)}"
+    def ind_get_mapping_result(self, rc: ExecCode, is_per_line: bool = True) -> ExecCode:
+        def fmt_fnc_ok_inline(rcv: ExecCode) -> str:
+            return  f"MAPPING: <-> {str(rcv.data)}"
 
         def fmt_fnc_ok_per_line(rc_data) -> str:
             rec = ''
@@ -265,7 +273,7 @@ class Wes(WesDefs):
 
         fmt_fnc_ok = fmt_fnc_ok_per_line if is_per_line else fmt_fnc_ok_inline
 
-        self._operation_result(Wes.OP_IND_GET_MAP, rc, fmt_fnc_ok)
+        return self._operation_result(Wes.OP_IND_GET_MAP, rc, fmt_fnc_ok)
 
     @query_params(
         "allow_no_indices",
@@ -281,10 +289,10 @@ class Wes(WesDefs):
         # TODO petee 'doc_type' is important - shouldn't be mandatory???
         return self.es.indices.put_mapping(body, index=index, doc_type=doc_type, params=params)
 
-    def ind_put_mapping_result(self, rc: tuple, is_per_line: bool = True):
-        def fmt_fnc_ok(rc_data) -> str:
-            return f"MAPPING: <-> {str(rc_data)}"
-        self._operation_result(Wes.OP_IND_PUT_MAP, rc, fmt_fnc_ok)
+    def ind_put_mapping_result(self, rc: ExecCode, is_per_line: bool = True) -> ExecCode:
+        def fmt_fnc_ok(rcv: ExecCode) -> str:
+            return f"MAPPING: <-> {str(rcv.data)}"
+        return self._operation_result(Wes.OP_IND_PUT_MAP, rc, fmt_fnc_ok)
 
 
     @query_params(
@@ -307,10 +315,10 @@ class Wes(WesDefs):
         # TODO petee 'doc_type' is important for get - shouldn't be mandatory???
         return self.es.index(index, body, doc_type=doc_type, id=id, params=params)
 
-    def doc_addup_result(self, rc: tuple):
-        def fmt_fnc_ok(rc_data) -> str:
-            return f"KEY[{rc_data['_index']} <-> {rc_data['_type']} <-> {rc_data['_id']}] {rc_data['result']} {rc_data['_shards']}"
-        self._operation_result(Wes.OP_DOC_ADD_UP, rc, fmt_fnc_ok)
+    def doc_addup_result(self, rc: ExecCode) -> ExecCode:
+        def fmt_fnc_ok(rcv: ExecCode) -> str:
+            return f"KEY[{rcv.data['_index']} <-> {rcv.data['_type']} <-> {rcv.data['_id']}] {rc_data['result']} {rc_data['_shards']}"
+        return self._operation_result(Wes.OP_DOC_ADD_UP, rc, fmt_fnc_ok)
 
     @query_params(
         "_source",
@@ -330,10 +338,10 @@ class Wes(WesDefs):
     def doc_get(self, index, id, doc_type="_doc", params=None):
         return self.es.get(index, id, doc_type=doc_type, params=params)
 
-    def doc_get_result(self, rc: tuple):
-        def fmt_fnc_ok(rc_data) -> str:
-            return f"KEY[{rc_data['_index']} <-> {rc_data['_type']} <-> {rc_data['_id']}] {rc_data['_source']}"
-        self._operation_result(Wes.OP_DOC_GET, rc, fmt_fnc_ok)
+    def doc_get_result(self, rc: ExecCode) -> ExecCode:
+        def fmt_fnc_ok(rcv: ExecCode) -> str:
+            return f"KEY[{rcv.data['_index']} <-> {rcv.data['_type']} <-> {rcv.data['_id']}] {rcv.data['_source']}"
+        return self._operation_result(Wes.OP_DOC_GET, rc, fmt_fnc_ok)
 
     @query_params(
         "_source",
@@ -384,27 +392,27 @@ class Wes(WesDefs):
     def doc_search(self, index=None, body=None, params=None):
         return self.es.search(index=index, body=body, params=params)
 
-    def doc_search_result(self, rc: tuple, is_per_line: bool = True):
-        def fmt_fnc_ok_inline(rc_data) -> str:
-            return f"NB REC[{rc_data['hits']['total']['value']}] <-> HITS[{rc_data['hits'].get('hits', 'hits empty')}] <-> AGGS[{rc_data.get('aggregations', 'aggs empty')}]"
+    def doc_search_result(self, rc: ExecCode, is_per_line: bool = True) -> ExecCode:
+        def fmt_fnc_ok_inline(rcv: ExecCode) -> str:
+            return f"NB REC[{rcv.data['hits']['total']['value']}] <-> HITS[{rcv.data['hits'].get('hits', 'hits empty')}] <-> AGGS[{rcv.data.get('aggregations', 'aggs empty')}]"
 
-        def fmt_fnc_ok_per_line(rc_data) -> str:
-            rec_list = rc_data['hits']['hits']
+        def fmt_fnc_ok_per_line(rcv: ExecCode) -> str:
+            rec_list = rcv.data['hits']['hits']
             rec = ''
             rec = rec + '\nHITS:\n' + '\n'.join([str(item) for item in rec_list])
             rec = rec + '\nAGGS:\n'
-            aggs = rc_data.get('aggregations', None)
+            aggs = rcv.data.get('aggregations', None)
             if aggs:
                 for a in aggs.keys():
                     rec = rec + a + '\n'
                     for a_items in aggs[a]['buckets']:
                         rec = rec + str(a_items) + '\n'
 
-            return f"NB REC[{rc_data['hits']['total']['value']}] : {rec}"
+            return f"NB REC[{rcv.data['hits']['total']['value']}] : {rec}"
 
         fmt_fnc_ok = fmt_fnc_ok_per_line if is_per_line else fmt_fnc_ok_inline
 
-        self._operation_result(Wes.OP_DOC_SEARCH, rc, fmt_fnc_ok)
+        return self._operation_result(Wes.OP_DOC_SEARCH, rc, fmt_fnc_ok)
 
 
     @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_BULK)
@@ -427,7 +435,7 @@ class Wes(WesDefs):
         #  options like ``stats_only`` only apply when ``raise_on_error`` is set to ``False``.
         return helpers.bulk(self.es, actions, raise_on_error=False, stats_only=stats_only, *args, **kwargs)
 
-    def doc_bulk_result(self, rc: tuple):
+    def doc_bulk_result(self, rc: ExecCode) -> ExecCode:
         status, rc_data = rc
         fmt_fnc_ok = None
         fmt_fnc_nok = None
@@ -439,15 +447,15 @@ class Wes(WesDefs):
             nb_total = nb_ok + nb_err
             ret_str = f"TOTAL[{nb_total}] <-> SUCCESS[{nb_ok}] <-> FAILED[{nb_err}]"
 
-            def fmt_fnc_ok(rc_data) -> str:
+            def fmt_fnc_ok(rcv: ExecCode) -> str:
                 return ret_str + " ok ..."
-            def fmt_fnc_nok(rc_data) -> str:
+            def fmt_fnc_nok(rcv: ExecCode) -> str:
                 return ret_str + " err ..."
 
-            status = Wes.RC_OK if len(rc_data[1]) == 0 else Wes.RC_NOK
+            status = Wes.RC_OK if len(rc.data[1]) == 0 else Wes.RC_NOK
 
-        rc = status, rc_data
-        self._operation_result(Wes.OP_DOC_BULK, rc, fmt_fnc_ok, fmt_fnc_nok)
+        rc = status, rc.data
+        return self._operation_result(Wes.OP_DOC_BULK, rc, fmt_fnc_ok, fmt_fnc_nok)
 
     @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_SCAN)
     def doc_scan(self,
@@ -477,7 +485,7 @@ class Wes(WesDefs):
                             scroll_kwargs=scroll_kwargs,
                             ** kwargs)
 
-    def doc_scan_result(self, rc: tuple):
+    def doc_scan_result(self, rc: ExecCode) -> ExecCode:
         # MSE_NOTE it doesn't fire exception
         # in case NotFoundError(404) index
         satus, rc_data = rc
@@ -487,11 +495,11 @@ class Wes(WesDefs):
         except Exception as e:
             rc = Wes.RC_EXCE, e
 
-        def fmt_fnc_ok(rc_data) -> str:
+        def fmt_fnc_ok(rcv: ExecCode) -> str:
             pass
             rec = 'SCAN NB :\n'
-            for a in rc_data:
+            for a in rcv.data:
                 rec = rec + str(a) + '\n'
             return f"{rec}"
 
-        self._operation_result(Wes.OP_DOC_SCAN, rc, fmt_fnc_ok)
+        return self._operation_result(Wes.OP_DOC_SCAN, rc, fmt_fnc_ok)

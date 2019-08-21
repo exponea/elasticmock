@@ -1,20 +1,33 @@
-from wes import Wes
+from wes import Wes, ExecCode
 from log import Log
-
 import unittest
 from datetime import datetime
 
+from elasticsearch.exceptions import ImproperlyConfigured
+from elasticsearch.exceptions import ElasticsearchException
+from elasticsearch.exceptions import SerializationError
+from elasticsearch.exceptions import TransportError
+from elasticsearch.exceptions import NotFoundError
+from elasticsearch.exceptions import ConflictError
+from elasticsearch.exceptions import RequestError
+from elasticsearch.exceptions import ConnectionError
+from elasticsearch.exceptions import SSLError
+from elasticsearch.exceptions import ConnectionTimeout
+from elasticsearch.exceptions import AuthenticationException
+from elasticsearch.exceptions import AuthorizationException
+
 class TestWes(unittest.TestCase):
-    def basic_ind(self):
+    def test_basic_ind(self):
         wes = Wes()
         ind_str = "first_pooooooooooooooo"
-        wes.ind_delete(ind_str)
-        wes.ind_create(ind_str)
-        wes.ind_create(ind_str)
-        wes.ind_exist(ind_str)
-        wes.ind_delete(ind_str)
-        wes.ind_exist(ind_str)
-        wes.ind_delete(ind_str)
+        wes.ind_delete_result(wes.ind_delete(ind_str))
+        self.assertEqual(Wes.RC_OK, wes.ind_create_result(wes.ind_create(ind_str)).status)
+        self.assertTrue(isinstance(wes.ind_create_result(wes.ind_create(ind_str)).data, RequestError))
+        self.assertEqual(True, wes.ind_exist_result(wes.ind_exist(ind_str)).data)
+        self.assertEqual(False, wes.ind_exist_result(wes.ind_exist("unknown ind_str")).data)
+        self.assertEqual(True, wes.ind_delete_result(wes.ind_delete(ind_str)).data.get('acknowledged', False))
+        self.assertEqual(False, wes.ind_exist_result(wes.ind_exist(ind_str)).data)
+        self.assertTrue(isinstance(wes.ind_delete_result(wes.ind_delete(ind_str)).data, NotFoundError))
 
     def test_basic_doc_and_query(self):
         wes = Wes()
@@ -99,7 +112,7 @@ class TestWes(unittest.TestCase):
         wes.doc_search_result(wes.doc_search(index=ind_str, body=body))                                     #   -     == ORRESULTS: 2
 
 
-    def complex_queries(self):
+    def test_complex_queries(self):
         wes = Wes()
         ind_str = "first_pooooooooooooooo"
 
@@ -137,7 +150,7 @@ class TestWes(unittest.TestCase):
                                                                                                 #   - must, must_not, should(improving relevance score, if none 'must' presents at least 1 'should' be present)
         wes.doc_search_result(wes.doc_search(index=ind_str, body={"query": q3}))                # RESULTS: 5
 
-    def mappings_get(self):
+    def test_mappings_get(self):
         # MSE_NOTES: mapping is process of defining how documents looks like (which fields contains, field types, how is filed indexed)
         # types of mapping fileds:
         # - keyword
@@ -179,7 +192,7 @@ class TestWes(unittest.TestCase):
         Log.notice2("--------------------------------------------------------------------------------------")
         wes.ind_get_mapping_result(wes.ind_get_mapping(ind_str, doc_type="any", include_type_name=True))
 
-    def mappings_get_put(self):
+    def test_mappings_get_put(self):
         # MSE_NOTES: mapping is process of defining how documents looks like (which fields contains, field types, how is filed indexed)
         # It enables in faster search retrieval and aggregations. Hence, your mapping defines how effectively you can handle your data.
         # A bad mapping can have severe consequences on the performance of your system."
@@ -244,7 +257,7 @@ class TestWes(unittest.TestCase):
         # IND[first_ind2]: Missing
         # mappings
 
-    def aggregations(self):
+    def test_aggregations(self):
         # MSE_NOTES: Date Histogram Aggregations,
         #     Aggregations are one of the most important application of Elasticsearch.
         #     It provides you with quick powerful analysis of your data! Below we have discussed aggregations over date values.,
@@ -335,7 +348,7 @@ class TestWes(unittest.TestCase):
         # {'key_as_string': '2018,01,01,12,00,00', 'key': 1514764800000, 'doc_count': 3}
         # {'key_as_string': '2019,01,01,12,00,00', 'key': 1546300800000, 'doc_count': 1}
 
-    def bulk(self):
+    def test_bulk(self):
         # MSE_NOTES: for 'bulk' and 'scan' API IMPORT 'from elasticsearch import helpers'
 
         wes = Wes()
@@ -427,7 +440,7 @@ class TestWes(unittest.TestCase):
         body = {"query": {"match_all": {}}}
         wes.doc_search_result(wes.doc_search(index=ind_str, body=body))
 
-    def scan(self):
+    def test_scan(self):
         # MSE_NOTES: for 'bulk' and 'scan' API IMPORT 'from elasticsearch import helpers'
 
         wes = Wes()
@@ -465,5 +478,8 @@ class TestWes(unittest.TestCase):
         wes.doc_scan_result(wes.doc_scan(index='pako', query=body))
 
 if __name__ == '__main__':
-    # unittest.main() run all test (imported too) :(
-    unittest.main(TestWes())
+    # unittest.main()
+    suite = unittest.TestSuite()
+    suite.addTest(TestWes("test_basic_ind"))
+    runner = unittest.TextTestRunner()
+    runner.run(suite)
