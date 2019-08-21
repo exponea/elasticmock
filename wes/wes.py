@@ -50,7 +50,7 @@ class WesDefs():
     RC_NOK     = "RC_NOK"
     RC_OK      = "RC_OK"
 
-    def _dump_exeption(self, oper, e, is_l1, log_fnc):
+    def _dump_exeption(self, oper, rc: ExecCode, is_l1, log_fnc, key_str='???'):
         # ImproperlyConfigured(Exception)
         # ElasticsearchException(Exception)
         # 	- SerializationError(ElasticsearchException)
@@ -65,6 +65,7 @@ class WesDefs():
         # 		= RequestError(TransportError)           400  status code
         # 		= AuthenticationException(TransportError)401  status code
         # 		= AuthorizationException(TransportError) 403  status code
+        e = rc.data
         if isinstance(e, ImproperlyConfigured):
             log_fnc(f"{oper} {str(e)}")
         elif isinstance(e, ElasticsearchException):
@@ -108,11 +109,11 @@ class WesDefs():
                             # OP_IND_CREATE  'type': 'invalid_index_name_exception',
                             #                        'reason': 'Invalid index name [first_IND1], must be lowercase'
 
-                            log_fnc(f"{oper} KEY[???] - {e.status_code} - {e.info['error']['type']} - {e.info['error']['reason']}")
+                            log_fnc(f"{oper} {key_str} - {e.status_code} - {e.info['error']['type']} - {e.info['error']['reason']}")
                         # generic
                         else:
                             if e.status_code == 405:
-                                log_fnc(f"{oper} KEY[???] - {e.status_code} - {e.info['error']}")
+                                log_fnc(f"{oper} {key_str} - {e.status_code} - {e.info['error']}")
                             else:
                                 log_fnc(f"{oper} KEY[{e.info['_index']} <-> {e.info['_type']} <-> {e.info['_id']}] {str(e)}")
             else:
@@ -122,13 +123,13 @@ class WesDefs():
             Log.err(f"{oper} Unknow L1 exception ... {str(e)}")
             raise e
 
-    def _operation_result(self, oper: str, rc: ExecCode, fmt_fnc_ok=None, fmt_fnc_nok=None) -> ExecCode:
+    def _operation_result(self, oper: str, key_str: str, rc: ExecCode, fmt_fnc_ok=None, fmt_fnc_nok=None) -> ExecCode:
         if rc.status == Wes.RC_OK:
             Log.ok(f"{oper} {fmt_fnc_ok(rc)}")
         elif rc.status == Wes.RC_NOK:
             Log.err(f"{oper} {fmt_fnc_nok(rc)}")
         elif rc.status == Wes.RC_EXCE:
-            self._dump_exeption(oper, rc.data, False, Log.err)  # this is L2 - use error
+            self._dump_exeption(oper, rc, False, Log.err, key_str)  # this is L2 - use error
         else:
             raise ValueError(f"{oper} unknown status - {rc.status}")
         return rc
@@ -143,8 +144,9 @@ class WesDefs():
                         Log.log(f"{oper} {str(rc)}")                  # this is L1 - log as is
                         return ExecCode(status=WesDefs.RC_OK, data=rc, fnc_params=([*args], {**kwargs}))
                     except Exception as e:
-                        self._dump_exeption(oper, e, True, Log.warn)  # this is L1 - only warn
-                        return ExecCode(status=WesDefs.RC_EXCE, data=e, fnc_params=([*args], {**kwargs}))
+                        rc = ExecCode(status=WesDefs.RC_EXCE, data=e, fnc_params=([*args], {**kwargs}))
+                        self._dump_exeption(oper, rc, True, Log.warn)  # this is L1 - only warn
+                        return rc
                 return wrapper
             return wrapper_mk
 
@@ -164,9 +166,10 @@ class Wes(WesDefs):
         return self.es.indices.create(index, body=body, params=params)
 
     def ind_create_result(self, rc: ExecCode) -> ExecCode:
+        key_str = f"KEY{rc.fnc_params[0]}"
         def fmt_fnc_ok(rcv: ExecCode) -> str:
-            return f"KEY[{rcv.data['index']}] ack[{rcv.data['acknowledged']} - {rcv.data['shards_acknowledged']}]"
-        return self._operation_result(Wes.OP_IND_CREATE, rc, fmt_fnc_ok)
+            return f"{key_str} ack[{rcv.data['acknowledged']} - {rcv.data['shards_acknowledged']}]"
+        return self._operation_result(Wes.OP_IND_CREATE, key_str, rc, fmt_fnc_ok)
 
     @query_params(
         "allow_no_indices",
@@ -180,9 +183,10 @@ class Wes(WesDefs):
         return self.es.indices.exists(index, params=params)
 
     def ind_exist_result(self, rc: ExecCode) -> ExecCode:
+        key_str = f"KEY{rc.fnc_params[0]}"
         def fmt_fnc_ok(rcv: ExecCode) -> str:
-            return f"KEY{rcv.fnc_params[0]} {rcv.data}"
-        return self._operation_result(Wes.OP_IND_EXIST, rc, fmt_fnc_ok)
+            return f"{key_str} {rcv.data}"
+        return self._operation_result(Wes.OP_IND_EXIST, key_str, rc, fmt_fnc_ok)
 
     @query_params(
         "allow_no_indices",
@@ -196,9 +200,10 @@ class Wes(WesDefs):
         return self.es.indices.delete(index, params=params)
 
     def ind_delete_result(self, rc: ExecCode) -> ExecCode:
+        key_str = f"KEY{rc.fnc_params[0]}"
         def fmt_fnc_ok(rcv: ExecCode) -> str:
-            return f"KEY{rcv.fnc_params[0]} {rcv.data['acknowledged']}"
-        return self._operation_result(Wes.OP_IND_DELETE, rc, fmt_fnc_ok)
+            return f"{key_str} {rcv.data['acknowledged']}"
+        return self._operation_result(Wes.OP_IND_DELETE, key_str, rc, fmt_fnc_ok)
 
     @query_params(
         "allow_no_indices",
@@ -210,10 +215,11 @@ class Wes(WesDefs):
     def ind_flush(self, index=None, params=None):
         return self.es.indices.flush(index=index, params=params)
 
-    def ind_flush_result(self, index, rc: ExecCode) -> ExecCode:
+    def ind_flush_result(self, rc: ExecCode) -> ExecCode:
+        key_str = f"KEY{rc.fnc_params[0]}"
         def fmt_fnc_ok(rcv: ExecCode) -> str:
-            return f"KEY[{index}] {str(rcv.data)}"
-        return self._operation_result(Wes.OP_IND_FLUSH, rc, fmt_fnc_ok)
+            return f"{key_str} {str(rcv.data)}"
+        return self._operation_result(Wes.OP_IND_FLUSH, key_str, rc, fmt_fnc_ok)
 
     @query_params("allow_no_indices",
                   "expand_wildcards",
@@ -222,10 +228,11 @@ class Wes(WesDefs):
     def ind_refresh(self, index=None, params=None):
         return self.es.indices.refresh(index=index, params=params)
 
-    def ind_refresh_result(self, index, rc: ExecCode) -> ExecCode:
+    def ind_refresh_result(self, rc: ExecCode) -> ExecCode:
+        key_str = f"KEY{rc.fnc_params[0]}"
         def fmt_fnc_ok(rcv: ExecCode) -> str:
-            return f"KEY[{index}] {str(rcv.data)}"
-        return self._operation_result(Wes.OP_IND_REFRESH, rc, fmt_fnc_ok)
+            return f"{key_str} {str(rcv.data)}"
+        return self._operation_result(Wes.OP_IND_REFRESH, key_str, rc, fmt_fnc_ok)
 
     @query_params(
         "allow_no_indices",
@@ -239,6 +246,8 @@ class Wes(WesDefs):
         return self.es.indices.get_mapping(index=index, doc_type=doc_type, params=params)
 
     def ind_get_mapping_result(self, rc: ExecCode, is_per_line: bool = True) -> ExecCode:
+        key_str = f"KEY{rc.fnc_params[0]}"
+
         def fmt_fnc_ok_inline(rcv: ExecCode) -> str:
             return  f"MAPPING: <-> {str(rcv.data)}"
 
@@ -273,7 +282,7 @@ class Wes(WesDefs):
 
         fmt_fnc_ok = fmt_fnc_ok_per_line if is_per_line else fmt_fnc_ok_inline
 
-        return self._operation_result(Wes.OP_IND_GET_MAP, rc, fmt_fnc_ok)
+        return self._operation_result(Wes.OP_IND_GET_MAP, key_str, rc, fmt_fnc_ok)
 
     @query_params(
         "allow_no_indices",
@@ -290,9 +299,11 @@ class Wes(WesDefs):
         return self.es.indices.put_mapping(body, index=index, doc_type=doc_type, params=params)
 
     def ind_put_mapping_result(self, rc: ExecCode, is_per_line: bool = True) -> ExecCode:
+        key_str = f"KEY{rc.fnc_params[0]}"
+
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"MAPPING: <-> {str(rcv.data)}"
-        return self._operation_result(Wes.OP_IND_PUT_MAP, rc, fmt_fnc_ok)
+        return self._operation_result(Wes.OP_IND_PUT_MAP, key_str, rc, fmt_fnc_ok)
 
 
     @query_params(
@@ -316,9 +327,11 @@ class Wes(WesDefs):
         return self.es.index(index, body, doc_type=doc_type, id=id, params=params)
 
     def doc_addup_result(self, rc: ExecCode) -> ExecCode:
+        key_str = f"KEY{rc.fnc_params[0]}"
+
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"KEY[{rcv.data['_index']} <-> {rcv.data['_type']} <-> {rcv.data['_id']}] {rc_data['result']} {rc_data['_shards']}"
-        return self._operation_result(Wes.OP_DOC_ADD_UP, rc, fmt_fnc_ok)
+        return self._operation_result(Wes.OP_DOC_ADD_UP, key_str, rc, fmt_fnc_ok)
 
     @query_params(
         "_source",
@@ -339,9 +352,11 @@ class Wes(WesDefs):
         return self.es.get(index, id, doc_type=doc_type, params=params)
 
     def doc_get_result(self, rc: ExecCode) -> ExecCode:
+        key_str = f"KEY{rc.fnc_params[0]}"
+
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"KEY[{rcv.data['_index']} <-> {rcv.data['_type']} <-> {rcv.data['_id']}] {rcv.data['_source']}"
-        return self._operation_result(Wes.OP_DOC_GET, rc, fmt_fnc_ok)
+        return self._operation_result(Wes.OP_DOC_GET, key_str, rc, fmt_fnc_ok)
 
     @query_params(
         "_source",
@@ -393,6 +408,8 @@ class Wes(WesDefs):
         return self.es.search(index=index, body=body, params=params)
 
     def doc_search_result(self, rc: ExecCode, is_per_line: bool = True) -> ExecCode:
+        key_str = f"KEY{rc.fnc_params[0]}"
+
         def fmt_fnc_ok_inline(rcv: ExecCode) -> str:
             return f"NB REC[{rcv.data['hits']['total']['value']}] <-> HITS[{rcv.data['hits'].get('hits', 'hits empty')}] <-> AGGS[{rcv.data.get('aggregations', 'aggs empty')}]"
 
@@ -412,7 +429,7 @@ class Wes(WesDefs):
 
         fmt_fnc_ok = fmt_fnc_ok_per_line if is_per_line else fmt_fnc_ok_inline
 
-        return self._operation_result(Wes.OP_DOC_SEARCH, rc, fmt_fnc_ok)
+        return self._operation_result(Wes.OP_DOC_SEARCH, key_str, rc, fmt_fnc_ok)
 
 
     @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_BULK)
@@ -436,6 +453,8 @@ class Wes(WesDefs):
         return helpers.bulk(self.es, actions, raise_on_error=False, stats_only=stats_only, *args, **kwargs)
 
     def doc_bulk_result(self, rc: ExecCode) -> ExecCode:
+        key_str = f"KEY{rc.fnc_params[0]}"
+
         status, rc_data = rc
         fmt_fnc_ok = None
         fmt_fnc_nok = None
@@ -455,7 +474,7 @@ class Wes(WesDefs):
             status = Wes.RC_OK if len(rc.data[1]) == 0 else Wes.RC_NOK
 
         rc = status, rc.data
-        return self._operation_result(Wes.OP_DOC_BULK, rc, fmt_fnc_ok, fmt_fnc_nok)
+        return self._operation_result(Wes.OP_DOC_BULK, key_str, rc, fmt_fnc_ok, fmt_fnc_nok)
 
     @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_SCAN)
     def doc_scan(self,
@@ -486,6 +505,8 @@ class Wes(WesDefs):
                             ** kwargs)
 
     def doc_scan_result(self, rc: ExecCode) -> ExecCode:
+        key_str = f"KEY{rc.fnc_params[0]}"
+
         # MSE_NOTE it doesn't fire exception
         # in case NotFoundError(404) index
         satus, rc_data = rc
@@ -502,4 +523,4 @@ class Wes(WesDefs):
                 rec = rec + str(a) + '\n'
             return f"{rec}"
 
-        return self._operation_result(Wes.OP_DOC_SCAN, rc, fmt_fnc_ok)
+        return self._operation_result(Wes.OP_DOC_SCAN, key_str, rc, fmt_fnc_ok)
