@@ -16,6 +16,11 @@ from elasticsearch.exceptions import ConnectionTimeout
 from elasticsearch.exceptions import AuthenticationException
 from elasticsearch.exceptions import AuthorizationException
 
+ind_str = "first_ind1"
+ind_str2 = "first_ind2"
+ind_str_doc_type = "first_ind1_docT"
+ind_str_doc_type = "first_ind2_docT"
+
 class TestWes(unittest.TestCase):
 
     def indice_create_exists(self, wes, ind_str):
@@ -27,7 +32,7 @@ class TestWes(unittest.TestCase):
 
     def test_indice_basic(self):
         wes = Wes()
-        ind_str = "first_pooooooooooooooo"
+        global ind_str
 
         #
         self.indice_create_exists(wes, ind_str)
@@ -67,16 +72,16 @@ class TestWes(unittest.TestCase):
 
     def test_documents_basic(self):
         wes = Wes()
-        ind_str = "first_pooooooooooooooo"
-        doc_type = "any"
+        global ind_str
+        global ind_str_doc_type
 
         self.indice_create_exists(wes, ind_str)
-        self.documents_create(wes, ind_str, doc_type)
+        self.documents_create(wes, ind_str, ind_str_doc_type)
         #                                                                                                  MSE_NOTES:  IMPO_GET_1 ok/exc                                    IMPO_GET_2
-        self.assertEqual(Wes.RC_OK, wes.doc_get_result(wes.doc_get(ind_str, 1, doc_type="any")).status)  # MSE_NOTES: 'found': True,                 '_seq_no': 0,  '_source': {'city': 'Bratislava1', 'coutry': 'slovakia1'}
-        self.assertEqual(Wes.RC_OK, wes.doc_get_result(wes.doc_get(ind_str, 2, doc_type="any")).status)  # MSE_NOTES: 'found': True,                 '_seq_no': 1,  '_source': {'city': 'Bratislava1', 'coutry': 'slovakia2'}
-        self.assertEqual(Wes.RC_OK, wes.doc_get_result(wes.doc_get(ind_str, 3, doc_type="any")).status)  # MSE_NOTES: 'found': True,                 '_seq_no': 2,  '_source': {'city': 'Bratislava1', 'coutry': 'slovakia2'}
-        self.assertTrue(isinstance(wes.doc_get_result(wes.doc_get(ind_str, 9, doc_type="any")).data, NotFoundError))  # MSE_NOTES:  WesNotFoundError !!!
+        self.assertEqual(Wes.RC_OK, wes.doc_get_result(wes.doc_get(ind_str, 1, doc_type=ind_str_doc_type)).status)  # MSE_NOTES: 'found': True,                 '_seq_no': 0,  '_source': {'city': 'Bratislava1', 'coutry': 'slovakia1'}
+        self.assertEqual(Wes.RC_OK, wes.doc_get_result(wes.doc_get(ind_str, 2, doc_type=ind_str_doc_type)).status)  # MSE_NOTES: 'found': True,                 '_seq_no': 1,  '_source': {'city': 'Bratislava1', 'coutry': 'slovakia2'}
+        self.assertEqual(Wes.RC_OK, wes.doc_get_result(wes.doc_get(ind_str, 3, doc_type=ind_str_doc_type)).status)  # MSE_NOTES: 'found': True,                 '_seq_no': 2,  '_source': {'city': 'Bratislava1', 'coutry': 'slovakia2'}
+        self.assertTrue(isinstance(wes.doc_get_result(wes.doc_get(ind_str, 9, doc_type=ind_str_doc_type)).data, NotFoundError))  # MSE_NOTES:  WesNotFoundError !!!
 
         #MSE_NOTES: #1 400 - illegal_argument_exception - Rejecting mapping update to [first_ind1] as the final mapping would have more than 1 type: [any, any2]
         doc6 = {"city": "Bratislava4", "country": "SLOVAKIA5", "sentence": "The small COUNTRy is slovakia"}
@@ -85,11 +90,11 @@ class TestWes(unittest.TestCase):
 
     def test_query_basic(self):
         wes = Wes()
-        ind_str = "first_pooooooooooooooo"
-        doc_type = "any"
+        global ind_str
+        global ind_str_doc_type
 
         self.indice_create_exists(wes, ind_str)
-        self.documents_create(wes, ind_str, doc_type)
+        self.documents_create(wes, ind_str, ind_str_doc_type)
 
         ###########################################################
         # QUERY(all)
@@ -152,11 +157,11 @@ class TestWes(unittest.TestCase):
 
     def test_complex_queries(self):
         wes = Wes()
-        ind_str = "first_pooooooooooooooo"
-        doc_type = "any"
+        global ind_str
+        global ind_str_doc_type
 
         self.indice_create_exists(wes, ind_str)
-        self.documents_create(wes, ind_str, doc_type)
+        self.documents_create(wes, ind_str, ind_str_doc_type)
 
         # 1 QUERY(match) MATCH(subSentence+wholeWord) CASE(in-sensitive)
         q1 = {"match": {"sentence": "slovakia"}}
@@ -188,11 +193,11 @@ class TestWes(unittest.TestCase):
         #  = setting correct times help aggregations
         #  = u can't change mapping if docs present in IND
         wes = Wes()
-        ind_str = "first_pooooooooooooooo"
-        doc_type = "any"
+        global ind_str
+        global ind_str_doc_type
 
         self.indice_create_exists(wes, ind_str)
-        self.documents_create(wes, ind_str, doc_type)
+        self.documents_create(wes, ind_str, ind_str_doc_type)
 
         ind_str2 = "first_ind2"
         self.indice_create_exists(wes, ind_str2)
@@ -203,8 +208,8 @@ class TestWes(unittest.TestCase):
         Log.notice2("--------------------------------------------------------------------------------------")
 
         # MSE_NOTES: #1 400 - illegal_argument_exception - Types cannot be provided in get mapping requests, unless include_type_name is set to true.
-        self.assertTrue(isinstance(wes.ind_get_mapping_result(wes.ind_get_mapping(ind_str, doc_type="any")).data, RequestError))
-        self.assertEqual(1, len(wes.ind_get_mapping_result(wes.ind_get_mapping(ind_str, doc_type="any", include_type_name=True)).data.keys()))
+        self.assertTrue(isinstance(wes.ind_get_mapping_result(wes.ind_get_mapping(ind_str, doc_type=ind_str_doc_type)).data, RequestError))
+        self.assertEqual(1, len(wes.ind_get_mapping_result(wes.ind_get_mapping(ind_str, doc_type=ind_str_doc_type, include_type_name=True)).data.keys()))
 
     def test_mappings_get_put(self):
         # MSE_NOTES: mapping is process of defining how documents looks like (which fields contains, field types, how is filed indexed)
@@ -217,19 +222,16 @@ class TestWes(unittest.TestCase):
         #  = setting correct times help aggregations
         #  = u CANT CHANGE MAPPING if docs present in IND (DELETE IND FIRTS)
         wes = Wes()
-        ind_str  = "first_ind1"
-        ind_str2 = "first_ind2"
+        global ind_str
+        global ind_str2
+        global ind_str_doc_type
+        global ind_str_doc_type2
 
-        wes.ind_delete_result(ind_str, wes.ind_delete(ind_str))
-        wes.ind_create_result(wes.ind_create(ind_str))
-        wes.ind_exist_result(ind_str, wes.ind_exist(ind_str))
-
-        wes.ind_delete_result(ind_str2, wes.ind_delete(ind_str2))
-        wes.ind_create_result(wes.ind_create(ind_str2))
-        wes.ind_exist_result(ind_str2, wes.ind_exist(ind_str2))
+        self.indice_create_exists(wes, ind_str)
+        self.indice_create_exists(wes, ind_str2)
 
         doc1 = {"city": "Bratislava1", "country": "slovakia ", "sentence": "The slovakia is a country", "datetime" : "2019,01,02,03,12,00"}
-        wes.doc_addup_result(wes.doc_addup(ind_str, doc1, doc_type="any", id=1))
+        wes.doc_addup_result(wes.doc_addup(ind_str, doc1, doc_type=ind_str_doc_type, id=1))
         wes.ind_get_mapping_result(wes.ind_get_mapping())
         Log.notice2("--------------------------------------------------------------------------------------")
         # {'first_ind1': {'mappings':
@@ -247,20 +249,18 @@ class TestWes(unittest.TestCase):
          # }, 'first_ind2': {'mappings': {}}}
 
         # OP_IND_PUT_MAP 405 - {'error': 'Incorrect HTTP method for uri [/_mapping] and method [PUT], allowed: [GET]', 'status': 405}
-        wes.ind_put_mapping_result(wes.ind_put_mapping(map_new))
+        self.assertEqual(405, wes.ind_put_mapping_result(wes.ind_put_mapping(map_new)).data.status_code)
         # OP_IND_PUT_MAP KEY[???] - 400 - illegal_argument_exception - Types cannot be provided in put mapping requests, unless the include_type_name parameter is set to true.
-        wes.ind_put_mapping_result(wes.ind_put_mapping(map_new, doc_type="any", index=ind_str))
+        self.assertEqual(400, wes.ind_put_mapping_result(wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str)).data.status_code)
         # OP_IND_PUT_MAP KEY[???] - 400 - illegal_argument_exception - mapper [datetime] of different type, current_type [text], merged_type [date]
-        wes.ind_put_mapping_result(wes.ind_put_mapping(map_new, doc_type="any", index=ind_str, include_type_name=True))
+        self.assertEqual(400, wes.ind_put_mapping_result(wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str, include_type_name=True)).data.status_code)
 
-        # MSE_NOTES: #2 u can't change mapping if docs present in IND
-        wes.ind_delete_result(ind_str, wes.ind_delete(ind_str))
-        wes.ind_create_result(wes.ind_create(ind_str))
+        # MSE_NOTES: #2 u can't change mapping if docs present in IND !!!
+        self.indice_create_exists(wes, ind_str)
         # MSE_NOTES: #3 u should specified IND + DOC_TYPE !!!
-        wes.ind_put_mapping_result(wes.ind_put_mapping(map_new, doc_type="any", index=ind_str, include_type_name=True))
+        self.assertEqual(Wes.RC_OK, wes.ind_put_mapping_result(wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str, include_type_name=True)).status)
 
         Log.notice2("--------------------------------------------------------------------------------------")
-        wes.ind_get_mapping_result(wes.ind_get_mapping())
         # MSE_NOTES: #4 type was changed :)
         # IND[first_ind1]
         # city: {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}}
@@ -268,8 +268,8 @@ class TestWes(unittest.TestCase):
         # datetime: {'type': 'date', 'format': 'yyyy,MM,dd,hh,mm,ss'}
         # sentence: {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}}
         #
-        # IND[first_ind2]: Missing
-        # mappings
+        # IND[first_ind2]: Missing mappings
+        self.assertEqual(2, len(wes.ind_get_mapping_result(wes.ind_get_mapping()).data.keys()))
 
     def test_aggregations(self):
         # MSE_NOTES: Date Histogram Aggregations,
@@ -494,6 +494,6 @@ class TestWes(unittest.TestCase):
 if __name__ == '__main__':
     # unittest.main()
     suite = unittest.TestSuite()
-    suite.addTest(TestWes("test_mappings_get"))
+    suite.addTest(TestWes("test_mappings_get_put"))
     runner = unittest.TextTestRunner()
     runner.run(suite)

@@ -301,7 +301,7 @@ class Wes(WesDefs):
         return self.es.indices.put_mapping(body, index=index, doc_type=doc_type, params=params)
 
     def ind_put_mapping_result(self, rc: ExecCode, is_per_line: bool = True) -> ExecCode:
-        key_str = f"KEY{rc.fnc_params[0]}"
+        key_str = f"KEY[{rc.fnc_params[1].get('index', '_all')} <-> {rc.fnc_params[1].get('doc_type', '_all')}]"
 
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"MAPPING: <-> {str(rcv.data)}"
