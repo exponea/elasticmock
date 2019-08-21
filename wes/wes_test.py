@@ -17,99 +17,129 @@ from elasticsearch.exceptions import AuthenticationException
 from elasticsearch.exceptions import AuthorizationException
 
 class TestWes(unittest.TestCase):
-    def test_basic_ind(self):
-        wes = Wes()
-        ind_str = "first_pooooooooooooooo"
+
+    def indice_create_exists(self, wes, ind_str):
         wes.ind_delete_result(wes.ind_delete(ind_str))
         self.assertEqual(Wes.RC_OK, wes.ind_create_result(wes.ind_create(ind_str)).status)
-        self.assertTrue(isinstance(wes.ind_create_result(wes.ind_create(ind_str)).data, RequestError))
         self.assertEqual(True, wes.ind_exist_result(wes.ind_exist(ind_str)).data)
+
+    def test_indice_basic(self):
+        wes = Wes()
+        ind_str = "first_pooooooooooooooo"
+
+        #
+        self.indice_create_exists(wes, ind_str)
+
+        # re-create
+        self.assertTrue(isinstance(wes.ind_create_result(wes.ind_create(ind_str)).data, RequestError))
+        # unknown
         self.assertEqual(False, wes.ind_exist_result(wes.ind_exist("unknown ind_str")).data)
+
         self.assertEqual(True, wes.ind_delete_result(wes.ind_delete(ind_str)).data.get('acknowledged', False))
         self.assertEqual(False, wes.ind_exist_result(wes.ind_exist(ind_str)).data)
         self.assertTrue(isinstance(wes.ind_delete_result(wes.ind_delete(ind_str)).data, NotFoundError))
 
-    def test_basic_doc_and_query(self):
-        wes = Wes()
-        ind_str = "first_pooooooooooooooo"
 
-        wes.ind_delete_result(ind_str, wes.ind_delete(ind_str))
-        wes.ind_create_result(wes.ind_create(ind_str))
-        wes.ind_exist_result(ind_str, wes.ind_exist(ind_str))
-
-
+    def documents_create(self, wes, ind_str, doc_type):
         doc1 = {"city": "Bratislava1", "country": "slovakia ", "sentence": "The slovakia is a country"}
         doc2 = {"city": "Bratislava2", "country": "SLOVAKIA2", "sentence": "The SLOVAKA is a country"}
         doc3 = {"city": "Bratislava3", "country": "SLOVAKIA",  "sentence": "The slovakia is a country"}
         doc4 = {"city": "Bratislava4", "country": "SLOVAKIA4", "sentence": "The small country is slovakia"}
         doc5 = {"city": "Bratislava4", "country": "SLOVAKIA5", "sentence": "The small COUNTRy is slovakia"}
 
-        # TODO petee explain success priority???
+        #  TODO priority???
         # 1. exception
         # 2. IMPO_AU_1 vs. IMPO_AU_2 consider 'RC - 3 codes'
-        #                                                                           MSE_NOTES:      IMPO_AU_1          IntperOper    IntChangedByUpd                            IMPO_AU_2
-        wes.doc_addup_result(wes.doc_addup(ind_str, doc1, doc_type="any", id=1))  # MSE_NOTES: 'result': 'created' '_seq_no': 0  '_version': 1,    '_shards': {'total': 2, 'successful': 1, 'failed': 0},
-        wes.doc_addup_result(wes.doc_addup(ind_str, doc2, doc_type="any", id=2))  # MSE_NOTES: 'result': 'created' '_seq_no': 1  '_version': 1,    '_shards': {'total': 2, 'successful': 1, 'failed': 0},
-        wes.doc_addup_result(wes.doc_addup(ind_str, doc3, doc_type="any", id=3))  # MSE_NOTES: 'result': 'created' '_seq_no': 2  '_version': 1,    '_shards': {'total': 2, 'successful': 1, 'failed': 0},
-        wes.doc_addup_result(wes.doc_addup(ind_str, doc3, doc_type="any", id=3))  # MSE_NOTES: 'result': 'updated' '_seq_no': 3  '_version': 2,    '_shards': {'total': 2, 'successful': 1, 'failed': 0},
+        # add docs                                                                                                               MSE_NOTES:      IMPO_AU_1          IntperOper    IntChangedByUpd                            IMPO_AU_2
+        self.assertEqual("created", wes.doc_addup_result(wes.doc_addup(ind_str, doc1, doc_type=doc_type, id=1)).data['result'])  # MSE_NOTES: 'result': 'created' '_seq_no': 0  '_version': 1,    '_shards': {'total': 2, 'successful': 1, 'failed': 0},
+        self.assertEqual("created", wes.doc_addup_result(wes.doc_addup(ind_str, doc2, doc_type=doc_type, id=2)).data['result'])  # MSE_NOTES: 'result': 'created' '_seq_no': 1  '_version': 1,    '_shards': {'total': 2, 'successful': 1, 'failed': 0},
+        self.assertEqual("created", wes.doc_addup_result(wes.doc_addup(ind_str, doc3, doc_type=doc_type, id=3)).data['result'])  # MSE_NOTES: 'result': 'created' '_seq_no': 2  '_version': 1,    '_shards': {'total': 2, 'successful': 1, 'failed': 0},
+        self.assertEqual("updated", wes.doc_addup_result(wes.doc_addup(ind_str, doc3, doc_type=doc_type, id=3)).data['result'])  # MSE_NOTES: 'result': 'updated' '_seq_no': 3  '_version': 2,    '_shards': {'total': 2, 'successful': 1, 'failed': 0},
+        self.assertEqual("created", wes.doc_addup_result(wes.doc_addup(ind_str, doc4, doc_type=doc_type, id=4)).data['result'])
+        self.assertEqual("created", wes.doc_addup_result(wes.doc_addup(ind_str, doc5, doc_type=doc_type, id=5)).data['result'])
 
-        #                                                              MSE_NOTES:  IMPO_GET_1 ok/exc                                    IMPO_GET_2
-        wes.doc_get_result(wes.doc_get(ind_str, 1, doc_type="any"))  # MSE_NOTES: 'found': True,                 '_seq_no': 0,  '_source': {'city': 'Bratislava1', 'coutry': 'slovakia1'}
-        wes.doc_get_result(wes.doc_get(ind_str, 2, doc_type="any"))  # MSE_NOTES: 'found': True,                 '_seq_no': 1,  '_source': {'city': 'Bratislava1', 'coutry': 'slovakia2'}
-        wes.doc_get_result(wes.doc_get(ind_str, 3, doc_type="any"))  # MSE_NOTES: 'found': True,                 '_seq_no': 2,  '_source': {'city': 'Bratislava1', 'coutry': 'slovakia2'}
-        wes.doc_get_result(wes.doc_get(ind_str, 9, doc_type="any"))  # MSE_NOTES:  WesNotFoundError !!!
+        self.assertEqual(1, wes.ind_flush_result(wes.ind_flush(wait_if_ongoing=True)).data['_shards']['successful'])
+        self.assertEqual(1, wes.ind_refresh_result(wes.ind_refresh()).data['_shards']['successful'])
 
-        wes.doc_addup_result(wes.doc_addup(ind_str, doc3, doc_type="any", id=3))  # MSE_NOTES: 'result': 'updated' '_seq_no': 4
-        wes.doc_addup_result(wes.doc_addup(ind_str, doc4, doc_type="any", id=4))
-        wes.doc_addup_result(wes.doc_addup(ind_str, doc5, doc_type="any", id=5))
+    def test_documents_basic(self):
+        wes = Wes()
+        ind_str = "first_pooooooooooooooo"
+        doc_type = "any"
 
-        wes.ind_flush_result("_all", wes.ind_flush(index="_all", wait_if_ongoing=True))
-        wes.ind_refresh_result("_all", wes.ind_refresh(index="_all"))
-
-        wes.doc_search_result(wes.doc_search())                                                             # MSE_NOTES: #1 search ALL in DB
-        wes.doc_search_result(wes.doc_search(index=ind_str))                                                # MSE_NOTES: #2 search ALL in specific INDICE
-        wes.doc_search_result(wes.doc_search(index=ind_str, body={"query": {"match_all": {}}}))             # MSE_NOTES: #3 equivalent to #2
-        body = {"from": 0, "size": 10,                                                                      # MSE_NOTES: #4 hint list FILTER
-                 "query": {"match_all": {}}                                                                 #               - 'from' - specify START element in 'hintLIST' witch MATCH query
-               }                                                                                            #               - 'size' - specify RANGE/MAXIMUM from 'hintLIST' <'from', 'from'+'size')
-        wes.doc_search_result(wes.doc_search(index=ind_str, body=body))                                     #               E.G. "size": 0 == returns just COUNT
+        self.indice_create_exists(wes, ind_str)
+        self.documents_create(wes, ind_str, doc_type)
+        #                                                                                                  MSE_NOTES:  IMPO_GET_1 ok/exc                                    IMPO_GET_2
+        self.assertEqual(Wes.RC_OK, wes.doc_get_result(wes.doc_get(ind_str, 1, doc_type="any")).status)  # MSE_NOTES: 'found': True,                 '_seq_no': 0,  '_source': {'city': 'Bratislava1', 'coutry': 'slovakia1'}
+        self.assertEqual(Wes.RC_OK, wes.doc_get_result(wes.doc_get(ind_str, 2, doc_type="any")).status)  # MSE_NOTES: 'found': True,                 '_seq_no': 1,  '_source': {'city': 'Bratislava1', 'coutry': 'slovakia2'}
+        self.assertEqual(Wes.RC_OK, wes.doc_get_result(wes.doc_get(ind_str, 3, doc_type="any")).status)  # MSE_NOTES: 'found': True,                 '_seq_no': 2,  '_source': {'city': 'Bratislava1', 'coutry': 'slovakia2'}
+        self.assertTrue(isinstance(wes.doc_get_result(wes.doc_get(ind_str, 9, doc_type="any")).data, NotFoundError))  # MSE_NOTES:  WesNotFoundError !!!
 
 
-        body = {"from": 0, "size": 10,                                                                      # MSE_NOTES: #5 QUERY(match) MATCH(subSentence+wholeWord) CASE(inSensitive)
-                #"query": {"match": {}}                                                                     #               - EXCEPTION:  400 - parsing_exception - No text specified for text query
-                "query": {"match": {"country": "slovakia"}}                                                 #
-               }                                                                                            #
-        wes.doc_search_result(wes.doc_search(index=ind_str, body=body))                                     # RESULTS: 2
-        body = {"from": 0, "size": 10,                                                                      # MSE_NOTES: #5 QUERY(match) MATCH(subSentence+wholeWord) CASE(in-sensitive)
-                "query": {"match": {"sentence": "slovakia"}}                                                #
-               }                                                                                            #
-        wes.doc_search_result(wes.doc_search(index=ind_str, body=body))                                     # RESULTS: 4
+    def test_query_basic(self):
+        wes = Wes()
+        ind_str = "first_pooooooooooooooo"
+        doc_type = "any"
 
+        self.indice_create_exists(wes, ind_str)
+        self.documents_create(wes, ind_str, doc_type)
 
-        body = {"from": 0, "size": 10,                                                                      # MSE_NOTES: #6 QUERY(matchphrase) MATCH(subSentence+wholeWord+phraseOrder) CASE(in-sensitive)
-                "query": {"match_phrase": {"country": "slovakia"}}                                          #              - ORDER IGNORE spaces and punctation !!!
-               }                                                                                            #
-        wes.doc_search_result(wes.doc_search(index=ind_str, body=body))                                     # RESULTS: 2
-        body = {"from": 0, "size": 10,                                                                      # MSE_NOTES: #6 QUERY(matchphrase) MATCH(subSentence+wholeWord+phraseOrder) CASE(in-sensitive)
-                "query": {"match_phrase": {"sentence": "slovakia is"}}                                      #              - ORDER IGNORE spaces and punctation !!!
-               }                                                                                            #
-        wes.doc_search_result(wes.doc_search(index=ind_str, body=body))                                     # RESULTS: 2
+        ###########################################################
+        # QUERY(all)
+        ###########################################################
+        # MSE_NOTES: #1 search ALL in DB
+        self.assertEqual(Wes.RC_OK, wes.doc_search_result(wes.doc_search()).status)
+        # MSE_NOTES: #2 search ALL in specific INDICE
+        self.assertEqual(5, wes.doc_search_result(wes.doc_search(index=ind_str)).data['hits']['total']['value'])
+        # MSE_NOTES: #3 equivalent to #2
+        body={"query": {"match_all": {}}}
+        self.assertEqual(5, wes.doc_search_result(wes.doc_search(index=ind_str, body=body))
+                         .data['hits']['total']['value'])
 
+        ######################################################################################################################
+        # MSE_NOTES: #4 hint list FILTER
+        #               - 'from' - specify START element in 'hintLIST' witch MATCH query
+        #               - 'size' - specify RANGE/MAXIMUM from 'hintLIST' <'from', 'from'+'size')
+        #               E.G. "size": 0 == returns just COUNT
+        ######################################################################################################################
+        body = {"from": 0, "size": 2,
+                "query": {"match_all": {}}}
+        rc = wes.doc_search_result(wes.doc_search(index=ind_str, body=body))
+        self.assertEqual(2, len(rc.data['hits']['hits']))
 
-        body = {"from": 0, "size": 10,                                                                      # MSE_NOTES: #7 QUERY(term) MATCH(exact) CASE(in-sensitive)
-                "query": {"term": {"country": "slovakia"}}                                                  #
-               }                                                                                            #
-        wes.doc_search_result(wes.doc_search(index=ind_str, body=body))                                     # RESULTS: 2
-        body = {"from": 0, "size": 10,                                                                      # MSE_NOTES: #7 QUERY(term) MATCH(exact) CASE(in-sensitive)
-                "query": {"term": {"sentence": "slovakia is"}}                                              #
-               }                                                                                            #
-        wes.doc_search_result(wes.doc_search(index=ind_str, body=body))                                     # RESULTS: 2
+        ######################################################################################################################
+        # MSE_NOTES: #5 QUERY(match) MATCH(subSentence+wholeWord) CASE(inSensitive)
+        ######################################################################################################################
+        body = {"from": 0, "size": 10,
+                #"query": {"match": {}} EXCEPTION:  400 - parsing_exception - No text specified for text query
+                "query": {"match": {"country": "slovakia"}}}
+        self.assertEqual(2, wes.doc_search_result(wes.doc_search(index=ind_str, body=body)).data['hits']['total']['value'])
 
-        Log.notice2("--------------------------------------------------------------------------------------")
-        body = {"from": 0, "size": 10,                                                                      # MSE_NOTES: #8 QUERY(bool) MATCH(must, must_not, should) CASE(in-sensitive)
-                "query": {"term": {"country": "slovakia"}}                                                  #   - must, must_not, should(improving relevance score, if none 'must' presents at least 1 'should' be present)
-               }                                                                                            #   -
-        wes.doc_search_result(wes.doc_search(index=ind_str, body=body))                                     #   -     == ORRESULTS: 2
+        body = {"from": 0, "size": 10,
+                "query": {"match": {"sentence": "slovakia"}}}
+        self.assertEqual(4, wes.doc_search_result(wes.doc_search(index=ind_str, body=body)).data['hits']['total']['value'])
+
+        ######################################################################################################################
+        # MSE_NOTES: #6 QUERY(matchphrase) MATCH(subSentence+wholeWord+phraseOrder) CASE(in-sensitive)
+        #              - ORDER IGNORE spaces and punctation !!!
+        ######################################################################################################################
+        body = {"from": 0, "size": 10,
+                "query": {"match_phrase": {"country": "slovakia"}}}
+        self.assertEqual(2, wes.doc_search_result(wes.doc_search(index=ind_str, body=body)).data['hits']['total']['value'])
+
+        body = {"from": 0, "size": 10,
+                "query": {"match_phrase": {"sentence": "slovakia is"}}}
+        self.assertEqual(2, wes.doc_search_result(wes.doc_search(index=ind_str, body=body)).data['hits']['total']['value'])
+
+        ######################################################################################################################
+        # MSE_NOTES: #7 QUERY(term) MATCH(exact) CASE(in-sensitive)
+        ######################################################################################################################
+        body = {"from": 0, "size": 10,
+                "query": {"term": {"country": "slovakia"}}}
+        self.assertEqual(2, wes.doc_search_result(wes.doc_search(index=ind_str, body=body)).data['hits']['total']['value'])
+
+        body = {"from": 0, "size": 10,
+                "query": {"term": {"sentence": "slovakia is"}}}
+        self.assertEqual(0, wes.doc_search_result(wes.doc_search(index=ind_str, body=body)).data['hits']['total']['value'])
 
 
     def test_complex_queries(self):
@@ -480,6 +510,6 @@ class TestWes(unittest.TestCase):
 if __name__ == '__main__':
     # unittest.main()
     suite = unittest.TestSuite()
-    suite.addTest(TestWes("test_basic_ind"))
+    suite.addTest(TestWes("test_query_basic"))
     runner = unittest.TextTestRunner()
     runner.run(suite)

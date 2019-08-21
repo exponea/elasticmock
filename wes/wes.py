@@ -216,7 +216,7 @@ class Wes(WesDefs):
         return self.es.indices.flush(index=index, params=params)
 
     def ind_flush_result(self, rc: ExecCode) -> ExecCode:
-        key_str = f"KEY{rc.fnc_params[0]}"
+        key_str = f"KEY[{rc.fnc_params[1].get('index', '_all')}]"
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"{key_str} {str(rcv.data)}"
         return self._operation_result(Wes.OP_IND_FLUSH, key_str, rc, fmt_fnc_ok)
@@ -229,7 +229,7 @@ class Wes(WesDefs):
         return self.es.indices.refresh(index=index, params=params)
 
     def ind_refresh_result(self, rc: ExecCode) -> ExecCode:
-        key_str = f"KEY{rc.fnc_params[0]}"
+        key_str = f"KEY[{rc.fnc_params[1].get('index', '???')}]"
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"{key_str} {str(rcv.data)}"
         return self._operation_result(Wes.OP_IND_REFRESH, key_str, rc, fmt_fnc_ok)
@@ -330,7 +330,8 @@ class Wes(WesDefs):
         key_str = f"KEY{rc.fnc_params[0]}"
 
         def fmt_fnc_ok(rcv: ExecCode) -> str:
-            return f"KEY[{rcv.data['_index']} <-> {rcv.data['_type']} <-> {rcv.data['_id']}] {rc_data['result']} {rc_data['_shards']}"
+            return f"KEY[{rcv.data['_index']} <-> {rcv.data['_type']} <-> {rcv.data['_id']}] {rcv.data['result']} {rcv.data['_shards']}"
+
         return self._operation_result(Wes.OP_DOC_ADD_UP, key_str, rc, fmt_fnc_ok)
 
     @query_params(
@@ -408,10 +409,10 @@ class Wes(WesDefs):
         return self.es.search(index=index, body=body, params=params)
 
     def doc_search_result(self, rc: ExecCode, is_per_line: bool = True) -> ExecCode:
-        key_str = f"KEY{rc.fnc_params[0]}"
+        key_str = f"KEY[{rc.fnc_params[1].get('index', '_all')} ]"
 
         def fmt_fnc_ok_inline(rcv: ExecCode) -> str:
-            return f"NB REC[{rcv.data['hits']['total']['value']}] <-> HITS[{rcv.data['hits'].get('hits', 'hits empty')}] <-> AGGS[{rcv.data.get('aggregations', 'aggs empty')}]"
+            return f"{key_str} NB REC[{rcv.data['hits']['total']['value']}] <-> HITS[{rcv.data['hits'].get('hits', 'hits empty')}] <-> AGGS[{rcv.data.get('aggregations', 'aggs empty')}]"
 
         def fmt_fnc_ok_per_line(rcv: ExecCode) -> str:
             rec_list = rcv.data['hits']['hits']
@@ -425,7 +426,7 @@ class Wes(WesDefs):
                     for a_items in aggs[a]['buckets']:
                         rec = rec + str(a_items) + '\n'
 
-            return f"NB REC[{rcv.data['hits']['total']['value']}] : {rec}"
+            return f"{key_str} NB REC[{rcv.data['hits']['total']['value']}] : {rec}"
 
         fmt_fnc_ok = fmt_fnc_ok_per_line if is_per_line else fmt_fnc_ok_inline
 
