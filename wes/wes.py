@@ -246,21 +246,23 @@ class Wes(WesDefs):
         return self.es.indices.get_mapping(index=index, doc_type=doc_type, params=params)
 
     def ind_get_mapping_result(self, rc: ExecCode, is_per_line: bool = True) -> ExecCode:
-        key_str = f"KEY{rc.fnc_params[0]}"
+        key_str = None
+        if ExecCode.status == Wes.RC_OK:
+            key_str = f"KEY[{rc.fnc_params[1].get('index', '_all')} <-> {rc.fnc_params[1].get('doc_type', '_all')}]"
+        else:
+            key_str = f"KEY{rc.fnc_params[0]}"
 
         def fmt_fnc_ok_inline(rcv: ExecCode) -> str:
-            return  f"MAPPING: <-> {str(rcv.data)}"
+            return f"{key_str} MAPPING: <-> {str(rcv.data)}"
 
-        def fmt_fnc_ok_per_line(rc_data) -> str:
+        def fmt_fnc_ok_per_line(rcv: ExecCode) -> str:
             rec = ''
-            # print(type(rc_data))
-            # print(rc_data)
-            for rc_index in rc_data.keys():
+            for rc_index in rcv.data.keys():
                 rc_index_str = f"IND[{rc_index}]"
                 rec = rec + '\n' + rc_index_str
 
                 # mapping not exist
-                props = rc_data[rc_index].get('mappings', None)
+                props = rcv.data[rc_index].get('mappings', None)
                 if len(props) == 0:
                     rec = rec + " : Missing mappings" + '\n'
                     continue
@@ -278,7 +280,7 @@ class Wes(WesDefs):
                     for prop in props:
                         rec = rec + str(prop) + ": " + str(props[prop]) + '\n'
 
-            return f"MAPPING: {rec}"
+            return f"{key_str} MAPPING: {rec}"
 
         fmt_fnc_ok = fmt_fnc_ok_per_line if is_per_line else fmt_fnc_ok_inline
 

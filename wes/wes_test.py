@@ -23,6 +23,8 @@ class TestWes(unittest.TestCase):
         self.assertEqual(Wes.RC_OK, wes.ind_create_result(wes.ind_create(ind_str)).status)
         self.assertEqual(True, wes.ind_exist_result(wes.ind_exist(ind_str)).data)
 
+        self.assertEqual(Wes.RC_OK, wes.ind_get_mapping_result(wes.ind_get_mapping()).status)
+
     def test_indice_basic(self):
         wes = Wes()
         ind_str = "first_pooooooooooooooo"
@@ -58,8 +60,10 @@ class TestWes(unittest.TestCase):
         self.assertEqual("created", wes.doc_addup_result(wes.doc_addup(ind_str, doc4, doc_type=doc_type, id=4)).data['result'])
         self.assertEqual("created", wes.doc_addup_result(wes.doc_addup(ind_str, doc5, doc_type=doc_type, id=5)).data['result'])
 
-        self.assertEqual(1, wes.ind_flush_result(wes.ind_flush(wait_if_ongoing=True)).data['_shards']['successful'])
-        self.assertEqual(1, wes.ind_refresh_result(wes.ind_refresh()).data['_shards']['successful'])
+        self.assertEqual(Wes.RC_OK, wes.ind_flush_result(wes.ind_flush(wait_if_ongoing=True)).status)
+        self.assertEqual(Wes.RC_OK, wes.ind_refresh_result(wes.ind_refresh()).status)
+
+        self.assertEqual(Wes.RC_OK, wes.ind_get_mapping_result(wes.ind_get_mapping()).status)
 
     def test_documents_basic(self):
         wes = Wes()
@@ -73,6 +77,10 @@ class TestWes(unittest.TestCase):
         self.assertEqual(Wes.RC_OK, wes.doc_get_result(wes.doc_get(ind_str, 2, doc_type="any")).status)  # MSE_NOTES: 'found': True,                 '_seq_no': 1,  '_source': {'city': 'Bratislava1', 'coutry': 'slovakia2'}
         self.assertEqual(Wes.RC_OK, wes.doc_get_result(wes.doc_get(ind_str, 3, doc_type="any")).status)  # MSE_NOTES: 'found': True,                 '_seq_no': 2,  '_source': {'city': 'Bratislava1', 'coutry': 'slovakia2'}
         self.assertTrue(isinstance(wes.doc_get_result(wes.doc_get(ind_str, 9, doc_type="any")).data, NotFoundError))  # MSE_NOTES:  WesNotFoundError !!!
+
+        #MSE_NOTES: #1 400 - illegal_argument_exception - Rejecting mapping update to [first_ind1] as the final mapping would have more than 1 type: [any, any2]
+        doc6 = {"city": "Bratislava4", "country": "SLOVAKIA5", "sentence": "The small COUNTRy is slovakia"}
+        self.assertTrue(isinstance(wes.doc_addup_result(wes.doc_addup(ind_str, doc6, doc_type="any2", id=6)).data, RequestError))
 
 
     def test_query_basic(self):
@@ -180,38 +188,23 @@ class TestWes(unittest.TestCase):
         #  = setting correct times help aggregations
         #  = u can't change mapping if docs present in IND
         wes = Wes()
-        ind_str  = "first_ind1"
+        ind_str = "first_pooooooooooooooo"
+        doc_type = "any"
+
+        self.indice_create_exists(wes, ind_str)
+        self.documents_create(wes, ind_str, doc_type)
+
         ind_str2 = "first_ind2"
+        self.indice_create_exists(wes, ind_str2)
 
-        wes.ind_delete_result(ind_str, wes.ind_delete(ind_str))
-        wes.ind_create_result(wes.ind_create(ind_str))
-        wes.ind_exist_result(ind_str, wes.ind_exist(ind_str))
+        self.assertEqual(2, len(wes.ind_get_mapping_result(wes.ind_get_mapping()).data.keys()))
+        self.assertEqual(1, len(wes.ind_get_mapping_result(wes.ind_get_mapping(ind_str)).data.keys()))
 
-        wes.ind_delete_result(ind_str2, wes.ind_delete(ind_str2))
-        wes.ind_create_result(wes.ind_create(ind_str2))
-        wes.ind_exist_result(ind_str2, wes.ind_exist(ind_str2))
-
-        doc1 = {"city": "Bratislava1", "country": "slovakia ", "sentence": "The slovakia is a country"}
-        doc2 = {"city": "Bratislava2", "country": "SLOVAKIA2", "sentence": "The SLOVAKA is a country"}
-        doc3 = {"city": "Bratislava3", "country": "SLOVAKIA",  "sentence": "The slovakia is a country"}
-        doc4 = {"city": "Bratislava4", "country": "SLOVAKIA4", "sentence": "The small country is slovakia"}
-        doc5 = {"city": "Bratislava4", "country": "SLOVAKIA5", "sentence": "The small COUNTRy is slovakia"}
-
-        wes.doc_addup_result(wes.doc_addup(ind_str, doc1, doc_type="any", id=1))
-        wes.doc_addup_result(wes.doc_addup(ind_str, doc2, doc_type="any", id=2))
-        wes.doc_addup_result(wes.doc_addup(ind_str, doc3, doc_type="any", id=3))
-        wes.doc_addup_result(wes.doc_addup(ind_str, doc4, doc_type="any", id=4))
-
-        # MSE_NOTES: #1 400 - illegal_argument_exception - Rejecting mapping update to [first_ind1] as the final mapping would have more than 1 type: [any, any2]
-        wes.doc_addup_result(wes.doc_addup(ind_str, doc5, doc_type="any2", id=5))
-
-        wes.ind_get_mapping_result(wes.ind_get_mapping())                             # RESULT 2
-        wes.ind_get_mapping_result(wes.ind_get_mapping(ind_str))                      # RESULT 1
+        Log.notice2("--------------------------------------------------------------------------------------")
 
         # MSE_NOTES: #1 400 - illegal_argument_exception - Types cannot be provided in get mapping requests, unless include_type_name is set to true.
-        wes.ind_get_mapping_result(wes.ind_get_mapping(ind_str, doc_type="any"))
-        Log.notice2("--------------------------------------------------------------------------------------")
-        wes.ind_get_mapping_result(wes.ind_get_mapping(ind_str, doc_type="any", include_type_name=True))
+        self.assertTrue(isinstance(wes.ind_get_mapping_result(wes.ind_get_mapping(ind_str, doc_type="any")).data, RequestError))
+        self.assertEqual(1, len(wes.ind_get_mapping_result(wes.ind_get_mapping(ind_str, doc_type="any", include_type_name=True)).data.keys()))
 
     def test_mappings_get_put(self):
         # MSE_NOTES: mapping is process of defining how documents looks like (which fields contains, field types, how is filed indexed)
@@ -501,6 +494,6 @@ class TestWes(unittest.TestCase):
 if __name__ == '__main__':
     # unittest.main()
     suite = unittest.TestSuite()
-    suite.addTest(TestWes("test_complex_queries"))
+    suite.addTest(TestWes("test_mappings_get"))
     runner = unittest.TextTestRunner()
     runner.run(suite)
