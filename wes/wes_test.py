@@ -91,6 +91,9 @@ class TestWes(unittest.TestCase):
         doc6 = {"city": "Bratislava4", "country": "SLOVAKIA5", "sentence": "The small COUNTRy is slovakia"}
         self.assertTrue(isinstance(wes.doc_addup_result(wes.doc_addup(ind_str, doc6, doc_type="any2", id=6)).data, RequestError))
 
+        Log.notice2("------------------------------------------------------------------")
+        self.assertTrue(wes.doc_exists_result(wes.doc_exists(ind_str, 5)).data)
+        self.assertFalse(wes.doc_exists_result(wes.doc_exists(ind_str, 9)).data)
 
     def test_query_basic(self):
         wes = Wes()

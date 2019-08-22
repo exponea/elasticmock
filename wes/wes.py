@@ -28,7 +28,7 @@ __all__ = ["Wes", "ExecCode"]
 ExecCode = namedtuple('ExecCode', 'status data fnc_params')
 
 class WesDefs():
-    # operation
+    # indice operations
     OP_IND_CREATE   = "OP_IND_CREATE  : "
     OP_IND_FLUSH    = "OP_IND_FLUSH   : "
     OP_IND_REFRESH  = "OP_IND_REFRESH : "
@@ -36,8 +36,10 @@ class WesDefs():
     OP_IND_DELETE   = "OP_IND_DELETE  : "
     OP_IND_GET_MAP  = "OP_IND_GET_MAP : "
     OP_IND_PUT_MAP  = "OP_IND_PUT_MAP : "
+    # document operations
     OP_DOC_ADD_UP   = "OP_DOC_ADDUP   : "
     OP_DOC_GET      = "OP_DOC_GET     : "
+    OP_DOC_EXIST    = "OP_DOC_EXIST   : "
     # batch operations
     OP_DOC_SEARCH   = "OP_DOC_SEARCH  : "
     OP_DOC_BULK     = "OP_DOC_BULK    : "
@@ -367,6 +369,33 @@ class Wes(WesDefs):
             return f"KEY[{rcv.data['_index']} <-> {rcv.data['_type']} <-> {rcv.data['_id']}] {rcv.data['_source']}"
         return self._operation_result(Wes.OP_DOC_GET, key_str, rc, fmt_fnc_ok)
 
+    @query_params(
+        "_source",
+        "_source_exclude",
+        "_source_excludes",
+        "_source_include",
+        "_source_includes",
+        "parent",
+        "preference",
+        "realtime",
+        "refresh",
+        "routing",
+        "stored_fields",
+        "version",
+        "version_type",)
+    @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_EXIST)
+    def doc_exists(self, index, id, doc_type="_doc", params=None):
+        # TODO petee 'doc_type' is important for get - shouldn't be mandatory???
+        return self.es.exists(index, id, doc_type=doc_type, params=params)
+
+    def doc_exists_result(self, rc: ExecCode) -> ExecCode:
+        key_str = f"KEY{rc.fnc_params[0]}"
+
+        def fmt_fnc_ok(rcv: ExecCode) -> str:
+            return f"{key_str} {rcv.data}"
+
+        return self._operation_result(Wes.OP_DOC_EXIST, key_str, rc, fmt_fnc_ok)
+
     #####################
     # batch operations
     #####################
@@ -540,8 +569,6 @@ class Wes(WesDefs):
 
         return self._operation_result(Wes.OP_DOC_SCAN, key_str, rc, fmt_fnc_ok)
 
-
-    ##########################################################
     @query_params(
         "allow_no_indices",
         "analyze_wildcard",
