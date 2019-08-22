@@ -514,18 +514,19 @@ class Wes(WesDefs):
 
         # MSE_NOTE it doesn't fire exception
         # in case NotFoundError(404) index
-        satus, rc_data = rc
         try:
-            for a in rc_data:
+            for a in rc.data:
                 break
         except Exception as e:
-            rc = Wes.RC_EXCE, e
+            rc = ExecCode(Wes.RC_EXCE, e, rc.fnc_params)
 
         def fmt_fnc_ok(rcv: ExecCode) -> str:
-            pass
-            rec = 'SCAN NB :\n'
-            for a in rcv.data:
-                rec = rec + str(a) + '\n'
-            return f"{rec}"
+            rec = ''
+            nb_rec = 0
+            for item in rcv.data:
+                nb_rec += 1
+                rec += '\n' + str(item)
+
+            return f"SCAN NB[{nb_rec}] {rec}"
 
         return self._operation_result(Wes.OP_DOC_SCAN, key_str, rc, fmt_fnc_ok)
