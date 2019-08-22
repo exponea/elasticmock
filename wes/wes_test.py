@@ -466,8 +466,10 @@ class TestWes(unittest.TestCase):
         self.assertEqual(Wes.RC_EXCE, wes.doc_scan_result(wes.doc_scan(index='pako', query=body)).status)
 
 if __name__ == '__main__':
-    # unittest.main()
-    suite = unittest.TestSuite()
-    suite.addTest(TestWes("test_scan"))
-    runner = unittest.TextTestRunner()
-    runner.run(suite)
+    if True:
+        unittest.main()
+    else:
+        suite = unittest.TestSuite()
+        suite.addTest(TestWes("test_scan"))
+        runner = unittest.TextTestRunner()
+        runner.run(suite)
