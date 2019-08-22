@@ -16,12 +16,48 @@ from elasticsearch.exceptions import ConnectionTimeout
 from elasticsearch.exceptions import AuthenticationException
 from elasticsearch.exceptions import AuthorizationException
 
+from zipfile import ZipFile
+from pathlib import Path
+import json
+
 ind_str = "first_ind1"
 ind_str2 = "first_ind2"
 ind_str_doc_type = "first_ind1_docT"
 ind_str_doc_type = "first_ind2_docT"
 
-class TestWes(unittest.TestCase):
+class TestWesHelper(unittest.TestCase):
+
+    def _helper_zip_unpack(self, path_to_zip, file_to_extract="all"):
+        file = Path(path_to_zip)
+
+        extracted_files = []
+
+        if file.is_file():
+            input_zip = ZipFile(path_to_zip)
+            Log.log(str(input_zip.namelist()))
+            for name in input_zip.namelist():
+                if file_to_extract == "all" or name in file_to_extract:
+                    # utf-8 is used here because it is a very common encoding, but you
+                    # need to use the encoding your data is actually in.
+                    # $ file elasticmock-testcases/1.json
+                    # elasticmock-testcases/1.json: ASCII text, with very long lines
+                    extracted_files.append([name, input_zip.read(name).decode("ascii")])
+
+        return extracted_files
+
+    def helper_split_zip_test(self, path_to_zip, file_to_extract="all"):
+
+        raw_tests = self._helper_zip_unpack(path_to_zip, file_to_extract)
+
+        print(raw_tests)
+        tests = []
+        for test_name, raw_test in raw_tests:
+            split_test = raw_test.split('\n')
+            split_list = [json.loads(test_cmd) for test_cmd in split_test if test_cmd.strip()]
+            tests.append([test_name, split_list])
+        return tests
+
+class TestWes(TestWesHelper):
 
     def force_reindex(self, wes):
         self.assertEqual(Wes.RC_OK, wes.ind_flush_result(wes.ind_flush(wait_if_ongoing=True)).status)
@@ -494,6 +530,17 @@ class TestWes(unittest.TestCase):
         # 4.
         body = {"query": {"match": {"country": "slovakia"}}}
         self.assertEqual(2, wes.doc_count_result(wes.doc_count(index=ind_str, body=body)).data['count'])
+
+    def test_json_parser(self):
+        wes = Wes()
+
+        zip_path = "/home/msestrie/MSE_PROJECT/PYTHON/CVICENIA/elasticmock/wes/exponea_tests/elasticmock-testcases.zip"
+        tests = self.helper_split_zip_test(zip_path, ('0.json',))
+        self.assertEqual(1, len(tests))
+
+        for test_name, test_lines in tests:
+            for line, cmd in enumerate(test_lines):
+                Log.log(f"T[{test_name}] L[{line:3}] -> {cmd}")
 
 
 if __name__ == '__main__':
