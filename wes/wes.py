@@ -458,25 +458,24 @@ class Wes(WesDefs):
     def doc_bulk_result(self, rc: ExecCode) -> ExecCode:
         key_str = f"KEY{rc.fnc_params[0]}"
 
-        status, rc_data = rc
         fmt_fnc_ok = None
         fmt_fnc_nok = None
 
-        if status == Wes.RC_OK:
-            nb_ok  = rc_data[0]
-            err    = rc_data[1]
-            nb_err = len(err)
+        if rc.status == Wes.RC_OK:
+            nb_ok = rc.data[0]
+            nb_err = len(rc.data[1])
             nb_total = nb_ok + nb_err
             ret_str = f"TOTAL[{nb_total}] <-> SUCCESS[{nb_ok}] <-> FAILED[{nb_err}]"
 
             def fmt_fnc_ok(rcv: ExecCode) -> str:
                 return ret_str + " ok ..."
+
             def fmt_fnc_nok(rcv: ExecCode) -> str:
                 return ret_str + " err ..."
 
             status = Wes.RC_OK if len(rc.data[1]) == 0 else Wes.RC_NOK
 
-        rc = status, rc.data
+        rc = ExecCode(status, rc.data, rc.fnc_params)
         return self._operation_result(Wes.OP_DOC_BULK, key_str, rc, fmt_fnc_ok, fmt_fnc_nok)
 
     @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_SCAN)

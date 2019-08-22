@@ -365,19 +365,16 @@ class TestWes(unittest.TestCase):
 
     def test_bulk(self):
         # MSE_NOTES: for 'bulk' and 'scan' API IMPORT 'from elasticsearch import helpers'
-
         wes = Wes()
-        ind_str = "first_ind1"
-        doc_type = "my_doc_tupe"
+        global ind_str
+        global ind_str_doc_type
+        self.indice_create_exists(wes, ind_str)
 
-        wes.ind_delete_result(ind_str, wes.ind_delete(ind_str))
-        wes.ind_create_result(wes.ind_create(ind_str))
-        wes.ind_exist_result(ind_str, wes.ind_exist(ind_str))
-
+        # INSERT 0,1,2,3,4
         actions = [
             {
                 "_index": ind_str,
-                "_type": doc_type,
+                "_type": ind_str_doc_type,
                 "_id": j,
                 "_source": {
                     "any": "data" + str(j),
@@ -386,25 +383,20 @@ class TestWes(unittest.TestCase):
             }
             for j in range(0, 5)
         ]
+        self.assertEqual(Wes.RC_OK, wes.doc_bulk_result(wes.doc_bulk(actions)).status)
+        self.force_reindex(wes)
 
-        #st = time.time()
-        wes.doc_bulk_result(wes.doc_bulk(actions))
-        #end = time.time()
-        #print("total time", end-st)
+        body = {"query": {"match_all": {}}}
+        self.assertEqual(5, wes.doc_search_result(wes.doc_search(index=ind_str, body=body)).data['hits']['total']['value'])
 
         Log.notice2("--------------------------------------------------------------------------------------")
 
-        wes.ind_flush_result("_all", wes.ind_flush(index="_all", wait_if_ongoing=True))
-        wes.ind_refresh_result("_all", wes.ind_refresh(index="_all"))
-
-        body = {"query": {"match_all": {}}}
-        wes.doc_search_result(wes.doc_search(index=ind_str, body=body))
-
+        # DELETE 3,4
         actions = [
             {
                 '_op_type': "delete",
                 "_index": ind_str,
-                "_type": doc_type,
+                "_type": ind_str_doc_type,
                 "_id": j,
                 "_source": {
                     "any": "data" + str(j),
@@ -413,26 +405,19 @@ class TestWes(unittest.TestCase):
             }
             for j in range(3, 5)
         ]
-
-        #st = time.time()
-        wes.doc_bulk_result(wes.doc_bulk(actions))
-        #end = time.time()
-        #print("total time", end-st)
-
-        Log.notice2("--------------------------------------------------------------------------------------")
-
-        wes.ind_flush_result("_all", wes.ind_flush(index="_all", wait_if_ongoing=True))
-        wes.ind_refresh_result("_all", wes.ind_refresh(index="_all"))
+        self.assertEqual(Wes.RC_OK, wes.doc_bulk_result(wes.doc_bulk(actions)).status)
+        self.force_reindex(wes)
 
         body = {"query": {"match_all": {}}}
-        wes.doc_search_result(wes.doc_search(index=ind_str, body=body))
+        self.assertEqual(3, wes.doc_search_result(wes.doc_search(index=ind_str, body=body)).data['hits']['total']['value'])
 
+        Log.notice2("--------------------------------------------------------------------------------------")
 
         actions = [
             {
                 '_op_type': "create",
                 "_index": ind_str,
-                "_type": doc_type,
+                "_type": ind_str_doc_type,
                 "_id": j,
                 "_source": {
                     "any": "data" + str(j),
@@ -441,19 +426,11 @@ class TestWes(unittest.TestCase):
             }
             for j in range(2, 4)
         ]
+        self.assertEqual(Wes.RC_NOK, wes.doc_bulk_result(wes.doc_bulk(actions)).status)
+        self.force_reindex(wes)
 
-        #st = time.time()
-        wes.doc_bulk_result(wes.doc_bulk(actions))
-        #end = time.time()
-        #print("total time", end-st)
-        #
-        Log.notice2("--------------------------------------------------------------------------------------")
+        self.assertEqual(4, wes.doc_search_result(wes.doc_search(index=ind_str, body=body)).data['hits']['total']['value'])
 
-        wes.ind_flush_result("_all", wes.ind_flush(index="_all", wait_if_ongoing=True))
-        wes.ind_refresh_result("_all", wes.ind_refresh(index="_all"))
-
-        body = {"query": {"match_all": {}}}
-        wes.doc_search_result(wes.doc_search(index=ind_str, body=body))
 
     def test_scan(self):
         # MSE_NOTES: for 'bulk' and 'scan' API IMPORT 'from elasticsearch import helpers'
@@ -495,6 +472,6 @@ class TestWes(unittest.TestCase):
 if __name__ == '__main__':
     # unittest.main()
     suite = unittest.TestSuite()
-    suite.addTest(TestWes("test_aggregations"))
+    suite.addTest(TestWes("test_bulk"))
     runner = unittest.TextTestRunner()
     runner.run(suite)
