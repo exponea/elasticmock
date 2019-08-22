@@ -174,7 +174,7 @@ class TestWes(unittest.TestCase):
         q2 = {"match": {"sentence": "small"}}                                                   # MSE_NOTES:
         self.assertEqual(2, wes.doc_search_result(wes.doc_search(index=ind_str, body={"query": q2})).data['hits']['total']['value'])
 
-        Log.notice2("--------------------------------------------------------------------------------------")
+        Log.notice("--------------------------------------------------------------------------------------")
         ######################################################################################################################
         # MSE_NOTES: #3 QUERY(bool) MATCH(must, must_not, should) CASE(in-sensitive)
         #   - must, must_not, should(improving relevance score, if none 'must' presents at least 1 'should' be present)
@@ -209,7 +209,7 @@ class TestWes(unittest.TestCase):
         self.assertEqual(2, len(wes.ind_get_mapping_result(wes.ind_get_mapping()).data.keys()))
         self.assertEqual(1, len(wes.ind_get_mapping_result(wes.ind_get_mapping(ind_str)).data.keys()))
 
-        Log.notice2("--------------------------------------------------------------------------------------")
+        Log.notice("--------------------------------------------------------------------------------------")
 
         # MSE_NOTES: #1 400 - illegal_argument_exception - Types cannot be provided in get mapping requests, unless include_type_name is set to true.
         self.assertTrue(isinstance(wes.ind_get_mapping_result(wes.ind_get_mapping(ind_str, doc_type=ind_str_doc_type)).data, RequestError))
@@ -237,7 +237,7 @@ class TestWes(unittest.TestCase):
         doc1 = {"city": "Bratislava1", "country": "slovakia ", "sentence": "The slovakia is a country", "datetime" : "2019,01,02,03,12,00"}
         wes.doc_addup_result(wes.doc_addup(ind_str, doc1, doc_type=ind_str_doc_type, id=1))
         wes.ind_get_mapping_result(wes.ind_get_mapping())
-        Log.notice2("--------------------------------------------------------------------------------------")
+        Log.notice("--------------------------------------------------------------------------------------")
         # {'first_ind1': {'mappings':
         map_new = {
             'properties': {'city': {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}},
@@ -264,7 +264,7 @@ class TestWes(unittest.TestCase):
         # MSE_NOTES: #3 u should specified IND + DOC_TYPE !!!
         self.assertEqual(Wes.RC_OK, wes.ind_put_mapping_result(wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str, include_type_name=True)).status)
 
-        Log.notice2("--------------------------------------------------------------------------------------")
+        Log.notice("--------------------------------------------------------------------------------------")
         # MSE_NOTES: #4 type was changed :)
         # IND[first_ind1]
         # city: {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}}
@@ -327,7 +327,7 @@ class TestWes(unittest.TestCase):
         body = {"from": 0, "size": 10,"query": {"match_all": {}}}
         self.assertEqual(3, wes.doc_search_result(wes.doc_search(index=ind_str, body=body)).data['hits']['total']['value'])
 
-        Log.notice2("--------------------------------------------------------------------------------------")
+        Log.notice("--------------------------------------------------------------------------------------")
         body = {"from": 0, "size": 10,                      # MSE_NOTES: #1 QUERY + AGGREGATION
                 "query": {"match_all": {}},                 #
                 "aggs": { "country":                        # agg on 'country' field
@@ -348,7 +348,7 @@ class TestWes(unittest.TestCase):
         print("kuk", rc.data.get('aggregations'))
         self.assertEqual(1, len(rc.data['aggregations']['country']['buckets']))
 
-        Log.notice2("--------------------------------------------------------------------------------------")
+        Log.notice("--------------------------------------------------------------------------------------")
         doc4 = {"city": "Sydney", "country": "Australia", "datetime": "2019,04,19,05,02,00"}
         self.assertEqual("created", wes.doc_addup_result(wes.doc_addup(ind_str, doc4, doc_type=ind_str_doc_type, id=4)).data['result'])
 
@@ -389,7 +389,7 @@ class TestWes(unittest.TestCase):
         body = {"query": {"match_all": {}}}
         self.assertEqual(5, wes.doc_search_result(wes.doc_search(index=ind_str, body=body)).data['hits']['total']['value'])
 
-        Log.notice2("--------------------------------------------------------------------------------------")
+        Log.notice("--------------------------------------------------------------------------------------")
 
         # DELETE 3,4
         actions = [
@@ -411,8 +411,9 @@ class TestWes(unittest.TestCase):
         body = {"query": {"match_all": {}}}
         self.assertEqual(3, wes.doc_search_result(wes.doc_search(index=ind_str, body=body)).data['hits']['total']['value'])
 
-        Log.notice2("--------------------------------------------------------------------------------------")
+        Log.notice("--------------------------------------------------------------------------------------")
 
+        # EXISTS 0,1,2 INSERT 1,2,3 CONFLICT ON 1, 2
         actions = [
             {
                 '_op_type': "create",
@@ -424,11 +425,12 @@ class TestWes(unittest.TestCase):
                     "timestamp": str(datetime.now())
                 }
             }
-            for j in range(2, 4)
+            for j in range(1, 4)
         ]
         self.assertEqual(Wes.RC_NOK, wes.doc_bulk_result(wes.doc_bulk(actions)).status)
         self.force_reindex(wes)
 
+        # FINAL 0,1,2,3
         self.assertEqual(4, wes.doc_search_result(wes.doc_search(index=ind_str, body=body)).data['hits']['total']['value'])
 
 
@@ -466,7 +468,7 @@ class TestWes(unittest.TestCase):
         wes.doc_search_result(wes.doc_search(index=ind_str, body=body))
 
         wes.doc_scan_result(wes.doc_scan(query=body))
-        Log.notice2("--------------------------------------------------------------------------------------")
+        Log.notice("--------------------------------------------------------------------------------------")
         wes.doc_scan_result(wes.doc_scan(index='pako', query=body))
 
 if __name__ == '__main__':

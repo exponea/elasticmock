@@ -463,15 +463,18 @@ class Wes(WesDefs):
 
         if rc.status == Wes.RC_OK:
             nb_ok = rc.data[0]
-            nb_err = len(rc.data[1])
+            err_list = [str(item) for item in rc.data[1]]
+            nb_err = len(err_list)
             nb_total = nb_ok + nb_err
-            ret_str = f"TOTAL[{nb_total}] <-> SUCCESS[{nb_ok}] <-> FAILED[{nb_err}]"
+            ret_str_hdr = f"TOTAL[{nb_total}] <-> SUCCESS[{nb_ok}] <-> FAILED[{nb_err}]"
+            ret_str_ftr = '\n' if nb_err else ''
+            ret_str_ftr += '\n'.join(err_list) if nb_err else ''
 
             def fmt_fnc_ok(rcv: ExecCode) -> str:
-                return ret_str + " ok ..."
+                return f"{ret_str_hdr}  ok ... {ret_str_ftr}"
 
             def fmt_fnc_nok(rcv: ExecCode) -> str:
-                return ret_str + " err ..."
+                return f"{ret_str_hdr}  err ... {ret_str_ftr}"
 
             status = Wes.RC_OK if len(rc.data[1]) == 0 else Wes.RC_NOK
 
