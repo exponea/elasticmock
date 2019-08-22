@@ -38,10 +38,11 @@ class WesDefs():
     OP_IND_PUT_MAP  = "OP_IND_PUT_MAP : "
     OP_DOC_ADD_UP   = "OP_DOC_ADDUP   : "
     OP_DOC_GET      = "OP_DOC_GET     : "
-    OP_DOC_SEARCH   = "OP_DOC_SEARCH  : "
     # batch operations
+    OP_DOC_SEARCH   = "OP_DOC_SEARCH  : "
     OP_DOC_BULK     = "OP_DOC_BULK    : "
     OP_DOC_SCAN     = "OP_DOC_SCAN    : "
+    OP_DOC_COUNT    = "OP_DOC_COUNT   : "
 
     # RC - 3 codes
     # - maybe useful later (low level could detect problem in data)
@@ -156,6 +157,9 @@ class Wes(WesDefs):
         # self.es = Elasticsearch(HOST="http://localhost", PORT=9200)  # remote instance
         self.es = Elasticsearch()  # local instance
 
+    #####################
+    # indice operations
+    #####################
     @query_params(
         "master_timeout",
         "timeout" "request_timeout",
@@ -307,7 +311,9 @@ class Wes(WesDefs):
             return f"MAPPING: <-> {str(rcv.data)}"
         return self._operation_result(Wes.OP_IND_PUT_MAP, key_str, rc, fmt_fnc_ok)
 
-
+    #####################
+    # doc operations
+    #####################
     @query_params(
         "if_seq_no",
         "if_primary_term",
@@ -361,6 +367,9 @@ class Wes(WesDefs):
             return f"KEY[{rcv.data['_index']} <-> {rcv.data['_type']} <-> {rcv.data['_id']}] {rcv.data['_source']}"
         return self._operation_result(Wes.OP_DOC_GET, key_str, rc, fmt_fnc_ok)
 
+    #####################
+    # batch operations
+    #####################
     @query_params(
         "_source",
         "_source_exclude",
@@ -530,3 +539,33 @@ class Wes(WesDefs):
             return f"SCAN NB[{nb_rec}] {rec}"
 
         return self._operation_result(Wes.OP_DOC_SCAN, key_str, rc, fmt_fnc_ok)
+
+
+    ##########################################################
+    @query_params(
+        "allow_no_indices",
+        "analyze_wildcard",
+        "analyzer",
+        "default_operator",
+        "df",
+        "expand_wildcards",
+        "ignore_unavailable",
+        "ignore_throttled",
+        "lenient",
+        "min_score",
+        "preference",
+        "q",
+        "routing",
+        "terminate_after",)
+    @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_COUNT)
+    def doc_count(self, doc_type=None, index=None, body=None, params=None):
+        return self.es.count(doc_type=doc_type, index=index, body=body, params=params)
+
+    def doc_count_result(self, rc: ExecCode) -> ExecCode:
+        key_str = f"KEY[{rc.fnc_params[1].get('index', '_all')}]"
+
+        def fmt_fnc_ok(rcv: ExecCode) -> str:
+            # return str(rcv.data)
+            return f"{key_str} COUNT[{rcv.data['count']}]"
+
+        return self._operation_result(WesDefs.OP_DOC_COUNT, key_str, rc, fmt_fnc_ok)

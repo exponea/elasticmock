@@ -465,6 +465,34 @@ class TestWes(unittest.TestCase):
         Log.notice("--------------------------------------------------------------------------------------")
         self.assertEqual(Wes.RC_EXCE, wes.doc_scan_result(wes.doc_scan(index='pako', query=body)).status)
 
+    def test_count(self):
+        wes = Wes()
+        global ind_str
+        global ind_str_doc_type
+        self.indice_create_exists(wes, ind_str)
+        self.documents_create(wes, ind_str, ind_str_doc_type)
+
+        # 1.
+        self.assertEqual(Wes.RC_OK, wes.doc_count_result(wes.doc_count()).status)
+
+        # 2.
+        # EXEPTION KEY[first_ind1] - 400 - parsing_exception - request does not support [from]
+        body = {"from": 0, "size": 10,
+                #"query": {"match": {}} EXCEPTION:  400 - parsing_exception - No text specified for text query
+                "query": {"match": {"country": "slovakia"}}}
+        self.assertEqual(Wes.RC_EXCE, wes.doc_count_result(wes.doc_count(index=ind_str, body=body)).status)
+
+        # 3.
+        # EXEPTION KEY[first_ind1] - 400 - parsing_exception - request does not support [size]
+        body = {"size": 10,
+                "query": {"match": {"country": "slovakia"}}}
+        self.assertEqual(Wes.RC_EXCE, wes.doc_count_result(wes.doc_count(index=ind_str, body=body)).status)
+
+        # 4.
+        body = {"query": {"match": {"country": "slovakia"}}}
+        self.assertEqual(2, wes.doc_count_result(wes.doc_count(index=ind_str, body=body)).data['count'])
+
+
 if __name__ == '__main__':
     if True:
         unittest.main()
