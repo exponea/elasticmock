@@ -27,7 +27,7 @@ ind_str_doc_type = "first_ind2_docT"
 
 class TestWesHelper(unittest.TestCase):
 
-    def _helper_zip_unpack(self, path_to_zip, file_to_extract="all"):
+    def _helper_exponea_zip_unpack(self, path_to_zip, file_to_extract="all"):
         file = Path(path_to_zip)
 
         extracted_files = []
@@ -45,9 +45,9 @@ class TestWesHelper(unittest.TestCase):
 
         return extracted_files
 
-    def helper_split_zip_test(self, path_to_zip, file_to_extract="all"):
+    def helper_exponea_split_zip_test(self, path_to_zip, file_to_extract="all"):
 
-        raw_tests = self._helper_zip_unpack(path_to_zip, file_to_extract)
+        raw_tests = self._helper_exponea_zip_unpack(path_to_zip, file_to_extract)
 
         print(raw_tests)
         tests = []
@@ -56,6 +56,59 @@ class TestWesHelper(unittest.TestCase):
             split_list = [json.loads(test_cmd) for test_cmd in split_test if test_cmd.strip()]
             tests.append([test_name, split_list])
         return tests
+
+    def helper_exponea_run_unpacked_test(self, wes: Wes, test_name: str, line: int, result, accessor, method, *args, **kwargs):
+
+        group = 'IND' if accessor else 'DOC'
+
+        Log.log(f"T[{test_name}] L[{line:3}] -> {group} "
+                f"cmd({method} <-> args{args} <-> kwargs({kwargs})) result({result})")
+
+        # BE SURE TO BE IN SYNCH WITH
+        # Wes.operation_mappers
+        # TODO which methods are used in exponea?
+        method_mapper = {
+            "IND": {
+                "create"     : Wes.OP_IND_CREATE,
+                "flush"      : Wes.OP_IND_FLUSH,
+                "refresh"    : Wes.OP_IND_REFRESH,
+                "exists"     : Wes.OP_IND_EXIST,
+                "delete"     : Wes.OP_IND_DELETE,
+                "get_mapping": Wes.OP_IND_GET_MAP,
+                "put_mapping": Wes.OP_IND_PUT_MAP,
+            },
+            'DOC': {
+                "index"     : Wes.OP_DOC_ADD_UP,
+                "get"       : Wes.OP_DOC_GET,
+                "exists"    : Wes.OP_DOC_EXIST,
+
+                "search"    : Wes.OP_DOC_SEARCH,
+                "bulk"      : Wes.OP_DOC_BULK,
+                "scan"      : Wes.OP_DOC_SCAN,
+                "count"     : Wes.OP_DOC_COUNT,
+            }
+        }
+
+        wes_mappers = wes.operation_mappers(method_mapper[group][method])
+        # some test case operation not covered
+        self.assertNotEqual(None, wes_mappers)
+        operation, operation_result = wes_mappers
+        rc = operation_result(wes, operation(wes, *args, **kwargs)).data
+
+        # TODO handle results
+
+    def helper_exponea_run_unpacked_tests(self, wes, tests: list):
+        for test_name, test_lines in tests:
+            Log.notice(f"T[{test_name}] - number commands to execute {len(test_lines)}")
+            for line, cmd in enumerate(test_lines):
+                #Log.log(f"T[{test_name}] L[{line:3}] -> raw {cmd}")
+                self. helper_exponea_run_unpacked_test(wes, test_name, line, cmd['result'], cmd['accessor'],
+                                                       cmd['method'], *(cmd['args']), **(cmd['kwargs']))
+                return
+
+
+
+
 
 class TestWes(TestWesHelper):
 
@@ -533,14 +586,10 @@ class TestWes(TestWesHelper):
 
     def test_json_parser(self):
         wes = Wes()
-
         zip_path = "/home/msestrie/MSE_PROJECT/PYTHON/CVICENIA/elasticmock/wes/exponea_tests/elasticmock-testcases.zip"
-        tests = self.helper_split_zip_test(zip_path, ('0.json',))
+        tests = self.helper_exponea_split_zip_test(zip_path, ('0.json',))
         self.assertEqual(1, len(tests))
-
-        for test_name, test_lines in tests:
-            for line, cmd in enumerate(test_lines):
-                Log.log(f"T[{test_name}] L[{line:3}] -> {cmd}")
+        self.helper_exponea_run_unpacked_tests(wes, tests)
 
 
 if __name__ == '__main__':

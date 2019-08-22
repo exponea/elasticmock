@@ -153,7 +153,18 @@ class WesDefs():
                 return wrapper
             return wrapper_mk
 
+    def helper_key_index(self, rc: ExecCode) -> str:
+        # check if index in kwargs
+        has_index = rc.fnc_params[1].get('index', None)
+        if has_index:
+            return f"[{has_index}]"
+        else:
+            # use what is inside positional
+            return str(rc.fnc_params[0])
+
 class Wes(WesDefs):
+
+    # !!! keep always in sync !!!
 
     def __init__(self):
         # self.es = Elasticsearch(HOST="http://localhost", PORT=9200)  # remote instance
@@ -206,7 +217,7 @@ class Wes(WesDefs):
         return self.es.indices.delete(index, params=params)
 
     def ind_delete_result(self, rc: ExecCode) -> ExecCode:
-        key_str = f"KEY{rc.fnc_params[0]}"
+        key_str = f"KEY{self.helper_key_index(rc)}"
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"{key_str} {rcv.data['acknowledged']}"
         return self._operation_result(Wes.OP_IND_DELETE, key_str, rc, fmt_fnc_ok)
@@ -596,3 +607,27 @@ class Wes(WesDefs):
             return f"{key_str} COUNT[{rcv.data['count']}]"
 
         return self._operation_result(WesDefs.OP_DOC_COUNT, key_str, rc, fmt_fnc_ok)
+
+    @staticmethod
+    def operation_mappers(operation: str):
+        operation_mapper = {
+            # indice operations
+            Wes.OP_IND_CREATE:  [Wes.ind_create, Wes.ind_create_result],
+            Wes.OP_IND_FLUSH:   [Wes.ind_flush, Wes.ind_flush_result],
+            Wes.OP_IND_REFRESH: [Wes.ind_refresh, Wes.ind_refresh_result],
+            Wes.OP_IND_EXIST:   [Wes.ind_exist, Wes.ind_exist_result],
+            Wes.OP_IND_DELETE:  [Wes.ind_delete, Wes.ind_delete_result],
+            Wes.OP_IND_GET_MAP: [Wes.ind_get_mapping, Wes.ind_get_mapping_result],
+            Wes.OP_IND_PUT_MAP: [Wes.ind_put_mapping, Wes.ind_put_mapping_result],
+            # document operations
+            Wes.OP_DOC_ADD_UP:  [Wes.doc_addup, Wes.doc_addup_result],
+            Wes.OP_DOC_GET:     [Wes.doc_get, Wes.doc_get_result],
+            Wes.OP_DOC_EXIST:   [Wes.doc_exists, Wes.doc_exists],
+            # batch operations
+            Wes.OP_DOC_SEARCH:  [Wes.doc_search, Wes.doc_search_result],
+            Wes.OP_DOC_BULK:    [Wes.doc_bulk, Wes.doc_bulk_result],
+            Wes.OP_DOC_SCAN:    [Wes.doc_scan, Wes.doc_scan_result],
+            Wes.OP_DOC_COUNT:   [Wes.doc_count, Wes.doc_count_result]
+        }
+
+        return operation_mapper.get(operation, None)
