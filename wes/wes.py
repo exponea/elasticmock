@@ -36,6 +36,7 @@ class WesDefs():
     OP_IND_DELETE   = "OP_IND_DELETE  : "
     OP_IND_GET_MAP  = "OP_IND_GET_MAP : "
     OP_IND_PUT_MAP  = "OP_IND_PUT_MAP : "
+    OP_IND_PUT_TMP  = "OP_IND_PUT_TMP : "
     # document operations
     OP_DOC_ADD_UP   = "OP_DOC_ADDUP   : "
     OP_DOC_GET      = "OP_DOC_GET     : "
@@ -183,7 +184,7 @@ class Wes(WesDefs):
         return self.es.indices.create(index, body=body, params=params)
 
     def ind_create_result(self, rc: ExecCode) -> ExecCode:
-        key_str = f"KEY{rc.fnc_params[0]}"
+        key_str = f"KEY{self.helper_key_index(rc)}"
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"{key_str} ack[{rcv.data['acknowledged']} - {rcv.data['shards_acknowledged']}]"
         return self._operation_result(Wes.OP_IND_CREATE, key_str, rc, fmt_fnc_ok)
@@ -200,7 +201,7 @@ class Wes(WesDefs):
         return self.es.indices.exists(index, params=params)
 
     def ind_exist_result(self, rc: ExecCode) -> ExecCode:
-        key_str = f"KEY{rc.fnc_params[0]}"
+        key_str = f"KEY{self.helper_key_index(rc)}"
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"{key_str} {rcv.data}"
         return self._operation_result(Wes.OP_IND_EXIST, key_str, rc, fmt_fnc_ok)
@@ -323,6 +324,28 @@ class Wes(WesDefs):
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"MAPPING: <-> {str(rcv.data)}"
         return self._operation_result(Wes.OP_IND_PUT_MAP, key_str, rc, fmt_fnc_ok)
+
+    @query_params(
+        "create",
+        "flat_settings",
+        "master_timeout",
+        "order",
+        "request_timeout",
+        "timeout",
+        "include_type_name",)
+    @WesDefs.Decor.operation_exec(WesDefs.OP_IND_PUT_TMP)
+    def ind_put_template(self, name, body, params=None):
+        # TODO petee 'index' is important - shouldn't be mandatory???
+        # TODO petee 'doc_type' is important - shouldn't be mandatory???
+        return self.es.indices.put_template(name=name, body=body, params=params)
+
+    def ind_put_template_result(self, rc: ExecCode, is_per_line: bool = True) -> ExecCode:
+        key_str = f"KEY{rc.fnc_params[0]}"
+
+        def fmt_fnc_ok(rcv: ExecCode) -> str:
+            return f"TEMPLATE: <-> {str(rcv.data)}"
+
+        return self._operation_result(Wes.OP_IND_PUT_TMP, key_str, rc, fmt_fnc_ok)
 
     #####################
     # doc operations
@@ -619,6 +642,7 @@ class Wes(WesDefs):
             Wes.OP_IND_DELETE:  [Wes.ind_delete, Wes.ind_delete_result],
             Wes.OP_IND_GET_MAP: [Wes.ind_get_mapping, Wes.ind_get_mapping_result],
             Wes.OP_IND_PUT_MAP: [Wes.ind_put_mapping, Wes.ind_put_mapping_result],
+            Wes.OP_IND_PUT_TMP: [Wes.ind_put_template, Wes.ind_put_template_result],
             # document operations
             Wes.OP_DOC_ADD_UP:  [Wes.doc_addup, Wes.doc_addup_result],
             Wes.OP_DOC_GET:     [Wes.doc_get, Wes.doc_get_result],
