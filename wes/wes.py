@@ -30,8 +30,8 @@ ExecCode = namedtuple('ExecCode', 'status data fnc_params')
 class WesDefs():
     # Elasticsearch version
     ES_VERSION_7_3_0 = '7.3.0'
-    ES_VERSION_6_8_2 = '6.8.2'
-    ES_VERSION_RUNNING = ES_VERSION_6_8_2
+    ES_VERSION_5_6_5 = '5.6.5'
+    ES_VERSION_RUNNING = ES_VERSION_5_6_5
 
     # indice operations
     OP_IND_CREATE   = "OP_IND_CREATE  : "
@@ -120,6 +120,8 @@ class WesDefs():
                             #                        'reason': 'Invalid index name [first_IND1], must be lowercase'
 
                             log_fnc(f"{oper} {key_str} - {e.status_code} - {e.info['error']['type']} - {e.info['error']['reason']}")
+                        elif isinstance(e, AuthenticationException):
+                            log_fnc(f"{oper} {key_str} - {e.status_code} - {e.info['error']['type']} - {e.info['error']['reason']}")
                         # generic
                         else:
                             if e.status_code == 405:
@@ -150,6 +152,7 @@ class WesDefs():
             def wrapper_mk(fnc):
                 def wrapper(self, *args, **kwargs) -> ExecCode:
                     try:
+                        Log.log(f"{oper} args({str(args)}) args({str(kwargs)})")
                         rc = fnc(self, *args, **kwargs)
                         Log.log(f"{oper} {str(rc)}")                  # this is L1 - log as is
                         return ExecCode(status=WesDefs.RC_OK, data=rc, fnc_params=([*args], {**kwargs}))
@@ -258,6 +261,10 @@ class Wes(WesDefs):
             return f"{key_str} {str(rcv.data)}"
         return self._operation_result(Wes.OP_IND_REFRESH, key_str, rc, fmt_fnc_ok)
 
+    def ind_refresh_result_shard_nb_failed(self, rc: ExecCode) -> ExecCode:
+        # TODO any idea what to check?
+        return rc.data['_shards']['failed']
+
     @query_params(
         "allow_no_indices",
         "expand_wildcards",
@@ -300,7 +307,7 @@ class Wes(WesDefs):
                         mappings = mappings.get('properties', None)
                         for prop in mappings:
                             rec = rec + str(prop) + ": " + str(mappings[prop]) + '\n'
-                    else:
+                    elif Wes.ES_VERSION_RUNNING == Wes.ES_VERSION_5_6_5:
                         for maps in mappings:
                             rec += '\n' + str(maps) + '\n'
                             for map in mappings[maps]:
@@ -311,6 +318,8 @@ class Wes(WesDefs):
                                         rec += '---> ' + str(item) + '\n'
                                 else:
                                     rec += '---> ' + str(is_dict) + '\n'
+                    else:
+                        raise ValueError(f"ES_VERSION_RUNNING is unknown")
 
             return f"{key_str} MAPPING: {rec}"
 
@@ -531,10 +540,21 @@ class Wes(WesDefs):
     def doc_search_result_nb_hits(self, rc: ExecCode):
         if self.ES_VERSION_RUNNING == self.ES_VERSION_7_3_0:
             return rc.data['hits']['total']['value']
-        elif self.ES_VERSION_RUNNING == self.ES_VERSION_6_8_2:
+        elif self.ES_VERSION_RUNNING == self.ES_VERSION_5_6_5:
             return rc.data['hits']['total']
         else:
             raise ValueError(f"ES_VERSION_RUNNING is unknown")
+
+    def doc_search_result_hits_sources(self, rc: ExecCode):
+        if self.ES_VERSION_RUNNING == self.ES_VERSION_7_3_0:
+            raise ValueError(f"ES_VERSION_RUNNING is unknown")
+        elif self.ES_VERSION_RUNNING == self.ES_VERSION_5_6_5:
+            sources = rc.data['hits']['hits']
+            print("MISO---> : ", len(sources), type(sources), str(sources))
+            return sources
+        else:
+            raise ValueError(f"ES_VERSION_RUNNING is unknown")
+
 
     @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_BULK)
     def doc_bulk(self, actions, stats_only=False, *args, **kwargs):
