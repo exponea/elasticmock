@@ -110,6 +110,9 @@ class TestWesHelper(unittest.TestCase):
 
 class TestWes(TestWesHelper):
 
+    def indice_cleanup_all(self, wes):
+        self.assertEqual(Wes.RC_OK, wes.ind_delete_result(wes.ind_delete("_all")).status)
+
     def force_reindex(self, wes):
         self.assertEqual(Wes.RC_OK, wes.ind_flush_result(wes.ind_flush(wait_if_ongoing=True)).status)
         self.assertEqual(Wes.RC_OK, wes.ind_refresh_result(wes.ind_refresh()).status)
@@ -126,6 +129,7 @@ class TestWes(TestWesHelper):
     def test_indice_basic(self):
         wes = Wes()
         global ind_str
+        self.indice_cleanup_all(wes)
 
         #
         self.indice_create_exists(wes, ind_str)
@@ -165,6 +169,7 @@ class TestWes(TestWesHelper):
         wes = Wes()
         global ind_str
         global ind_str_doc_type
+        self.indice_cleanup_all(wes)
 
         self.indice_create_exists(wes, ind_str)
         self.documents_create(wes, ind_str, ind_str_doc_type)
@@ -186,6 +191,7 @@ class TestWes(TestWesHelper):
         wes = Wes()
         global ind_str
         global ind_str_doc_type
+        self.indice_cleanup_all(wes)
 
         self.indice_create_exists(wes, ind_str)
         self.documents_create(wes, ind_str, ind_str_doc_type)
@@ -253,6 +259,7 @@ class TestWes(TestWesHelper):
         wes = Wes()
         global ind_str
         global ind_str_doc_type
+        self.indice_cleanup_all(wes)
 
         self.indice_create_exists(wes, ind_str)
         self.documents_create(wes, ind_str, ind_str_doc_type)
@@ -289,6 +296,7 @@ class TestWes(TestWesHelper):
         wes = Wes()
         global ind_str
         global ind_str_doc_type
+        self.indice_cleanup_all(wes)
 
         self.indice_create_exists(wes, ind_str)
         self.documents_create(wes, ind_str, ind_str_doc_type)
@@ -320,6 +328,7 @@ class TestWes(TestWesHelper):
         global ind_str2
         global ind_str_doc_type
         global ind_str_doc_type2
+        self.indice_cleanup_all(wes)
 
         self.indice_create_exists(wes, ind_str)
         self.indice_create_exists(wes, ind_str2)
@@ -391,6 +400,7 @@ class TestWes(TestWesHelper):
         wes = Wes()
         global ind_str
         global ind_str_doc_type
+        self.indice_cleanup_all(wes)
         self.indice_create_exists(wes, ind_str)
 
         map_new = {
@@ -458,6 +468,7 @@ class TestWes(TestWesHelper):
         wes = Wes()
         global ind_str
         global ind_str_doc_type
+        self.indice_cleanup_all(wes)
         self.indice_create_exists(wes, ind_str)
 
         # INSERT 0,1,2,3,4
