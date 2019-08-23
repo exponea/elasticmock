@@ -28,6 +28,11 @@ __all__ = ["Wes", "ExecCode"]
 ExecCode = namedtuple('ExecCode', 'status data fnc_params')
 
 class WesDefs():
+    # Elasticsearch version
+    ES_VERSION_7_3_0 = '7.3.0'
+    ES_VERSION_6_8_2 = '6.8.2'
+    ES_VERSION_RUNNING = ES_VERSION_6_8_2
+
     # indice operations
     OP_IND_CREATE   = "OP_IND_CREATE  : "
     OP_IND_FLUSH    = "OP_IND_FLUSH   : "
@@ -482,13 +487,10 @@ class Wes(WesDefs):
     def doc_search(self, index=None, body=None, params=None):
         return self.es.search(index=index, body=body, params=params)
 
-    def doc_search_result(self, rc: ExecCode, is_per_line: bool = True) -> ExecCode:
+    def doc_search_result(self, rc: ExecCode) -> ExecCode:
         key_str = f"KEY[{rc.fnc_params[1].get('index', '_all')} ]"
 
-        def fmt_fnc_ok_inline(rcv: ExecCode) -> str:
-            return f"{key_str} NB REC[{rcv.data['hits']['total']['value']}] <-> HITS[{rcv.data['hits'].get('hits', 'hits empty')}] <-> AGGS[{rcv.data.get('aggregations', 'aggs empty')}]"
-
-        def fmt_fnc_ok_per_line(rcv: ExecCode) -> str:
+        def fmt_fnc_ok(rcv: ExecCode) -> str:
             rec_list = rcv.data['hits']['hits']
             rec = ''
             rec = rec + '\nHITS:\n' + '\n'.join([str(item) for item in rec_list])
@@ -500,12 +502,17 @@ class Wes(WesDefs):
                     for a_items in aggs[a]['buckets']:
                         rec = rec + str(a_items) + '\n'
 
-            return f"{key_str} NB REC[{rcv.data['hits']['total']['value']}] : {rec}"
-
-        fmt_fnc_ok = fmt_fnc_ok_per_line if is_per_line else fmt_fnc_ok_inline
+            return f"{key_str} NB REC[{self.doc_search_result_nb_hits(rcv)}] : {rec}"
 
         return self._operation_result(Wes.OP_DOC_SEARCH, key_str, rc, fmt_fnc_ok)
 
+    def doc_search_result_nb_hits(self, rc: ExecCode):
+        if self.ES_VERSION_RUNNING == self.ES_VERSION_7_3_0:
+            return rc.data['hits']['total']['value']
+        elif self.ES_VERSION_RUNNING == self.ES_VERSION_6_8_2:
+            return rc.data['hits']['total']
+        else:
+            raise ValueError(f"ES_VERSION_RUNNING is unknown")
 
     @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_BULK)
     def doc_bulk(self, actions, stats_only=False, *args, **kwargs):
