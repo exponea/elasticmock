@@ -77,6 +77,7 @@ class TestWesHelper(unittest.TestCase):
                 "get_mapping"   : Wes.OP_IND_GET_MAP,
                 "put_mapping"   : Wes.OP_IND_PUT_MAP,
                 "put_template"  : Wes.OP_IND_PUT_TMP,
+                "get_template"  : Wes.OP_IND_GET_TMP,
             },
             'DOC': {
                 "index"     : Wes.OP_DOC_ADD_UP,
@@ -604,6 +605,47 @@ class TestWes(TestWesHelper):
         tests = self.helper_exponea_split_zip_test(zip_path, ('0.json',))
         self.assertEqual(1, len(tests))
         self.helper_exponea_run_unpacked_tests(wes, tests, True)
+
+    def test_templates_get_put(self):
+        wes = Wes()
+        #ind_str = 'test_def_catalogs'
+        global ind_str
+
+        ind_special_cleanup = 'test_def_*'
+        ind_special_NEW = 'test_def_catalog_new_v2'
+        wes.ind_delete_result(wes.ind_delete(ind_special_cleanup))
+
+        body_exponea = {'body':
+                            { 'mappings':
+                                  {'catalog_item':
+                                       {'date_detection': False, 'dynamic_templates': [
+                                           {'strings': {'mapping': { 'fields': {'keyword': {'ignore_above': 256, 'type': 'keyword'},'raw': {'index': 'not_analyzed', 'type': 'string'}}, 'type': 'text'}, 'match': '*_string'}},
+                                           {'has_value': {'mapping': {'type': 'boolean'},'match': '*_has_value'}},
+                                           {'booleans': {'mapping': {'type': 'boolean'},'match': '*_boolean'}},
+                                           {'numbers': {'mapping': {'type': 'float'},'match': '*_number'}},
+                                           {'datetimes': {'mapping': {'type': 'float'},'match': '*_datetime'}},
+                                           {'datetime_days': {'mapping': {'type': 'long'},'match': '*_datetime_day'}},
+                                           {'datetime_months': {'mapping': {'type': 'long'},'match': '*_datetime_month'}},
+                                           {'types': {'mapping': {'type': 'keyword'},'match': '*_type'}}]
+                                        }
+                                   },
+                              'template': 'test_def_catalog_*_v2'
+                            },
+                        'name': 'def_catalog_v2'
+                        }
+
+        self.indice_create_exists(wes, ind_str)
+
+        Log.notice("--------------------------------------------------------------------------------------")
+        self.assertEqual(Wes.RC_OK, wes.ind_get_template_result(wes.ind_get_template()).status)
+        self.assertEqual(Wes.RC_OK, wes.ind_put_template_result(wes.ind_put_template(**body_exponea)).status)
+        self.assertEqual(Wes.RC_OK, wes.ind_get_template_result(wes.ind_get_template()).status)
+
+        Log.notice("--------------------------------------------------------------------------------------")
+        self.indice_create_exists(wes, ind_special_NEW)
+        self.assertEqual(Wes.RC_OK, wes.ind_get_template_result(wes.ind_get_template()).status)
+
+        wes.ind_delete_result(wes.ind_delete(ind_special_cleanup))
 
 
 if __name__ == '__main__':

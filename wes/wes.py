@@ -41,6 +41,7 @@ class WesDefs():
     OP_IND_DELETE   = "OP_IND_DELETE  : "
     OP_IND_GET_MAP  = "OP_IND_GET_MAP : "
     OP_IND_PUT_MAP  = "OP_IND_PUT_MAP : "
+    OP_IND_GET_TMP  = "OP_IND_GET_TMP : "
     OP_IND_PUT_TMP  = "OP_IND_PUT_TMP : "
     # document operations
     OP_DOC_ADD_UP   = "OP_DOC_ADDUP   : "
@@ -268,44 +269,50 @@ class Wes(WesDefs):
     def ind_get_mapping(self, index=None, doc_type=None, params=None):
         return self.es.indices.get_mapping(index=index, doc_type=doc_type, params=params)
 
-    def ind_get_mapping_result(self, rc: ExecCode, is_per_line: bool = True) -> ExecCode:
+    def ind_get_mapping_result(self, rc: ExecCode) -> ExecCode:
         key_str = None
         if ExecCode.status == Wes.RC_OK:
             key_str = f"KEY[{rc.fnc_params[1].get('index', '_all')} <-> {rc.fnc_params[1].get('doc_type', '_all')}]"
         else:
             key_str = f"KEY{rc.fnc_params[0]}"
 
-        def fmt_fnc_ok_inline(rcv: ExecCode) -> str:
-            return f"{key_str} MAPPING: <-> {str(rcv.data)}"
-
-        def fmt_fnc_ok_per_line(rcv: ExecCode) -> str:
+        def fmt_fnc_ok(rcv: ExecCode) -> str:
             rec = ''
             for rc_index in rcv.data.keys():
-                rc_index_str = f"IND[{rc_index}]"
-                rec = rec + '\n' + rc_index_str
+                rec += '\n' + f"IND[{rc_index}]"
 
-                # mapping not exist
-                props = rcv.data[rc_index].get('mappings', None)
-                if len(props) == 0:
-                    rec = rec + " : Missing mappings" + '\n'
+                # mappings not exist
+                mappings = rcv.data[rc_index].get('mappings', None)
+                if len(mappings) == 0:
+                    rec += " : Missing mappings" + '\n'
                     continue
                 else:
-                    propsCheck = props.get('properties', None)
-                    if propsCheck is None:
-                        # doc_type is nested
-                        nested_doc_type = list(props.keys())[0]
-                        rc_doc_type_str = f" : DOC[{nested_doc_type}]"
-                        rec = rec + rc_doc_type_str
+                    if Wes.ES_VERSION_RUNNING == Wes.ES_VERSION_7_3_0:
+                        propsCheck = mappings.get('properties', None)
+                        if propsCheck is None:
+                            # doc_type is nested
+                            nested_doc_type = list(mappings.keys())[0]
+                            rc_doc_type_str = f" : DOC[{nested_doc_type}]"
+                            rec = rec + rc_doc_type_str
 
-                        props = list(props.values())[0] # probably one
-                    rec = rec + '\n'
-                    props = props.get('properties', None)
-                    for prop in props:
-                        rec = rec + str(prop) + ": " + str(props[prop]) + '\n'
+                            mappings = list(mappings.values())[0]  # probably one
+                        rec = rec + '\n'
+                        mappings = mappings.get('properties', None)
+                        for prop in mappings:
+                            rec = rec + str(prop) + ": " + str(mappings[prop]) + '\n'
+                    else:
+                        for maps in mappings:
+                            rec += '\n' + str(maps) + '\n'
+                            for map in mappings[maps]:
+                                rec += '-> ' + str(map) + '\n'
+                                is_dict = mappings[maps][map]
+                                if isinstance(is_dict, list) or isinstance(is_dict, dict):
+                                    for item in is_dict:
+                                        rec += '---> ' + str(item) + '\n'
+                                else:
+                                    rec += '---> ' + str(is_dict) + '\n'
 
             return f"{key_str} MAPPING: {rec}"
-
-        fmt_fnc_ok = fmt_fnc_ok_per_line if is_per_line else fmt_fnc_ok_inline
 
         return self._operation_result(Wes.OP_IND_GET_MAP, key_str, rc, fmt_fnc_ok)
 
@@ -340,8 +347,6 @@ class Wes(WesDefs):
         "include_type_name",)
     @WesDefs.Decor.operation_exec(WesDefs.OP_IND_PUT_TMP)
     def ind_put_template(self, name, body, params=None):
-        # TODO petee 'index' is important - shouldn't be mandatory???
-        # TODO petee 'doc_type' is important - shouldn't be mandatory???
         return self.es.indices.put_template(name=name, body=body, params=params)
 
     def ind_put_template_result(self, rc: ExecCode, is_per_line: bool = True) -> ExecCode:
@@ -351,6 +356,23 @@ class Wes(WesDefs):
             return f"TEMPLATE: <-> {str(rcv.data)}"
 
         return self._operation_result(Wes.OP_IND_PUT_TMP, key_str, rc, fmt_fnc_ok)
+
+    @query_params("flat_settings",
+                  "local",
+                  "master_timeout",
+                  "include_type_name")
+    @WesDefs.Decor.operation_exec(WesDefs.OP_IND_GET_TMP)
+    def ind_get_template(self, name=None, params=None):
+        return self.es.indices.get_template(name=name, params=params)
+
+    def ind_get_template_result(self, rc: ExecCode, is_per_line: bool = True) -> ExecCode:
+        key_str = f"KEY{rc.fnc_params[0]}"
+
+        def fmt_fnc_ok(rcv: ExecCode) -> str:
+            return f"TEMPLATE: <-> {str(rcv.data)}"
+
+        return self._operation_result(Wes.OP_IND_GET_TMP, key_str, rc, fmt_fnc_ok)
+
 
     #####################
     # doc operations
@@ -650,6 +672,7 @@ class Wes(WesDefs):
             Wes.OP_IND_GET_MAP: [Wes.ind_get_mapping, Wes.ind_get_mapping_result],
             Wes.OP_IND_PUT_MAP: [Wes.ind_put_mapping, Wes.ind_put_mapping_result],
             Wes.OP_IND_PUT_TMP: [Wes.ind_put_template, Wes.ind_put_template_result],
+            Wes.OP_IND_GET_TMP: [Wes.ind_get_template, Wes.ind_get_template_result],
             # document operations
             Wes.OP_DOC_ADD_UP:  [Wes.doc_addup, Wes.doc_addup_result],
             Wes.OP_DOC_GET:     [Wes.doc_get, Wes.doc_get_result],
