@@ -138,10 +138,10 @@ class TestWes(TestWesHelper):
         # MSE_NOTES: #1 search ALL in DB
         self.assertEqual(Wes.RC_OK, self.wes.doc_search_result(self.wes.doc_search()).status)
         # MSE_NOTES: #2 search ALL in specific INDICE
-        self.assertEqual(5, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str))))
+        self.assertEqual(5, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search(index=ind_str))))
         # MSE_NOTES: #3 equivalent to #2
         body={"query": {"match_all": {}}}
-        self.assertEqual(5, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
+        self.assertEqual(5, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
 
         ######################################################################################################################
         # MSE_NOTES: #4 hint list FILTER
@@ -160,11 +160,11 @@ class TestWes(TestWesHelper):
         body = {"from": 0, "size": 10,
                 #"query": {"match": {}} EXCEPTION:  400 - parsing_exception - No text specified for text query
                 "query": {"match": {"country": "slovakia"}}}
-        self.assertEqual(2, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
+        self.assertEqual(2, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
 
         body = {"from": 0, "size": 10,
                 "query": {"match": {"sentence": "slovakia"}}}
-        self.assertEqual(4, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
+        self.assertEqual(4, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
 
         ######################################################################################################################
         # MSE_NOTES: #6 QUERY(matchphrase) MATCH(subSentence+wholeWord+phraseOrder) CASE(in-sensitive)
@@ -172,22 +172,22 @@ class TestWes(TestWesHelper):
         ######################################################################################################################
         body = {"from": 0, "size": 10,
                 "query": {"match_phrase": {"country": "slovakia"}}}
-        self.assertEqual(2, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
+        self.assertEqual(2, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
 
         body = {"from": 0, "size": 10,
                 "query": {"match_phrase": {"sentence": "slovakia is"}}}
-        self.assertEqual(2, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
+        self.assertEqual(2, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
 
         ######################################################################################################################
         # MSE_NOTES: #7 QUERY(term) MATCH(exact) CASE(in-sensitive)
         ######################################################################################################################
         body = {"from": 0, "size": 10,
                 "query": {"term": {"country": "slovakia"}}}
-        self.assertEqual(2, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
+        self.assertEqual(2, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
 
         body = {"from": 0, "size": 10,
                 "query": {"term": {"sentence": "slovakia is"}}}
-        self.assertEqual(0, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
+        self.assertEqual(0, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
 
 
     def test_complex_queries(self):
@@ -201,10 +201,10 @@ class TestWes(TestWesHelper):
 
         # 1 QUERY(match) MATCH(subSentence+wholeWord) CASE(in-sensitive)
         q1 = {"match": {"sentence": "slovakia"}}
-        self.assertEqual(4, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body={"query": q1}))))
+        self.assertEqual(4, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body={"query": q1}))))
         # 2 QUERY(match) MATCH(subSentence+wholeWord) CASE(in-sensitive)
         q2 = {"match": {"sentence": "small"}}                                                   # MSE_NOTES:
-        self.assertEqual(2, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body={"query": q2}))))
+        self.assertEqual(2, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body={"query": q2}))))
 
         Log.notice("--------------------------------------------------------------------------------------")
         ######################################################################################################################
@@ -212,13 +212,13 @@ class TestWes(TestWesHelper):
         #   - must, must_not, should(improving relevance score, if none 'must' presents at least 1 'should' be present)
         ######################################################################################################################
         body = {"query": {"bool": {"must_not": q2, "should": q1}}}
-        self.assertEqual(2, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
+        self.assertEqual(2, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
 
         ######################################################################################################################
         # MSE_NOTES: #4 QUERY(regexp) MATCH(regexp) CASE(in-sensitive)
         ######################################################################################################################
         q3 = {"regexp": {"sentence": ".*"}}
-        self.assertEqual(5, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body={"query": q3}))))
+        self.assertEqual(5, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body={"query": q3}))))
 
     def test_mappings_get(self):
         # MSE_NOTES: mapping is process of defining how documents looks like (which fields contains, field types, how is filed indexed)
@@ -401,7 +401,7 @@ class TestWes(TestWesHelper):
         self.force_reindex(self.wes)
 
         body = {"from": 0, "size": 10,"query": {"match_all": {}}}
-        self.assertEqual(3, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
+        self.assertEqual(3, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
 
         Log.notice("--------------------------------------------------------------------------------------")
         body = {"from": 0, "size": 10,                      # MSE_NOTES: #1 QUERY + AGGREGATION
@@ -464,7 +464,7 @@ class TestWes(TestWesHelper):
         self.force_reindex(self.wes)
 
         body = {"query": {"match_all": {}}}
-        self.assertEqual(5, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
+        self.assertEqual(5, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
 
         Log.notice("--------------------------------------------------------------------------------------")
 
@@ -486,7 +486,7 @@ class TestWes(TestWesHelper):
         self.force_reindex(self.wes)
 
         body = {"query": {"match_all": {}}}
-        self.assertEqual(3, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
+        self.assertEqual(3, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
 
         Log.notice("--------------------------------------------------------------------------------------")
 
@@ -508,7 +508,7 @@ class TestWes(TestWesHelper):
         self.force_reindex(self.wes)
 
         # FINAL 0,1,2,3
-        self.assertEqual(4, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
+        self.assertEqual(4, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
 
 
     def test_scan(self):
@@ -535,7 +535,7 @@ class TestWes(TestWesHelper):
         self.force_reindex(self.wes)
 
         body = {"query": {"match_all": {}}}
-        self.assertEqual(5, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
+        self.assertEqual(5, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
 
         Log.notice("--------------------------------------------------------------------------------------")
         self.assertEqual(Wes.RC_OK, self.wes.doc_scan_result(self.wes.doc_scan(query=body)).status)

@@ -536,11 +536,11 @@ class Wes(WesDefs):
                     for a_items in aggs[a]['buckets']:
                         rec = rec + str(a_items) + '\n'
 
-            return f"{key_str} NB REC[{self.doc_search_result_nb_hits(rcv)}] : {rec}"
+            return f"{key_str} NB REC[{self.doc_search_result_hits_nb(rcv)}] : {rec}"
 
         return self._operation_result(Wes.OP_DOC_SEARCH, key_str, rc, fmt_fnc_ok)
 
-    def doc_search_result_nb_hits(self, rc: ExecCode):
+    def doc_search_result_hits_nb(self, rc: ExecCode):
         if self.ES_VERSION_RUNNING == self.ES_VERSION_7_3_0:
             return rc.data['hits']['total']['value']
         elif self.ES_VERSION_RUNNING == self.ES_VERSION_5_6_5:
@@ -549,11 +549,12 @@ class Wes(WesDefs):
             self.es_version_mismatch()
 
     def doc_search_result_hits_sources(self, rc: ExecCode):
+
         if self.ES_VERSION_RUNNING == self.ES_VERSION_7_3_0:
             self.es_version_mismatch()
         elif self.ES_VERSION_RUNNING == self.ES_VERSION_5_6_5:
             sources = rc.data['hits']['hits']
-            print("MISO---> : ", len(sources), type(sources), str(sources))
+            # print("MISO---> : ", len(sources), type(sources), str(sources))
             return sources
         else:
             self.es_version_mismatch()
