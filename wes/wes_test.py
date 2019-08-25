@@ -16,10 +16,6 @@ from elasticsearch.exceptions import ConnectionTimeout
 from elasticsearch.exceptions import AuthenticationException
 from elasticsearch.exceptions import AuthorizationException
 
-from zipfile import ZipFile
-from pathlib import Path
-import json
-
 ind_str = "first_ind1"
 ind_str2 = "first_ind2"
 ind_str_doc_type = "first_ind1_docT"
@@ -27,141 +23,8 @@ ind_str_doc_type = "first_ind2_docT"
 
 class TestWesHelper(unittest.TestCase):
 
-    def _helper_exponea_zip_unpack(self, path_to_zip, file_to_extract="all"):
-        file = Path(path_to_zip)
-
-        extracted_files = []
-
-        if file.is_file():
-            input_zip = ZipFile(path_to_zip)
-            Log.log(str(input_zip.namelist()))
-            for name in input_zip.namelist():
-                if file_to_extract == "all" or name in file_to_extract:
-                    # utf-8 is used here because it is a very common encoding, but you
-                    # need to use the encoding your data is actually in.
-                    # $ file elasticmock-testcases/1.json
-                    # elasticmock-testcases/1.json: ASCII text, with very long lines
-                    extracted_files.append([name, input_zip.read(name).decode("ascii")])
-
-        return extracted_files
-
-    def helper_exponea_split_zip_test(self, path_to_zip, file_to_extract="all"):
-
-        raw_tests = self._helper_exponea_zip_unpack(path_to_zip, file_to_extract)
-
-        print(raw_tests)
-        tests = []
-        for test_name, raw_test in raw_tests:
-            split_test = raw_test.split('\n')
-            split_list = [json.loads(test_cmd) for test_cmd in split_test if test_cmd.strip()]
-            tests.append([test_name, split_list])
-        return tests
-
-    def helper_exponea_run_unpacked_test(self, wes: Wes, test_name: str, line: int, result, accessor, method, *args, **kwargs):
-
-        group = 'IND' if accessor else 'DOC'
-
-        Log.log(f"T[{test_name}] L[{line:3}] -> {group} "
-                f"cmd({method} <-> args{args} <-> kwargs({kwargs})) result({result})")
-
-        # BE SURE TO BE IN SYNCH WITH
-        # Wes.operation_mappers
-        # TODO which methods are used in exponea?
-        method_mapper = {
-            "IND": {
-                "create"        : Wes.OP_IND_CREATE,
-                "flush"         : Wes.OP_IND_FLUSH,
-                "refresh"       : Wes.OP_IND_REFRESH,
-                "exists"        : Wes.OP_IND_EXIST,
-                "delete"        : Wes.OP_IND_DELETE,
-                "get_mapping"   : Wes.OP_IND_GET_MAP,
-                "put_mapping"   : Wes.OP_IND_PUT_MAP,
-                "put_template"  : Wes.OP_IND_PUT_TMP,
-                "get_template"  : Wes.OP_IND_GET_TMP,
-            },
-            'DOC': {
-                "index"     : Wes.OP_DOC_ADD_UP,
-                "get"       : Wes.OP_DOC_GET,
-                "exists"    : Wes.OP_DOC_EXIST,
-
-                "search"    : Wes.OP_DOC_SEARCH,
-                "bulk"      : Wes.OP_DOC_BULK,
-                "scan"      : Wes.OP_DOC_SCAN,
-                "count"     : Wes.OP_DOC_COUNT,
-            }
-        }
-
-        operation = method_mapper[group][method]
-
-        #############################################################
-        # OPERATIONS - VALUES FIXER
-        #############################################################
-        if wes.ES_VERSION_RUNNING == Wes.ES_VERSION_5_6_5:
-
-            if operation == Wes.OP_DOC_ADD_UP:
-                indice, doc_type = args
-                Log.log(f"{operation} FIXER(  args) before : {args}")
-                args = (indice,)
-                Log.log(f"{operation} FIXER(  args) after  : {args}")
-
-                kw_doc_type = kwargs.get('doc_type', None)
-                Log.log(f"{operation} FIXER(kwargs) before : doc_type({kw_doc_type})")
-                # FAKE as result of PYTHON API:
-                #  EXCEPTION: 'reason': "Document mapping type name can't start with '_', found: [_doc]"
-                #  API      : def index(self, index, body, doc_type="_doc", id=None, params=None):
-                doc_type = kwargs['doc_type'] = doc_type
-                Log.log(f"{operation} FIXER(kwargs) after  : doc_type({doc_type})")
-
-            elif operation == Wes.OP_DOC_SEARCH:
-
-                # FAKE as result of PYTHON API:
-                # EXCEPTION: Unknow L1 exception ... doc_search() got an unexpected keyword argument 'doc_type'
-                kw_doc_type = kwargs.get('doc_type', None)
-                Log.log(f"{operation} FIXER(kwargs) before : doc_type({kw_doc_type})")
-                del kwargs['doc_type']
-                doc_type = kwargs.get('doc_type', None)
-                Log.log(f"{operation} FIXER(kwargs) after  : doc_type({doc_type})")
-
-            else:
-                pass
-        else:
-            raise ValueError(f"ES_VERSION_RUNNING is unknown")
-
-        wes_mappers = wes.operation_mappers(operation)
-        # some test case operation not covered
-        self.assertNotEqual(None, wes_mappers)
-        wes_mappers_operation, wes_mappers_operation_result = wes_mappers
-        Log.log(f"{operation} MAPPERS: {str(wes_mappers)}")
-        wes_mappers_rc = wes_mappers_operation_result(wes, wes_mappers_operation(wes, *args, **kwargs))
-
-        rc_result = ExecCode(Wes.RC_OK, result, wes_mappers_rc.fnc_params)
-        if operation == Wes.OP_DOC_SEARCH:
-            pass
-            # FAKE IT AS OK
-            self.assertEqual(wes.doc_search_result_nb_hits(rc_result),
-                             wes.doc_search_result_nb_hits(wes_mappers_rc))
-        elif operation == Wes.OP_IND_REFRESH:
-            self.assertEqual(wes.ind_refresh_result_shard_nb_failed(rc_result),
-                             wes.ind_refresh_result_shard_nb_failed(wes_mappers_rc))
-        else:
-            self.assertDictEqual(rc_result.data, wes_mappers_rc.data)
-
-
-    def helper_exponea_run_unpacked_tests(self, wes, tests: list, is_interactive=False):
-        for test_name, test_lines in tests:
-            Log.notice(f"T[{test_name}] - number commands to execute {len(test_lines)}")
-            for line, cmd in enumerate(test_lines):
-                #Log.log(f"T[{test_name}] L[{line:3}] -> raw {cmd}")
-                self.helper_exponea_run_unpacked_test(wes, test_name, line, cmd['result'], cmd['accessor'],
-                                                      cmd['method'], *(cmd['args']), **(cmd['kwargs']))
-                if is_interactive:
-                    input("Press ENTER ...")
-
-
-class TestWes(TestWesHelper):
-
     def indice_cleanup_all(self, wes):
-        pass #self.assertEqual(Wes.RC_OK, wes.ind_delete_result(wes.ind_delete("_all")).status)
+        self.assertEqual(Wes.RC_OK, wes.ind_delete_result(wes.ind_delete("_all")).status)
 
     def force_reindex(self, wes):
         self.assertEqual(Wes.RC_OK, wes.ind_flush_result(wes.ind_flush(wait_if_ongoing=True)).status)
@@ -175,24 +38,6 @@ class TestWes(TestWesHelper):
         self.assertEqual(True, wes.ind_exist_result(wes.ind_exist(ind_str)).data)
 
         self.assertEqual(Wes.RC_OK, wes.ind_get_mapping_result(wes.ind_get_mapping()).status)
-
-    def test_indice_basic(self):
-        wes = Wes()
-        global ind_str
-        self.indice_cleanup_all(wes)
-
-        #
-        self.indice_create_exists(wes, ind_str)
-
-        # re-create
-        self.assertTrue(isinstance(wes.ind_create_result(wes.ind_create(ind_str)).data, RequestError))
-        # unknown
-        self.assertEqual(False, wes.ind_exist_result(wes.ind_exist("unknown ind_str")).data)
-
-        self.assertEqual(True, wes.ind_delete_result(wes.ind_delete(ind_str)).data.get('acknowledged', False))
-        self.assertEqual(False, wes.ind_exist_result(wes.ind_exist(ind_str)).data)
-        self.assertTrue(isinstance(wes.ind_delete_result(wes.ind_delete(ind_str)).data, NotFoundError))
-
 
     def documents_create(self, wes, ind_str, doc_type):
         doc1 = {"city": "Bratislava1", "country": "slovakia ", "sentence": "The slovakia is a country"}
@@ -215,47 +60,88 @@ class TestWes(TestWesHelper):
         self.force_reindex(wes)
 
 
+class TestWes(TestWesHelper):
+
+    def setUp(self):
+        self.wes = Wes()
+        # self.index_name = 'test_index'
+        # self.doc_type = 'doc-Type'
+        # self.body = {'string': 'content', 'id': 1}
+
+    def test_indice_basic(self):
+
+        global ind_str
+        self.indice_cleanup_all(self.wes)
+
+        # create
+        self.indice_create_exists(self.wes, ind_str)
+        # re-create
+        self.assertTrue(isinstance(self.wes.ind_create_result(self.wes.ind_create(ind_str)).data, RequestError))
+        # unknown
+        self.assertEqual(False, self.wes.ind_exist_result(self.wes.ind_exist("unknown ind_str")).data)
+        # delete
+        self.assertEqual(True, self.wes.ind_delete_result(self.wes.ind_delete(ind_str)).data.get('acknowledged', False))
+        self.assertEqual(False, self.wes.ind_exist_result(self.wes.ind_exist(ind_str)).data)
+        self.assertTrue(isinstance(self.wes.ind_delete_result(self.wes.ind_delete(ind_str)).data, NotFoundError))
+
+
     def test_documents_basic(self):
-        wes = Wes()
+
         global ind_str
         global ind_str_doc_type
-        self.indice_cleanup_all(wes)
+        self.indice_cleanup_all(self.wes)
 
-        self.indice_create_exists(wes, ind_str)
-        self.documents_create(wes, ind_str, ind_str_doc_type)
+        self.indice_create_exists(self.wes, ind_str)
+        self.documents_create(self.wes, ind_str, ind_str_doc_type)
         #                                                                                                  MSE_NOTES:  IMPO_GET_1 ok/exc                                    IMPO_GET_2
-        self.assertEqual(Wes.RC_OK, wes.doc_get_result(wes.doc_get(ind_str, 1, doc_type=ind_str_doc_type)).status)  # MSE_NOTES: 'found': True,                 '_seq_no': 0,  '_source': {'city': 'Bratislava1', 'coutry': 'slovakia1'}
-        self.assertEqual(Wes.RC_OK, wes.doc_get_result(wes.doc_get(ind_str, 2, doc_type=ind_str_doc_type)).status)  # MSE_NOTES: 'found': True,                 '_seq_no': 1,  '_source': {'city': 'Bratislava1', 'coutry': 'slovakia2'}
-        self.assertEqual(Wes.RC_OK, wes.doc_get_result(wes.doc_get(ind_str, 3, doc_type=ind_str_doc_type)).status)  # MSE_NOTES: 'found': True,                 '_seq_no': 2,  '_source': {'city': 'Bratislava1', 'coutry': 'slovakia2'}
-        self.assertTrue(isinstance(wes.doc_get_result(wes.doc_get(ind_str, 9, doc_type=ind_str_doc_type)).data, NotFoundError))  # MSE_NOTES:  WesNotFoundError !!!
+        self.assertEqual(Wes.RC_OK, self.wes.doc_get_result(self.wes.doc_get(ind_str, 1, doc_type=ind_str_doc_type)).status)  # MSE_NOTES: 'found': True,                 '_seq_no': 0,  '_source': {'city': 'Bratislava1', 'coutry': 'slovakia1'}
+        self.assertEqual(Wes.RC_OK, self.wes.doc_get_result(self.wes.doc_get(ind_str, 2, doc_type=ind_str_doc_type)).status)  # MSE_NOTES: 'found': True,                 '_seq_no': 1,  '_source': {'city': 'Bratislava1', 'coutry': 'slovakia2'}
+        self.assertEqual(Wes.RC_OK, self.wes.doc_get_result(self.wes.doc_get(ind_str, 3, doc_type=ind_str_doc_type)).status)  # MSE_NOTES: 'found': True,                 '_seq_no': 2,  '_source': {'city': 'Bratislava1', 'coutry': 'slovakia2'}
+        self.assertTrue(isinstance(self.wes.doc_get_result(self.wes.doc_get(ind_str, 9, doc_type=ind_str_doc_type)).data, NotFoundError))  # MSE_NOTES:  WesNotFoundError !!!
 
-        #MSE_NOTES: #1 400 - illegal_argument_exception - Rejecting mapping update to [first_ind1] as the final mapping would have more than 1 type: [any, any2]
+        # check docs existence
+        if self.wes.ES_VERSION_RUNNING == Wes.ES_VERSION_7_3_0:
+            self.assertTrue(self.wes.doc_exists_result(self.wes.doc_exists(ind_str, 5)).data)
+            self.assertFalse(self.wes.doc_exists_result(self.wes.doc_exists(ind_str, 9)).data)
+        elif self.wes.ES_VERSION_RUNNING == Wes.ES_VERSION_5_6_5:
+            # TODO - python lib API  ( use 'doc_type' because default goes as '_doc' )
+            self.assertTrue(self.wes.doc_exists_result(self.wes.doc_exists(ind_str, 5, doc_type=ind_str_doc_type)).data)
+            self.assertFalse(self.wes.doc_exists_result(self.wes.doc_exists(ind_str, 9, doc_type=ind_str_doc_type)).data)
+        else:
+            self.es_version_mismatch()
+
+        # check doc with different type vs. indice
         doc6 = {"city": "Bratislava4", "country": "SLOVAKIA5", "sentence": "The small COUNTRy is slovakia"}
-        self.assertTrue(isinstance(wes.doc_addup_result(wes.doc_addup(ind_str, doc6, doc_type="any2", id=6)).data, RequestError))
+        if self.wes.ES_VERSION_RUNNING == Wes.ES_VERSION_7_3_0:
+            # MSE_NOTES: #1 400 - illegal_argument_exception - Rejecting mapping update to [first_ind1] as the final mapping would have more than 1 type: [any, any2]
+            self.assertTrue(isinstance(self.wes.doc_addup_result(self.wes.doc_addup(ind_str, doc6, doc_type="any2", id=6)).data, RequestError))
+        elif self.wes.ES_VERSION_RUNNING == Wes.ES_VERSION_5_6_5:
+            # TODO - python lib API  ( use 'doc_type' because default goes as '_doc' )
+            # MSE_NOTES: no EXEPTION !!!
+            self.assertEqual('created', self.wes.doc_addup_result(self.wes.doc_addup(ind_str, doc6, doc_type="any2", id=6)).data['result'])
+        else:
+            self.es_version_mismatch()
 
-        Log.notice2("------------------------------------------------------------------")
-        self.assertTrue(wes.doc_exists_result(wes.doc_exists(ind_str, 5)).data)
-        self.assertFalse(wes.doc_exists_result(wes.doc_exists(ind_str, 9)).data)
 
     def test_query_basic(self):
-        wes = Wes()
+
         global ind_str
         global ind_str_doc_type
-        self.indice_cleanup_all(wes)
+        self.indice_cleanup_all(self.wes)
 
-        self.indice_create_exists(wes, ind_str)
-        self.documents_create(wes, ind_str, ind_str_doc_type)
+        self.indice_create_exists(self.wes, ind_str)
+        self.documents_create(self.wes, ind_str, ind_str_doc_type)
 
         ###########################################################
         # QUERY(all)
         ###########################################################
         # MSE_NOTES: #1 search ALL in DB
-        self.assertEqual(Wes.RC_OK, wes.doc_search_result(wes.doc_search()).status)
+        self.assertEqual(Wes.RC_OK, self.wes.doc_search_result(self.wes.doc_search()).status)
         # MSE_NOTES: #2 search ALL in specific INDICE
-        self.assertEqual(5, wes.doc_search_result_nb_hits(wes.doc_search_result(wes.doc_search(index=ind_str))))
+        self.assertEqual(5, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str))))
         # MSE_NOTES: #3 equivalent to #2
         body={"query": {"match_all": {}}}
-        self.assertEqual(5, wes.doc_search_result_nb_hits(wes.doc_search_result(wes.doc_search(index=ind_str, body=body))))
+        self.assertEqual(5, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
 
         ######################################################################################################################
         # MSE_NOTES: #4 hint list FILTER
@@ -265,7 +151,7 @@ class TestWes(TestWesHelper):
         ######################################################################################################################
         body = {"from": 0, "size": 2,
                 "query": {"match_all": {}}}
-        rc = wes.doc_search_result(wes.doc_search(index=ind_str, body=body))
+        rc = self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))
         self.assertEqual(2, len(rc.data['hits']['hits']))
 
         ######################################################################################################################
@@ -274,11 +160,11 @@ class TestWes(TestWesHelper):
         body = {"from": 0, "size": 10,
                 #"query": {"match": {}} EXCEPTION:  400 - parsing_exception - No text specified for text query
                 "query": {"match": {"country": "slovakia"}}}
-        self.assertEqual(2, wes.doc_search_result_nb_hits(wes.doc_search_result(wes.doc_search(index=ind_str, body=body))))
+        self.assertEqual(2, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
 
         body = {"from": 0, "size": 10,
                 "query": {"match": {"sentence": "slovakia"}}}
-        self.assertEqual(4, wes.doc_search_result_nb_hits(wes.doc_search_result(wes.doc_search(index=ind_str, body=body))))
+        self.assertEqual(4, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
 
         ######################################################################################################################
         # MSE_NOTES: #6 QUERY(matchphrase) MATCH(subSentence+wholeWord+phraseOrder) CASE(in-sensitive)
@@ -286,39 +172,39 @@ class TestWes(TestWesHelper):
         ######################################################################################################################
         body = {"from": 0, "size": 10,
                 "query": {"match_phrase": {"country": "slovakia"}}}
-        self.assertEqual(2, wes.doc_search_result_nb_hits(wes.doc_search_result(wes.doc_search(index=ind_str, body=body))))
+        self.assertEqual(2, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
 
         body = {"from": 0, "size": 10,
                 "query": {"match_phrase": {"sentence": "slovakia is"}}}
-        self.assertEqual(2, wes.doc_search_result_nb_hits(wes.doc_search_result(wes.doc_search(index=ind_str, body=body))))
+        self.assertEqual(2, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
 
         ######################################################################################################################
         # MSE_NOTES: #7 QUERY(term) MATCH(exact) CASE(in-sensitive)
         ######################################################################################################################
         body = {"from": 0, "size": 10,
                 "query": {"term": {"country": "slovakia"}}}
-        self.assertEqual(2, wes.doc_search_result_nb_hits(wes.doc_search_result(wes.doc_search(index=ind_str, body=body))))
+        self.assertEqual(2, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
 
         body = {"from": 0, "size": 10,
                 "query": {"term": {"sentence": "slovakia is"}}}
-        self.assertEqual(0, wes.doc_search_result_nb_hits(wes.doc_search_result(wes.doc_search(index=ind_str, body=body))))
+        self.assertEqual(0, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
 
 
     def test_complex_queries(self):
-        wes = Wes()
+
         global ind_str
         global ind_str_doc_type
-        self.indice_cleanup_all(wes)
+        self.indice_cleanup_all(self.wes)
 
-        self.indice_create_exists(wes, ind_str)
-        self.documents_create(wes, ind_str, ind_str_doc_type)
+        self.indice_create_exists(self.wes, ind_str)
+        self.documents_create(self.wes, ind_str, ind_str_doc_type)
 
         # 1 QUERY(match) MATCH(subSentence+wholeWord) CASE(in-sensitive)
         q1 = {"match": {"sentence": "slovakia"}}
-        self.assertEqual(4, wes.doc_search_result_nb_hits(wes.doc_search_result(wes.doc_search(index=ind_str, body={"query": q1}))))
+        self.assertEqual(4, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body={"query": q1}))))
         # 2 QUERY(match) MATCH(subSentence+wholeWord) CASE(in-sensitive)
         q2 = {"match": {"sentence": "small"}}                                                   # MSE_NOTES:
-        self.assertEqual(2, wes.doc_search_result_nb_hits(wes.doc_search_result(wes.doc_search(index=ind_str, body={"query": q2}))))
+        self.assertEqual(2, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body={"query": q2}))))
 
         Log.notice("--------------------------------------------------------------------------------------")
         ######################################################################################################################
@@ -326,13 +212,13 @@ class TestWes(TestWesHelper):
         #   - must, must_not, should(improving relevance score, if none 'must' presents at least 1 'should' be present)
         ######################################################################################################################
         body = {"query": {"bool": {"must_not": q2, "should": q1}}}
-        self.assertEqual(2, wes.doc_search_result_nb_hits(wes.doc_search_result(wes.doc_search(index=ind_str, body=body))))
+        self.assertEqual(2, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
 
         ######################################################################################################################
         # MSE_NOTES: #4 QUERY(regexp) MATCH(regexp) CASE(in-sensitive)
         ######################################################################################################################
         q3 = {"regexp": {"sentence": ".*"}}
-        self.assertEqual(5, wes.doc_search_result_nb_hits(wes.doc_search_result(wes.doc_search(index=ind_str, body={"query": q3}))))
+        self.assertEqual(5, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body={"query": q3}))))
 
     def test_mappings_get(self):
         # MSE_NOTES: mapping is process of defining how documents looks like (which fields contains, field types, how is filed indexed)
@@ -342,26 +228,41 @@ class TestWes(TestWesHelper):
         # - datetime (is recognized based on format)
         #  = setting correct times help aggregations
         #  = u can't change mapping if docs present in IND
-        wes = Wes()
+
         global ind_str
         global ind_str_doc_type
-        self.indice_cleanup_all(wes)
+        self.indice_cleanup_all(self.wes)
 
-        self.indice_create_exists(wes, ind_str)
-        self.documents_create(wes, ind_str, ind_str_doc_type)
+        self.indice_create_exists(self.wes, ind_str)
+        self.documents_create(self.wes, ind_str, ind_str_doc_type)
 
         ind_str2 = "first_ind2"
-        self.indice_create_exists(wes, ind_str2)
+        self.indice_create_exists(self.wes, ind_str2)
 
-        self.assertEqual(2, len(wes.ind_get_mapping_result(wes.ind_get_mapping()).data.keys()))
-        self.assertEqual(1, len(wes.ind_get_mapping_result(wes.ind_get_mapping(ind_str)).data.keys()))
+        self.assertEqual(2, len(self.wes.ind_get_mapping_result(self.wes.ind_get_mapping()).data.keys()))
+        self.assertEqual(1, len(self.wes.ind_get_mapping_result(self.wes.ind_get_mapping(ind_str)).data.keys()))
 
         Log.notice("--------------------------------------------------------------------------------------")
 
-        # MSE_NOTES: #1 400 - illegal_argument_exception - Types cannot be provided in get mapping requests, unless include_type_name is set to true.
-        if wes.ES_VERSION_RUNNING == Wes.ES_VERSION_7_3_0:
-            self.assertTrue(isinstance(wes.ind_get_mapping_result(wes.ind_get_mapping(ind_str, doc_type=ind_str_doc_type)).data, RequestError))
-        self.assertEqual(1, len(wes.ind_get_mapping_result(wes.ind_get_mapping(ind_str, doc_type=ind_str_doc_type, include_type_name=True)).data.keys()))
+
+        if self.wes.ES_VERSION_RUNNING == Wes.ES_VERSION_7_3_0:
+            # MSE_NOTES: #1 400 - illegal_argument_exception - Types cannot be provided in get mapping requests, unless include_type_name is set to true.
+            self.assertTrue(isinstance(self.wes.ind_get_mapping_result(self.wes.ind_get_mapping(ind_str, doc_type=ind_str_doc_type)).data, RequestError))
+        elif self.wes.ES_VERSION_RUNNING == Wes.ES_VERSION_5_6_5:
+            # TODO - no exception raised in comparision with ES_VERSION_7_3_0
+            self.assertEqual(Wes.RC_OK, self.wes.ind_get_mapping_result(self.wes.ind_get_mapping(ind_str, doc_type=ind_str_doc_type)).status)
+
+            self.assertEqual(Wes.RC_OK, self.wes.ind_get_mapping_result(self.wes.ind_get_mapping(ind_str)).status)
+        else:
+            self.wes.es_version_mismatch()
+
+        if self.wes.ES_VERSION_RUNNING == Wes.ES_VERSION_7_3_0:
+            self.assertEqual(1, len(self.wes.ind_get_mapping_result(self.wes.ind_get_mapping(ind_str, doc_type=ind_str_doc_type, include_type_name=True)).data.keys()))
+        elif self.wes.ES_VERSION_RUNNING == Wes.ES_VERSION_5_6_5:
+            # TODO - 400 - illegal_argument_exception - request [/first_ind1/_mapping/first_ind2_docT] contains unrecognized parameter: [include_type_name]
+            self.assertTrue(isinstance(self.wes.ind_get_mapping_result(self.wes.ind_get_mapping(ind_str, doc_type=ind_str_doc_type, include_type_name=True)).data, RequestError))
+        else:
+            self.wes.es_version_mismatch()
 
     def test_mappings_get_put(self):
         # MSE_NOTES: mapping is process of defining how documents looks like (which fields contains, field types, how is filed indexed)
@@ -373,19 +274,19 @@ class TestWes(TestWesHelper):
         # - datetime (is recognized based on format)
         #  = setting correct times help aggregations
         #  = u CANT CHANGE MAPPING if docs present in IND (DELETE IND FIRTS)
-        wes = Wes()
+
         global ind_str
         global ind_str2
         global ind_str_doc_type
         global ind_str_doc_type2
-        self.indice_cleanup_all(wes)
+        self.indice_cleanup_all(self.wes)
 
-        self.indice_create_exists(wes, ind_str)
-        self.indice_create_exists(wes, ind_str2)
+        self.indice_create_exists(self.wes, ind_str)
+        self.indice_create_exists(self.wes, ind_str2)
 
         doc1 = {"city": "Bratislava1", "country": "slovakia ", "sentence": "The slovakia is a country", "datetime" : "2019,01,02,03,12,00"}
-        wes.doc_addup_result(wes.doc_addup(ind_str, doc1, doc_type=ind_str_doc_type, id=1))
-        wes.ind_get_mapping_result(wes.ind_get_mapping())
+        self.wes.doc_addup_result(self.wes.doc_addup(ind_str, doc1, doc_type=ind_str_doc_type, id=1))
+        self.wes.ind_get_mapping_result(self.wes.ind_get_mapping())
         Log.notice("--------------------------------------------------------------------------------------")
         # {'first_ind1': {'mappings':
         map_new = {
@@ -401,17 +302,31 @@ class TestWes(TestWesHelper):
           }
          # }, 'first_ind2': {'mappings': {}}}
 
-        # OP_IND_PUT_MAP 405 - {'error': 'Incorrect HTTP method for uri [/_mapping] and method [PUT], allowed: [GET]', 'status': 405}
-        self.assertEqual(405, wes.ind_put_mapping_result(wes.ind_put_mapping(map_new)).data.status_code)
+        if self.wes.ES_VERSION_RUNNING == Wes.ES_VERSION_7_3_0:
+            # OP_IND_PUT_MAP 405 - {'error': 'Incorrect HTTP method for uri [/_mapping] and method [PUT], allowed: [GET]', 'status': 405}
+            self.assertEqual(405, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new)).data.status_code)
+        elif self.wes.ES_VERSION_RUNNING == Wes.ES_VERSION_5_6_5:
+            self.assertEqual(400, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new)).data.status_code)
+        else:
+            self.wes.es_version_mismatch()
+
         # OP_IND_PUT_MAP KEY[???] - 400 - illegal_argument_exception - Types cannot be provided in put mapping requests, unless the include_type_name parameter is set to true.
-        self.assertEqual(400, wes.ind_put_mapping_result(wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str)).data.status_code)
+        self.assertEqual(400, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str)).data.status_code)
         # OP_IND_PUT_MAP KEY[???] - 400 - illegal_argument_exception - mapper [datetime] of different type, current_type [text], merged_type [date]
-        self.assertEqual(400, wes.ind_put_mapping_result(wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str, include_type_name=True)).data.status_code)
+        self.assertEqual(400, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str, include_type_name=True)).data.status_code)
 
         # MSE_NOTES: #2 u can't change mapping if docs present in IND !!!
-        self.indice_create_exists(wes, ind_str)
-        # MSE_NOTES: #3 u should specified IND + DOC_TYPE !!!
-        self.assertEqual(Wes.RC_OK, wes.ind_put_mapping_result(wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str, include_type_name=True)).status)
+        self.indice_create_exists(self.wes, ind_str)
+
+        if self.wes.ES_VERSION_RUNNING == Wes.ES_VERSION_7_3_0:
+            # MSE_NOTES: #3 u should specified IND + DOC_TYPE !!!
+            self.assertEqual(Wes.RC_OK, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str, include_type_name=True)).status)
+        elif self.wes.ES_VERSION_RUNNING == Wes.ES_VERSION_5_6_5:
+            # TODO python lib API 400 - illegal_argument_exception - request [/first_ind1/_mapping/first_ind2_docT] contains unrecognized parameter: [include_type_name]
+            self.assertEqual(Wes.RC_EXCE, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str, include_type_name=True)).status)
+            self.assertEqual(Wes.RC_OK, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str)).status)
+        else:
+            self.wes.es_version_mismatch()
 
         Log.notice("--------------------------------------------------------------------------------------")
         # MSE_NOTES: #4 type was changed :)
@@ -422,7 +337,7 @@ class TestWes(TestWesHelper):
         # sentence: {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}}
         #
         # IND[first_ind2]: Missing mappings
-        self.assertEqual(2, len(wes.ind_get_mapping_result(wes.ind_get_mapping()).data.keys()))
+        self.assertEqual(2, len(self.wes.ind_get_mapping_result(self.wes.ind_get_mapping()).data.keys()))
 
     def test_aggregations(self):
         # MSE_NOTES: Date Histogram Aggregations,
@@ -447,12 +362,12 @@ class TestWes(TestWesHelper):
         # - datetime (is recognized based on format)
         #  MSE_NOTES: setting correct times help aggregations
         #  MSE_NOTES: u CAN'T CHANGE MAPPING if docs present in IND (DELETE IND FIRTS)
-        wes = Wes()
+
         global ind_str
         global ind_str_doc_type
-        self.indice_cleanup_all(wes)
+        self.indice_cleanup_all(self.wes)
 
-        self.indice_create_exists(wes, ind_str)
+        self.indice_create_exists(self.wes, ind_str)
 
         map_new = {
             'properties': {'city': {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}},
@@ -464,19 +379,29 @@ class TestWes(TestWesHelper):
                                         'format': "yyyy,MM,dd,hh,mm,ss" },
                         }
         }
-        self.assertEqual(Wes.RC_OK, wes.ind_put_mapping_result(wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str, include_type_name=True)).status)
+
+        if self.wes.ES_VERSION_RUNNING == Wes.ES_VERSION_7_3_0:
+            # MSE_NOTES: #3 u should specified IND + DOC_TYPE !!!
+            self.assertEqual(Wes.RC_OK, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str, include_type_name=True)).status)
+        elif self.wes.ES_VERSION_RUNNING == Wes.ES_VERSION_5_6_5:
+            # TODO python lib API 400 - illegal_argument_exception - request [/first_ind1/_mapping/first_ind2_docT] contains unrecognized parameter: [include_type_name]
+            self.assertEqual(Wes.RC_EXCE, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str, include_type_name=True)).status)
+            self.assertEqual(Wes.RC_OK, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str)).status)
+        else:
+            self.wes.es_version_mismatch()
+
 
         doc1 = {"city":"Bangalore", "country": "India", "datetime":"2018,01,01,10,20,00"} #datetime format: yyyy,MM,dd,hh,mm,ss",
         doc2 = {"city":"London", "country": "England", "datetime":"2018,01,02,03,12,00"}
         doc3 = {"city":"Los Angeles", "country": "USA", "datetime":"2018,04,19,05,02,00"}
-        self.assertEqual("created", wes.doc_addup_result(wes.doc_addup(ind_str, doc1, doc_type=ind_str_doc_type, id=1)).data['result'])
-        self.assertEqual("created", wes.doc_addup_result(wes.doc_addup(ind_str, doc2, doc_type=ind_str_doc_type, id=2)).data['result'])
-        self.assertEqual("created", wes.doc_addup_result(wes.doc_addup(ind_str, doc3, doc_type=ind_str_doc_type, id=3)).data['result'])
+        self.assertEqual("created", self.wes.doc_addup_result(self.wes.doc_addup(ind_str, doc1, doc_type=ind_str_doc_type, id=1)).data['result'])
+        self.assertEqual("created", self.wes.doc_addup_result(self.wes.doc_addup(ind_str, doc2, doc_type=ind_str_doc_type, id=2)).data['result'])
+        self.assertEqual("created", self.wes.doc_addup_result(self.wes.doc_addup(ind_str, doc3, doc_type=ind_str_doc_type, id=3)).data['result'])
 
-        self.force_reindex(wes)
+        self.force_reindex(self.wes)
 
         body = {"from": 0, "size": 10,"query": {"match_all": {}}}
-        self.assertEqual(3, wes.doc_search_result_nb_hits(wes.doc_search_result(wes.doc_search(index=ind_str, body=body))))
+        self.assertEqual(3, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
 
         Log.notice("--------------------------------------------------------------------------------------")
         body = {"from": 0, "size": 10,                      # MSE_NOTES: #1 QUERY + AGGREGATION
@@ -494,33 +419,33 @@ class TestWes(TestWesHelper):
         # AGGS:
         # country
         # {'key_as_string': '2018,01,01,12,00,00', 'key': 1514764800000, 'doc_count': 3}
-        rc = wes.doc_search_result(wes.doc_search(index=ind_str, body=body))
+        rc = self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))
         self.assertNotEqual(None, rc.data.get('aggregations', None))
         print("kuk", rc.data.get('aggregations'))
         self.assertEqual(1, len(rc.data['aggregations']['country']['buckets']))
 
         Log.notice("--------------------------------------------------------------------------------------")
         doc4 = {"city": "Sydney", "country": "Australia", "datetime": "2019,04,19,05,02,00"}
-        self.assertEqual("created", wes.doc_addup_result(wes.doc_addup(ind_str, doc4, doc_type=ind_str_doc_type, id=4)).data['result'])
+        self.assertEqual("created", self.wes.doc_addup_result(self.wes.doc_addup(ind_str, doc4, doc_type=ind_str_doc_type, id=4)).data['result'])
 
-        self.force_reindex(wes)
+        self.force_reindex(self.wes)
 
         # AGGS:
         # country
         # {'key_as_string': '2018,01,01,12,00,00', 'key': 1514764800000, 'doc_count': 3}
         # {'key_as_string': '2019,01,01,12,00,00', 'key': 1546300800000, 'doc_count': 1}
-        rc = wes.doc_search_result(wes.doc_search(index=ind_str, body=body))
+        rc = self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))
         self.assertNotEqual(None, rc.data.get('aggregations', None))
         print("kuk", rc.data.get('aggregations'))
         self.assertEqual(2, len(rc.data['aggregations']['country']['buckets']))
 
     def test_bulk(self):
         # MSE_NOTES: for 'bulk' and 'scan' API IMPORT 'from elasticsearch import helpers'
-        wes = Wes()
+
         global ind_str
         global ind_str_doc_type
-        self.indice_cleanup_all(wes)
-        self.indice_create_exists(wes, ind_str)
+        self.indice_cleanup_all(self.wes)
+        self.indice_create_exists(self.wes, ind_str)
 
         # INSERT 0,1,2,3,4
         actions = [
@@ -535,11 +460,11 @@ class TestWes(TestWesHelper):
             }
             for j in range(0, 5)
         ]
-        self.assertEqual(Wes.RC_OK, wes.doc_bulk_result(wes.doc_bulk(actions)).status)
-        self.force_reindex(wes)
+        self.assertEqual(Wes.RC_OK, self.wes.doc_bulk_result(self.wes.doc_bulk(actions)).status)
+        self.force_reindex(self.wes)
 
         body = {"query": {"match_all": {}}}
-        self.assertEqual(5, wes.doc_search_result_nb_hits(wes.doc_search_result(wes.doc_search(index=ind_str, body=body))))
+        self.assertEqual(5, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
 
         Log.notice("--------------------------------------------------------------------------------------")
 
@@ -557,11 +482,11 @@ class TestWes(TestWesHelper):
             }
             for j in range(3, 5)
         ]
-        self.assertEqual(Wes.RC_OK, wes.doc_bulk_result(wes.doc_bulk(actions)).status)
-        self.force_reindex(wes)
+        self.assertEqual(Wes.RC_OK, self.wes.doc_bulk_result(self.wes.doc_bulk(actions)).status)
+        self.force_reindex(self.wes)
 
         body = {"query": {"match_all": {}}}
-        self.assertEqual(3, wes.doc_search_result_nb_hits(wes.doc_search_result(wes.doc_search(index=ind_str, body=body))))
+        self.assertEqual(3, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
 
         Log.notice("--------------------------------------------------------------------------------------")
 
@@ -579,20 +504,20 @@ class TestWes(TestWesHelper):
             }
             for j in range(1, 4)
         ]
-        self.assertEqual(Wes.RC_NOK, wes.doc_bulk_result(wes.doc_bulk(actions)).status)
-        self.force_reindex(wes)
+        self.assertEqual(Wes.RC_NOK, self.wes.doc_bulk_result(self.wes.doc_bulk(actions)).status)
+        self.force_reindex(self.wes)
 
         # FINAL 0,1,2,3
-        self.assertEqual(4, wes.doc_search_result_nb_hits(wes.doc_search_result(wes.doc_search(index=ind_str, body=body))))
+        self.assertEqual(4, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
 
 
     def test_scan(self):
         # MSE_NOTES: for 'bulk' and 'scan' API IMPORT 'from elasticsearch import helpers'
-        wes = Wes()
+
         global ind_str
         global ind_str_doc_type
-        self.indice_cleanup_all(wes)
-        self.indice_create_exists(wes, ind_str)
+        self.indice_cleanup_all(self.wes)
+        self.indice_create_exists(self.wes, ind_str)
 
         actions = [
             {
@@ -606,63 +531,54 @@ class TestWes(TestWesHelper):
             }
             for j in range(0, 5)
         ]
-        self.assertEqual(Wes.RC_OK, wes.doc_bulk_result(wes.doc_bulk(actions)).status)
-        self.force_reindex(wes)
+        self.assertEqual(Wes.RC_OK, self.wes.doc_bulk_result(self.wes.doc_bulk(actions)).status)
+        self.force_reindex(self.wes)
 
         body = {"query": {"match_all": {}}}
-        self.assertEqual(5, wes.doc_search_result_nb_hits(wes.doc_search_result(wes.doc_search(index=ind_str, body=body))))
+        self.assertEqual(5, self.wes.doc_search_result_nb_hits(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
 
         Log.notice("--------------------------------------------------------------------------------------")
-        self.assertEqual(Wes.RC_OK, wes.doc_scan_result(wes.doc_scan(query=body)).status)
+        self.assertEqual(Wes.RC_OK, self.wes.doc_scan_result(self.wes.doc_scan(query=body)).status)
 
         Log.notice("--------------------------------------------------------------------------------------")
-        self.assertEqual(Wes.RC_EXCE, wes.doc_scan_result(wes.doc_scan(index='pako', query=body)).status)
+        self.assertEqual(Wes.RC_EXCE, self.wes.doc_scan_result(self.wes.doc_scan(index='pako', query=body)).status)
 
     def test_count(self):
-        wes = Wes()
+
         global ind_str
         global ind_str_doc_type
-        self.indice_cleanup_all(wes)
-        self.indice_create_exists(wes, ind_str)
-        self.documents_create(wes, ind_str, ind_str_doc_type)
+        self.indice_cleanup_all(self.wes)
+        self.indice_create_exists(self.wes, ind_str)
+        self.documents_create(self.wes, ind_str, ind_str_doc_type)
 
         # 1.
-        self.assertEqual(Wes.RC_OK, wes.doc_count_result(wes.doc_count()).status)
+        self.assertEqual(Wes.RC_OK, self.wes.doc_count_result(self.wes.doc_count()).status)
 
         # 2.
         # EXEPTION KEY[first_ind1] - 400 - parsing_exception - request does not support [from]
         body = {"from": 0, "size": 10,
                 #"query": {"match": {}} EXCEPTION:  400 - parsing_exception - No text specified for text query
                 "query": {"match": {"country": "slovakia"}}}
-        self.assertEqual(Wes.RC_EXCE, wes.doc_count_result(wes.doc_count(index=ind_str, body=body)).status)
+        self.assertEqual(Wes.RC_EXCE, self.wes.doc_count_result(self.wes.doc_count(index=ind_str, body=body)).status)
 
         # 3.
         # EXEPTION KEY[first_ind1] - 400 - parsing_exception - request does not support [size]
         body = {"size": 10,
                 "query": {"match": {"country": "slovakia"}}}
-        self.assertEqual(Wes.RC_EXCE, wes.doc_count_result(wes.doc_count(index=ind_str, body=body)).status)
+        self.assertEqual(Wes.RC_EXCE, self.wes.doc_count_result(self.wes.doc_count(index=ind_str, body=body)).status)
 
         # 4.
         body = {"query": {"match": {"country": "slovakia"}}}
-        self.assertEqual(2, wes.doc_count_result(wes.doc_count(index=ind_str, body=body)).data['count'])
-
-    #def test_json_parser(self): WIP removed form tests for now
-    def json_parser(self):
-        wes = Wes()
-        self.indice_cleanup_all(wes)
-        zip_path = "/home/msestrie/MSE_PROJECT/PYTHON/CVICENIA/elasticmock/wes/exponea_tests/elasticmock-testcases.zip"
-        tests = self.helper_exponea_split_zip_test(zip_path, ('0.json',))
-        self.assertEqual(1, len(tests))
-        self.helper_exponea_run_unpacked_tests(wes, tests)
+        self.assertEqual(2, self.wes.doc_count_result(self.wes.doc_count(index=ind_str, body=body)).data['count'])
 
     def test_templates_get_put(self):
-        wes = Wes()
+
         #ind_str = 'test_def_catalogs'
         global ind_str
 
         ind_special_cleanup = 'test_def_*'
         ind_special_NEW = 'test_def_catalog_new_v2'
-        wes.ind_delete_result(wes.ind_delete(ind_special_cleanup))
+        self.wes.ind_delete_result(self.wes.ind_delete(ind_special_cleanup))
 
         body_exponea = {'body':
                             { 'mappings':
@@ -683,18 +599,18 @@ class TestWes(TestWesHelper):
                         'name': 'def_catalog_v2'
                         }
 
-        self.indice_create_exists(wes, ind_str)
+        self.indice_create_exists(self.wes, ind_str)
 
         Log.notice("--------------------------------------------------------------------------------------")
-        self.assertEqual(Wes.RC_OK, wes.ind_get_template_result(wes.ind_get_template()).status)
-        self.assertEqual(Wes.RC_OK, wes.ind_put_template_result(wes.ind_put_template(**body_exponea)).status)
-        self.assertEqual(Wes.RC_OK, wes.ind_get_template_result(wes.ind_get_template()).status)
+        self.assertEqual(Wes.RC_OK, self.wes.ind_get_template_result(self.wes.ind_get_template()).status)
+        self.assertEqual(Wes.RC_OK, self.wes.ind_put_template_result(self.wes.ind_put_template(**body_exponea)).status)
+        self.assertEqual(Wes.RC_OK, self.wes.ind_get_template_result(self.wes.ind_get_template()).status)
 
         Log.notice("--------------------------------------------------------------------------------------")
-        self.indice_create_exists(wes, ind_special_NEW)
-        self.assertEqual(Wes.RC_OK, wes.ind_get_template_result(wes.ind_get_template()).status)
+        self.indice_create_exists(self.wes, ind_special_NEW)
+        self.assertEqual(Wes.RC_OK, self.wes.ind_get_template_result(self.wes.ind_get_template()).status)
 
-        wes.ind_delete_result(wes.ind_delete(ind_special_cleanup))
+        self.wes.ind_delete_result(self.wes.ind_delete(ind_special_cleanup))
 
 
 if __name__ == '__main__':
@@ -702,9 +618,18 @@ if __name__ == '__main__':
         unittest.main()
     else:
         suite = unittest.TestSuite()
-        # suite.addTest(TestWes("test_aggregations"))
+
+        # suite.addTest(TestWes("test_indice_basic"))
+        # suite.addTest(TestWes("test_documents_basic"))
+        # suite.addTest(TestWes("test_query_basic"))
+        # suite.addTest(TestWes("test_complex_queries"))
         # suite.addTest(TestWes("test_mappings_get"))
-        #suite.addTest(TestWes("test_templates_get_put"))
-        suite.addTest(TestWes("json_parser"))
+        # suite.addTest(TestWes("test_mappings_get_put"))
+        # suite.addTest(TestWes("test_aggregations"))
+        # suite.addTest(TestWes("test_bulk"))
+        # suite.addTest(TestWes("test_scan"))
+        # suite.addTest(TestWes("test_count"))
+        # suite.addTest(TestWes("test_templates_get_put"))
+
         runner = unittest.TextTestRunner()
         runner.run(suite)

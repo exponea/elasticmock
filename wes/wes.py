@@ -33,6 +33,9 @@ class WesDefs():
     ES_VERSION_5_6_5 = '5.6.5'
     ES_VERSION_RUNNING = ES_VERSION_5_6_5
 
+    def es_version_mismatch(self):
+        raise ValueError(f"ES_VERSION_RUNNING is unknown - {self.ES_VERSION_RUNNING}")
+
     # indice operations
     OP_IND_CREATE   = "OP_IND_CREATE  : "
     OP_IND_FLUSH    = "OP_IND_FLUSH   : "
@@ -319,7 +322,7 @@ class Wes(WesDefs):
                                 else:
                                     rec += '---> ' + str(is_dict) + '\n'
                     else:
-                        raise ValueError(f"ES_VERSION_RUNNING is unknown")
+                        self.es_version_mismatch()
 
             return f"{key_str} MAPPING: {rec}"
 
@@ -543,17 +546,17 @@ class Wes(WesDefs):
         elif self.ES_VERSION_RUNNING == self.ES_VERSION_5_6_5:
             return rc.data['hits']['total']
         else:
-            raise ValueError(f"ES_VERSION_RUNNING is unknown")
+            self.es_version_mismatch()
 
     def doc_search_result_hits_sources(self, rc: ExecCode):
         if self.ES_VERSION_RUNNING == self.ES_VERSION_7_3_0:
-            raise ValueError(f"ES_VERSION_RUNNING is unknown")
+            self.es_version_mismatch()
         elif self.ES_VERSION_RUNNING == self.ES_VERSION_5_6_5:
             sources = rc.data['hits']['hits']
             print("MISO---> : ", len(sources), type(sources), str(sources))
             return sources
         else:
-            raise ValueError(f"ES_VERSION_RUNNING is unknown")
+            self.es_version_mismatch()
 
 
     @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_BULK)
