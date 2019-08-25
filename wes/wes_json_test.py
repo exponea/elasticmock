@@ -162,6 +162,12 @@ class TestWesJsonHelper(unittest.TestCase):
                 if is_interactive:
                     input("Press ENTER ...")
 
+    def helper_json_parser(self, zip_path, tests: tuple):
+        self.indice_cleanup_all(self.wes)
+        tests = self.helper_split_zip_test(zip_path, tests)
+        self.assertEqual(1, len(tests))
+        self.helper_run_unpacked_tests(self.wes, tests)
+
 
 class TestWesJson(TestWesJsonHelper):
 
@@ -171,18 +177,23 @@ class TestWesJson(TestWesJsonHelper):
         # self.doc_type = 'doc-Type'
         # self.body = {'string': 'content', 'id': 1}
 
-    def test_json_parser(self):
-        self.indice_cleanup_all(self.wes)
-        zip_path = "/home/msestrie/MSE_PROJECT/PYTHON/CVICENIA/elasticmock/wes/exponea_tests/elasticmock-testcases.zip"
-        tests = self.helper_split_zip_test(zip_path, ('0.json',))
-        self.assertEqual(1, len(tests))
-        self.helper_run_unpacked_tests(self.wes, tests)
+    def test_json_parser_passed(self):
+        zip_path = "./exponea_tests/elasticmock-testcases.zip"
+        tests = ('{}.json'.format(nb) for nb in range(0, 1))
+        self.helper_json_parser(zip_path, tests)
+
+    # method for tests to pass
+    def json_parser_todo(self):
+        zip_path = "./exponea_tests/elasticmock-testcases.zip"
+        tests = ('1.json',)
+        self.helper_json_parser(zip_path, tests)
+
 
 if __name__ == '__main__':
     if True:
         unittest.main()
     else:
         suite = unittest.TestSuite()
-        # suite.addTest(TestWes("json_parser"))
+        suite.addTest(TestWes("json_parser_todo"))
         runner = unittest.TextTestRunner()
         runner.run(suite)
