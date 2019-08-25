@@ -47,7 +47,8 @@ class WesDefs():
     OP_IND_GET_TMP  = "OP_IND_GET_TMP : "
     OP_IND_PUT_TMP  = "OP_IND_PUT_TMP : "
     # document operations
-    OP_DOC_ADD_UP   = "OP_DOC_ADDUP   : "
+    OP_DOC_ADD_UP   = "OP_DOC_ADD_UP  : "
+    OP_DOC_UPDATE   = "OP_DOC_UPDATE  : "
     OP_DOC_GET      = "OP_DOC_GET     : "
     OP_DOC_EXIST    = "OP_DOC_EXIST   : "
     # batch operations
@@ -112,7 +113,8 @@ class WesDefs():
                     else:
                         if isinstance(e, NotFoundError):
                             if oper in {WesDefs.OP_IND_DELETE,
-                                        WesDefs.OP_DOC_SCAN }:
+                                        WesDefs.OP_DOC_SCAN,
+                                        WesDefs.OP_DOC_UPDATE}:
                                 log_fnc(f"{oper} KEY[{e.info['error']['index']}] - {e.status_code} - {e.info['error']['type']}")
                             else:
                                 log_fnc(f"{oper} KEY[{e.info['_index']} <-> {e.info['_type']} <-> {e.info['_id']}] {str(e)}")
@@ -423,6 +425,39 @@ class Wes(WesDefs):
         "_source_excludes",
         "_source_include",
         "_source_includes",
+        "fields",
+        "if_seq_no",
+        "if_primary_term",
+        "lang",
+        "parent",
+        "refresh",
+        "retry_on_conflict",
+        "routing",
+        "timeout",
+        "timestamp",
+        "ttl",
+        "version",
+        "version_type",
+        "wait_for_active_shards",)
+    @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_UPDATE)
+    def doc_update(self, index, id, doc_type="_doc", body=None, params=None):
+        # TODO petee 'doc_type' is important for get - shouldn't be mandatory???
+        return self.es.update(index, id, doc_type=doc_type, body=body, params=params)
+
+    def doc_update_result(self, rc: ExecCode) -> ExecCode:
+        key_str = f"KEY{rc.fnc_params[0]}"
+
+        def fmt_fnc_ok(rcv: ExecCode) -> str:
+            return f"KEY[{rcv.data['_index']} <-> {rcv.data['_type']} <-> {rcv.data['_id']}] {rcv.data['result']} {rcv.data['_shards']}"
+
+        return self._operation_result(Wes.OP_DOC_UPDATE, key_str, rc, fmt_fnc_ok)
+
+    @query_params(
+        "_source",
+        "_source_exclude",
+        "_source_excludes",
+        "_source_include",
+        "_source_includes",
         "parent",
         "preference",
         "realtime",
@@ -699,6 +734,7 @@ class Wes(WesDefs):
             Wes.OP_IND_GET_TMP: [Wes.ind_get_template, Wes.ind_get_template_result],
             # document operations
             Wes.OP_DOC_ADD_UP:  [Wes.doc_addup, Wes.doc_addup_result],
+            Wes.OP_DOC_UPDATE:  [Wes.doc_update, Wes.doc_update_result],
             Wes.OP_DOC_GET:     [Wes.doc_get, Wes.doc_get_result],
             Wes.OP_DOC_EXIST:   [Wes.doc_exists, Wes.doc_exists],
             # batch operations

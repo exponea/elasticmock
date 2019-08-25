@@ -79,6 +79,7 @@ class TestWesJsonHelper(unittest.TestCase):
             },
             'DOC': {
                 "index"     : Wes.OP_DOC_ADD_UP,
+                "update"    : Wes.OP_DOC_UPDATE,
                 "get"       : Wes.OP_DOC_GET,
                 "exists"    : Wes.OP_DOC_EXIST,
 
@@ -96,7 +97,8 @@ class TestWesJsonHelper(unittest.TestCase):
         #############################################################
         if wes.ES_VERSION_RUNNING == Wes.ES_VERSION_5_6_5:
 
-            if operation == Wes.OP_DOC_ADD_UP:
+            if operation == Wes.OP_DOC_ADD_UP or \
+               operation == Wes.OP_DOC_UPDATE:
                 indice, doc_type = args
                 Log.log(f"{operation} FIXER(  args) before : {args}")
                 args = (indice,)
@@ -120,10 +122,33 @@ class TestWesJsonHelper(unittest.TestCase):
                 doc_type = kwargs.get('doc_type', None)
                 Log.log(f"{operation} FIXER(kwargs) after  : doc_type({doc_type})")
 
+            elif operation == Wes.OP_IND_PUT_MAP:
+
+                # EXCEPTION: Unknow L1 exception ... ind_put_mapping() got multiple values for argument 'body'
+                if len(args) > 0:
+                    # 'doc_type'
+                    doc_type,  = args
+                    kw_doc_type = kwargs.get('doc_type', None)
+                    Log.log(f"{operation} FIXER(kwargs) before : doc_type({kw_doc_type})")
+                    doc_type = kwargs['doc_type'] = doc_type
+                    Log.log(f"{operation} FIXER(kwargs) after  : doc_type({doc_type})")
+
+                # 'body'
+                key = 'body'
+                kw_body = kwargs.get(key, None)
+                Log.log(f"{operation} FIXER(kwargs) before : 'body'({kw_body})")
+                del kwargs[key]
+                body = kwargs.get(key, None)
+                Log.log(f"{operation} FIXER(kwargs) after  : 'body'({body})")
+
+                Log.log(f"{operation} FIXER(args) before : ({args})")
+                args = (kw_body,)
+                Log.log(f"{operation} FIXER(args) after  : ({args})")
+
             else:
                 pass
         else:
-            raise ValueError(f"ES_VERSION_RUNNING is unknown")
+            wes.es_version_mismatch()
 
         wes_mappers = wes.operation_mappers(operation)
         # some test case operation not covered
@@ -132,24 +157,35 @@ class TestWesJsonHelper(unittest.TestCase):
         Log.log(f"{operation} MAPPERS: {str(wes_mappers)}")
         wes_mappers_rc = wes_mappers_operation_result(wes, wes_mappers_operation(wes, *args, **kwargs))
 
-        rc_result = ExecCode(Wes.RC_OK, result, wes_mappers_rc.fnc_params)
-        if operation == Wes.OP_DOC_SEARCH:
-            # 1. check nb match records
-            self.assertEqual(wes.doc_search_result_hits_nb(rc_result),
-                             wes.doc_search_result_hits_nb(wes_mappers_rc))
+        rc_result = ExecCode(Wes.RC_EXCE if result is None else Wes.RC_OK,
+                             result,
+                             wes_mappers_rc.fnc_params)
 
-            # 2. check docs by content
-            ext_sources = wes.doc_search_result_hits_sources(rc_result)
-            wes_sources = wes.doc_search_result_hits_sources(wes_mappers_rc)
-            for idx, wes_doc in enumerate(wes_sources):
-                ext_doc = ext_sources[idx]
-                self.assertDictEqual(ext_doc, wes_doc)
+        if wes_mappers_rc.status == Wes.RC_OK:
 
-        elif operation == Wes.OP_IND_REFRESH:
-            self.assertEqual(wes.ind_refresh_result_shard_nb_failed(rc_result),
-                             wes.ind_refresh_result_shard_nb_failed(wes_mappers_rc))
-        else:
-            self.assertDictEqual(rc_result.data, wes_mappers_rc.data)
+            if operation == Wes.OP_DOC_SEARCH:
+                # 1. check nb match records
+                self.assertEqual(wes.doc_search_result_hits_nb(rc_result),
+                                 wes.doc_search_result_hits_nb(wes_mappers_rc))
+
+                # 2. check docs by content
+                ext_sources = wes.doc_search_result_hits_sources(rc_result)
+                wes_sources = wes.doc_search_result_hits_sources(wes_mappers_rc)
+                for idx, wes_doc in enumerate(wes_sources):
+                    ext_doc = ext_sources[idx]
+                    self.assertDictEqual(ext_doc, wes_doc)
+
+            elif operation == Wes.OP_IND_REFRESH:
+                self.assertEqual(wes.ind_refresh_result_shard_nb_failed(rc_result),
+                                 wes.ind_refresh_result_shard_nb_failed(wes_mappers_rc))
+            else:
+                self.assertDictEqual(rc_result.data, wes_mappers_rc.data)
+
+        elif wes_mappers_rc.status == Wes.RC_NOK:
+            raise ValueError("not handled - now")
+        elif wes_mappers_rc.status == Wes.RC_EXCE:
+            # TODO peete pass exception status number - for T[1.json] L[ 11] there is result(None)
+            self.assertEqual(rc_result.status, wes_mappers_rc.status)
 
 
     def helper_run_unpacked_tests(self, wes, tests: list, is_interactive=False):
@@ -165,7 +201,6 @@ class TestWesJsonHelper(unittest.TestCase):
     def helper_json_parser(self, zip_path, tests: tuple):
         self.indice_cleanup_all(self.wes)
         tests = self.helper_split_zip_test(zip_path, tests)
-        self.assertEqual(1, len(tests))
         self.helper_run_unpacked_tests(self.wes, tests)
 
 
@@ -179,13 +214,13 @@ class TestWesJson(TestWesJsonHelper):
 
     def test_json_parser_passed(self):
         zip_path = "./exponea_tests/elasticmock-testcases.zip"
-        tests = ('{}.json'.format(nb) for nb in range(0, 1))
+        tests = ('{}.json'.format(nb) for nb in range(0, 2))
         self.helper_json_parser(zip_path, tests)
 
     # method for tests to pass
     def json_parser_todo(self):
         zip_path = "./exponea_tests/elasticmock-testcases.zip"
-        tests = ('1.json',)
+        tests = ('2.json',)
         self.helper_json_parser(zip_path, tests)
 
 
@@ -194,6 +229,6 @@ if __name__ == '__main__':
         unittest.main()
     else:
         suite = unittest.TestSuite()
-        suite.addTest(TestWes("json_parser_todo"))
+        suite.addTest(TestWesJson("json_parser_todo"))
         runner = unittest.TextTestRunner()
         runner.run(suite)
