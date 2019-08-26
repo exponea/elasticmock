@@ -291,7 +291,7 @@ class TestWesJsonHelper(unittest.TestCase):
                 if is_interactive:
                     input("Press ENTER ...")
 
-    def helper_json_parser(self, zip_path, tests: tuple):
+    def helper_json_parser(self, zip_path, tests: list):
         self.indice_cleanup_all(self.wes)
         tests = self.helper_split_zip_test(zip_path, tests)
         self.helper_run_unpacked_tests(self.wes, tests)
@@ -307,13 +307,34 @@ class TestWesJson(TestWesJsonHelper):
 
     def test_json_parser_passed(self):
         zip_path = "./exponea_tests/elasticmock-testcases.zip"
-        tests = ('{}.json'.format(nb) for nb in range(0, 8))
+
+        def test_case_avoided(nb: int):
+            self.assertTrue(nb < 207)
+
+            if nb in (20,  27,  34,  40,  67, 79,  94,  97,
+                      116, 117, 124, 126, 143, 153, 166, 169, 179, 194):
+                #  97 - get_alias
+                # 116 - del kwargs['doc_type']
+                # 117 - AssertionError: 3 != 4
+                # 124 - AssertionError: 3 != 4
+                # 126 - File "... /elasticmock/wes/wes.py", line 761, in doc_bulk_streaming_result
+                # 143 - get_alias
+                # 153 - OP_DOC_SEARCH AssertionError: 1 != 2
+                # 166 - OP_DOC_SEARCH AssertionError: 3 != 4
+                # 169 - OP_DOC_SEARCH AssertionError: 3 != 4
+                # 179 - OP_DOC_SEARCH AssertionError: 3 != 4
+                # 194 - get_alias
+                return False
+            else:
+                return True
+
+        tests = ['{}.json'.format(nb) for nb in range(0, 207) if test_case_avoided(nb)]
         self.helper_json_parser(zip_path, tests)
 
     # method for tests to pass
     def json_parser_todo(self):
         zip_path = "./exponea_tests/elasticmock-testcases.zip"
-        tests = ('8.json',)
+        tests = ('20.json',)
         self.helper_json_parser(zip_path, tests)
 
 
