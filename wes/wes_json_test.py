@@ -121,6 +121,53 @@ class TestWesJsonHelper(unittest.TestCase):
                 args = (kw_body,)
                 Log.log(f"{operation} FIXER(args) after  : ({args})")
 
+            elif operation == Wes.OP_DOC_BULK or operation == Wes.OP_DOC_BULK_STR:
+
+                len_args_tuple = len(args)
+                type_args = type(args[0])  # class 'str'
+
+                split_list = args[0].split('\n')
+                split_list = [item for item in split_list if len(item) > 0]  # fix empty line
+                split_len = len(split_list)
+
+                # !!! KEEP FOR DBG !!!
+                split_list_str = '\n' + args[0]
+                Log.log(f"{operation} FIXER(args) before : len({len_args_tuple}) type({type_args}) split_len({split_len}): {split_list_str}")
+                # !!! KEEP FOR DBG !!!
+
+                Log.log(f"{operation} FIXER(args) before : len({len_args_tuple}) type({type_args}) split_len({split_len})")
+                self.assertEqual(1, len_args_tuple)
+                self.assertEqual(0, split_len % 2)  # expect even length
+
+                actions = []
+                i = 0
+                while i < split_len:
+                    dict_action = json.loads(split_list[i])
+                    dict_source = json.loads(split_list[i+1])
+                    i += 2
+
+                    a_key = list(dict_action.keys())
+                    self.assertEqual(1, len(a_key))
+                    op_type = a_key[0]
+
+                    action = {
+                        "_op_type": op_type,
+                        "_index"  : dict_action[op_type]["_index"],
+                        "_type"   : dict_action[op_type]["_type"],
+                        "_id"     : dict_action[op_type]["_id"],
+                        "_source": {
+                            **dict_source
+                        }
+                    }
+                    actions.append(action)
+
+                args = (actions, )
+                len_args_tuple = len(args)
+                type_args = type(args[0])  # class 'list'
+                split_len = len(args[0])
+                actions_str = '\n[\n' + '\n'.join([json.dumps(item) for item in actions]) + '\n]'
+                Log.log(f"{operation} FIXER(args) after  : len({len_args_tuple}) type({type_args}) split_len({split_len}) actions:{actions_str}")
+
             else:
                 pass
         else:
@@ -147,6 +194,12 @@ class TestWesJsonHelper(unittest.TestCase):
                 self.assertEqual(wes.ind_refresh_result_shard_nb_failed(rc_result),
                                  wes.ind_refresh_result_shard_nb_failed(rc_wes))
 
+            elif operation == Wes.OP_DOC_BULK or operation == Wes.OP_DOC_BULK_STR:
+                # TODO differents format - no idea how to specify - petee???
+                # takes log time ...
+                ext_list = rc_result.data['items']
+                wes_list = [long for short, long in rc_wes.data]
+                self.assertListEqual(ext_list, wes_list)
             else:
                 self.assertDictEqual(rc_result.data, rc_wes.data)
 
@@ -192,7 +245,7 @@ class TestWesJsonHelper(unittest.TestCase):
                 "delete"    : Wes.OP_DOC_DELETE,
 
                 "search"    : Wes.OP_DOC_SEARCH,
-                "bulk"      : Wes.OP_DOC_BULK_STR if 0 else Wes.OP_DOC_BULK,
+                "bulk"      : Wes.OP_DOC_BULK_STR, # if 1 else Wes.OP_DOC_BULK, # MSE_NOTES: RETURN FORMAT NOT MATCH EXPONEA
                 "scan"      : Wes.OP_DOC_SCAN,
                 "count"     : Wes.OP_DOC_COUNT,
             }
@@ -246,13 +299,13 @@ class TestWesJson(TestWesJsonHelper):
 
     def test_json_parser_passed(self):
         zip_path = "./exponea_tests/elasticmock-testcases.zip"
-        tests = ('{}.json'.format(nb) for nb in range(0, 4))
+        tests = ('{}.json'.format(nb) for nb in range(0, 5))
         self.helper_json_parser(zip_path, tests)
 
     # method for tests to pass
     def json_parser_todo(self):
         zip_path = "./exponea_tests/elasticmock-testcases.zip"
-        tests = ('4.json',)
+        tests = ('5.json',)
         self.helper_json_parser(zip_path, tests)
 
 

@@ -18,6 +18,7 @@ from elasticsearch.exceptions import AuthorizationException
 from elasticsearch import helpers
 from elasticsearch.helpers.errors import BulkIndexError
 from elasticsearch.helpers.errors import ScanError
+from elasticsearch.helpers.actions import expand_action
 
 from collections import namedtuple
 
@@ -55,6 +56,7 @@ class WesDefs():
     # batch operations
     OP_DOC_SEARCH   = "OP_DOC_SEARCH  : "
     OP_DOC_BULK     = "OP_DOC_BULK    : "
+    OP_DOC_BULK_STR = "OP_DOC_BULK_STR: "
     OP_DOC_SCAN     = "OP_DOC_SCAN    : "
     OP_DOC_COUNT    = "OP_DOC_COUNT   : "
 
@@ -641,7 +643,8 @@ class Wes(WesDefs):
         return helpers.bulk(self.es, actions, raise_on_error=False, stats_only=stats_only, *args, **kwargs)
 
     def doc_bulk_result(self, rc: ExecCode) -> ExecCode:
-        key_str = f"KEY{rc.fnc_params[0]}"
+        #key_str = f"KEY{rc.fnc_params[0]}"
+        key_str = f"BULK STREAMING_RESULT"
 
         fmt_fnc_ok = None
         fmt_fnc_nok = None
@@ -663,8 +666,63 @@ class Wes(WesDefs):
 
             status = Wes.RC_OK if len(rc.data[1]) == 0 else Wes.RC_NOK
 
-        rc = ExecCode(status, rc.data, rc.fnc_params)
+        rc = ExecCode(rc.status, rc.data, rc.fnc_params)
         return self._operation_result(Wes.OP_DOC_BULK, key_str, rc, fmt_fnc_ok, fmt_fnc_nok)
+
+    @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_BULK_STR)
+    def doc_bulk_streaming(self,
+                           actions,
+                           chunk_size=500,
+                           max_chunk_bytes=100 * 1024 * 1024,
+                           raise_on_error=True,
+                           expand_action_callback=expand_action,
+                           raise_on_exception=True,
+                           max_retries=0,
+                           initial_backoff=2,
+                           max_backoff=600,
+                           yield_ok=True,
+                           *args,
+                           **kwargs):
+        # !!! it returns generator !!!
+        return helpers.streaming_bulk(self.es,
+                                      actions,
+                                      chunk_size=chunk_size,
+                                      max_chunk_bytes=max_chunk_bytes,
+                                      raise_on_error=raise_on_error,
+                                      expand_action_callback=expand_action_callback,
+                                      raise_on_exception=raise_on_exception,
+                                      max_retries=max_retries,
+                                      initial_backoff=initial_backoff,
+                                      max_backoff=max_backoff,
+                                      yield_ok=yield_ok,
+                                      *args,
+                                      **kwargs)
+
+    def doc_bulk_streaming_result(self, rc: ExecCode) -> ExecCode:
+        #key_str = f"KEY{rc.fnc_params[0]}"
+        key_str = f"BULK STREAMING_RESULT"
+
+        fmt_fnc = None
+
+        if rc.status == Wes.RC_OK:
+            # MSE NOTES:
+            # !!! returns generator    !!!
+            # !!! can't iterate again  !!!
+            # repack to 'list'
+            data = []
+            for item in rc.data:
+                data.append(item)
+
+            rc = ExecCode(rc.status, data, rc.fnc_params)
+
+            def fmt_fnc(rcv: ExecCode) -> str:
+                res = ''
+                for item in rcv.data:
+                    res += '\n' + str(item)
+
+                return f"{key_str} OK/NOK ??? ... {res}"  # TODO
+
+        return self._operation_result(Wes.OP_DOC_BULK_STR, key_str, rc, fmt_fnc)
 
     @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_SCAN)
     def doc_scan(self,
@@ -765,7 +823,8 @@ class Wes(WesDefs):
             Wes.OP_DOC_DELETE:  [Wes.doc_delete, Wes.doc_delete_result],
             # batch operations
             Wes.OP_DOC_SEARCH:  [Wes.doc_search, Wes.doc_search_result],
-            Wes.OP_DOC_BULK:    [Wes.doc_bulk, Wes.doc_bulk_result],
+            Wes.OP_DOC_BULK:    [Wes.doc_bulk, Wes.doc_bulk_result], # MSE_NOTES: RETURN FORMAT NOT MATCH EXPONEA
+            Wes.OP_DOC_BULK_STR:[Wes.doc_bulk_streaming, Wes.doc_bulk_streaming_result],
             Wes.OP_DOC_SCAN:    [Wes.doc_scan, Wes.doc_scan_result],
             Wes.OP_DOC_COUNT:   [Wes.doc_count, Wes.doc_count_result]
         }
