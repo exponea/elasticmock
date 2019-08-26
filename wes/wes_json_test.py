@@ -55,46 +55,7 @@ class TestWesJsonHelper(unittest.TestCase):
             tests.append([test_name, split_list])
         return tests
 
-    def helper_run_unpacked_test(self, wes: Wes, test_name: str, line: int, result, accessor, method, *args, **kwargs):
-
-        group = 'IND' if accessor else 'DOC'
-
-        Log.log(f"T[{test_name}] L[{line:3}] -> {group} "
-                f"cmd({method} <-> args{args} <-> kwargs({kwargs})) result({result})")
-
-        # BE SURE TO BE IN SYNCH WITH
-        # Wes.operation_mappers
-        # TODO which methods are used in exponea?
-        method_mapper = {
-            "IND": {
-                "create"        : Wes.OP_IND_CREATE,
-                "flush"         : Wes.OP_IND_FLUSH,
-                "refresh"       : Wes.OP_IND_REFRESH,
-                "exists"        : Wes.OP_IND_EXIST,
-                "delete"        : Wes.OP_IND_DELETE,
-                "get_mapping"   : Wes.OP_IND_GET_MAP,
-                "put_mapping"   : Wes.OP_IND_PUT_MAP,
-                "put_template"  : Wes.OP_IND_PUT_TMP,
-                "get_template"  : Wes.OP_IND_GET_TMP,
-            },
-            'DOC': {
-                "index"     : Wes.OP_DOC_ADD_UP,
-                "update"    : Wes.OP_DOC_UPDATE,
-                "get"       : Wes.OP_DOC_GET,
-                "exists"    : Wes.OP_DOC_EXIST,
-
-                "search"    : Wes.OP_DOC_SEARCH,
-                "bulk"      : Wes.OP_DOC_BULK,
-                "scan"      : Wes.OP_DOC_SCAN,
-                "count"     : Wes.OP_DOC_COUNT,
-            }
-        }
-
-        operation = method_mapper[group][method]
-
-        #############################################################
-        # OPERATIONS - VALUES FIXER
-        #############################################################
+    def helper_arguments_values_fixer(self, wes, operation, *args, **kwargs):
         if wes.ES_VERSION_RUNNING == Wes.ES_VERSION_5_6_5:
 
             if operation == Wes.OP_DOC_ADD_UP or \
@@ -111,6 +72,21 @@ class TestWesJsonHelper(unittest.TestCase):
                 #  API      : def index(self, index, body, doc_type="_doc", id=None, params=None):
                 doc_type = kwargs['doc_type'] = doc_type
                 Log.log(f"{operation} FIXER(kwargs) after  : doc_type({doc_type})")
+
+            elif operation == Wes.OP_DOC_DELETE:
+                indice, doc_type = args
+                kw_doc_type = kwargs.get('doc_type', None)
+                kw_id = kwargs.get('id', None)
+
+                Log.log(f"{operation} FIXER(  args) before : {args}")
+                args = (indice, kw_id)
+                Log.log(f"{operation} FIXER(  args) after  : {args}")
+
+                Log.log(f"{operation} FIXER(kwargs) before : doc_type({kw_doc_type}) id({kw_id})")
+                doc_type = kwargs['doc_type'] = doc_type
+                del kwargs['id']
+                kw_id = kwargs.get('id', None)
+                Log.log(f"{operation} FIXER(kwargs) after  : doc_type({doc_type}) id({id})")
 
             elif operation == Wes.OP_DOC_SEARCH:
 
@@ -150,42 +126,98 @@ class TestWesJsonHelper(unittest.TestCase):
         else:
             wes.es_version_mismatch()
 
-        wes_mappers = wes.operation_mappers(operation)
-        # some test case operation not covered
-        self.assertNotEqual(None, wes_mappers)
-        wes_mappers_operation, wes_mappers_operation_result = wes_mappers
-        Log.log(f"{operation} MAPPERS: {str(wes_mappers)}")
-        wes_mappers_rc = wes_mappers_operation_result(wes, wes_mappers_operation(wes, *args, **kwargs))
+        return args, kwargs
 
-        rc_result = ExecCode(Wes.RC_EXCE if result is None else Wes.RC_OK,
-                             result,
-                             wes_mappers_rc.fnc_params)
-
-        if wes_mappers_rc.status == Wes.RC_OK:
+    def helper_validate_rc(self, wes: Wes, operation, rc_result: ExecCode, rc_wes: ExecCode):
+        if rc_wes.status == Wes.RC_OK:
 
             if operation == Wes.OP_DOC_SEARCH:
                 # 1. check nb match records
                 self.assertEqual(wes.doc_search_result_hits_nb(rc_result),
-                                 wes.doc_search_result_hits_nb(wes_mappers_rc))
+                                 wes.doc_search_result_hits_nb(rc_wes))
 
                 # 2. check docs by content
                 ext_sources = wes.doc_search_result_hits_sources(rc_result)
-                wes_sources = wes.doc_search_result_hits_sources(wes_mappers_rc)
+                wes_sources = wes.doc_search_result_hits_sources(rc_wes)
                 for idx, wes_doc in enumerate(wes_sources):
                     ext_doc = ext_sources[idx]
                     self.assertDictEqual(ext_doc, wes_doc)
 
             elif operation == Wes.OP_IND_REFRESH:
                 self.assertEqual(wes.ind_refresh_result_shard_nb_failed(rc_result),
-                                 wes.ind_refresh_result_shard_nb_failed(wes_mappers_rc))
-            else:
-                self.assertDictEqual(rc_result.data, wes_mappers_rc.data)
+                                 wes.ind_refresh_result_shard_nb_failed(rc_wes))
 
-        elif wes_mappers_rc.status == Wes.RC_NOK:
+            else:
+                self.assertDictEqual(rc_result.data, rc_wes.data)
+
+        elif rc_wes.status == Wes.RC_NOK:
             raise ValueError("not handled - now")
-        elif wes_mappers_rc.status == Wes.RC_EXCE:
+        elif rc_wes.status == Wes.RC_EXCE:
             # TODO peete pass exception status number - for T[1.json] L[ 11] there is result(None)
-            self.assertEqual(rc_result.status, wes_mappers_rc.status)
+            self.assertEqual(rc_result.status, rc_wes.status)
+
+
+    def helper_run_unpacked_test(self, wes: Wes, test_name: str, line: int, result, accessor, method, *args, **kwargs):
+
+        group = 'IND' if accessor else 'DOC'
+
+        # Log.log(f"T[{test_name}] L[{line:3}] -> {group} "
+        #         f"cmd({method} <-> args{args} <-> kwargs({kwargs})) result({result})")
+
+        Log.log(f"T[{test_name}] L[{line:3}] -> {group} cmd({method}) ")
+        Log.log(f"T[{test_name}] L[{line:3}] ->>> args{args} ")
+        Log.log(f"T[{test_name}] L[{line:3}] ->>> kwargs({kwargs})) ")
+        Log.log(f"T[{test_name}] L[{line:3}] ->>> result({result})")
+
+        # BE SURE TO BE IN SYNCH WITH
+        # Wes.operation_mappers
+        # TODO which methods are used in exponea?
+        method_mapper = {
+            "IND": {
+                "create"        : Wes.OP_IND_CREATE,
+                "flush"         : Wes.OP_IND_FLUSH,
+                "refresh"       : Wes.OP_IND_REFRESH,
+                "exists"        : Wes.OP_IND_EXIST,
+                "delete"        : Wes.OP_IND_DELETE,
+                "get_mapping"   : Wes.OP_IND_GET_MAP,
+                "put_mapping"   : Wes.OP_IND_PUT_MAP,
+                "put_template"  : Wes.OP_IND_PUT_TMP,
+                "get_template"  : Wes.OP_IND_GET_TMP,
+            },
+            'DOC': {
+                "index"     : Wes.OP_DOC_ADD_UP,
+                "update"    : Wes.OP_DOC_UPDATE,
+                "get"       : Wes.OP_DOC_GET,
+                "exists"    : Wes.OP_DOC_EXIST,
+                "delete"    : Wes.OP_DOC_DELETE,
+
+                "search"    : Wes.OP_DOC_SEARCH,
+                "bulk"      : Wes.OP_DOC_BULK_STR if 0 else Wes.OP_DOC_BULK,
+                "scan"      : Wes.OP_DOC_SCAN,
+                "count"     : Wes.OP_DOC_COUNT,
+            }
+        }
+
+        # rise exception if operation is not supported
+        operation = method_mapper[group][method]
+
+        # fix arguments for specific operation
+        args, kwargs = self.helper_arguments_values_fixer(wes, operation, *args, **kwargs)
+
+        # pick wes mappers
+        wes_mappers = wes.operation_mappers(operation)
+        self.assertNotEqual(None, wes_mappers)
+        wes_mappers_operation, wes_mappers_operation_result = wes_mappers
+
+        # execute mappers and validate
+        Log.log(f"{operation} MAPPERS: {str(wes_mappers)}")
+        rc_wes = wes_mappers_operation_result(wes, wes_mappers_operation(wes, *args, **kwargs))
+
+        rc_result = ExecCode(Wes.RC_EXCE if result is None else Wes.RC_OK,
+                             result,
+                             rc_wes.fnc_params)
+
+        self.helper_validate_rc(wes, operation, rc_result, rc_wes)
 
 
     def helper_run_unpacked_tests(self, wes, tests: list, is_interactive=False):
@@ -214,13 +246,13 @@ class TestWesJson(TestWesJsonHelper):
 
     def test_json_parser_passed(self):
         zip_path = "./exponea_tests/elasticmock-testcases.zip"
-        tests = ('{}.json'.format(nb) for nb in range(0, 2))
+        tests = ('{}.json'.format(nb) for nb in range(0, 4))
         self.helper_json_parser(zip_path, tests)
 
     # method for tests to pass
     def json_parser_todo(self):
         zip_path = "./exponea_tests/elasticmock-testcases.zip"
-        tests = ('2.json',)
+        tests = ('4.json',)
         self.helper_json_parser(zip_path, tests)
 
 

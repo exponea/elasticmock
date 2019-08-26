@@ -51,6 +51,7 @@ class WesDefs():
     OP_DOC_UPDATE   = "OP_DOC_UPDATE  : "
     OP_DOC_GET      = "OP_DOC_GET     : "
     OP_DOC_EXIST    = "OP_DOC_EXIST   : "
+    OP_DOC_DELETE   = "OP_DOC_DELETE  : "
     # batch operations
     OP_DOC_SEARCH   = "OP_DOC_SEARCH  : "
     OP_DOC_BULK     = "OP_DOC_BULK    : "
@@ -504,6 +505,30 @@ class Wes(WesDefs):
 
         return self._operation_result(Wes.OP_DOC_EXIST, key_str, rc, fmt_fnc_ok)
 
+    @query_params(
+        "if_seq_no",
+        "if_primary_term",
+        "parent",
+        "refresh",
+        "routing",
+        "timeout",
+        "version",
+        "version_type",
+        "wait_for_active_shards",)
+    @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_DELETE)
+    def doc_delete(self, index, id, doc_type="_doc", params=None):
+        # TODO petee 'doc_type' is important for get - shouldn't be mandatory???
+        return self.es.delete(index, id, doc_type=doc_type, params=params)
+
+    def doc_delete_result(self, rc: ExecCode) -> ExecCode:
+        key_str = f"KEY{rc.fnc_params[0]}"
+
+        def fmt_fnc_ok(rcv: ExecCode) -> str:
+            return f"{key_str} {rcv.data}"
+
+        return self._operation_result(Wes.OP_DOC_DELETE, key_str, rc, fmt_fnc_ok)
+
+
     #####################
     # batch operations
     #####################
@@ -736,7 +761,8 @@ class Wes(WesDefs):
             Wes.OP_DOC_ADD_UP:  [Wes.doc_addup, Wes.doc_addup_result],
             Wes.OP_DOC_UPDATE:  [Wes.doc_update, Wes.doc_update_result],
             Wes.OP_DOC_GET:     [Wes.doc_get, Wes.doc_get_result],
-            Wes.OP_DOC_EXIST:   [Wes.doc_exists, Wes.doc_exists],
+            Wes.OP_DOC_EXIST:   [Wes.doc_exists, Wes.doc_exists_result],
+            Wes.OP_DOC_DELETE:  [Wes.doc_delete, Wes.doc_delete_result],
             # batch operations
             Wes.OP_DOC_SEARCH:  [Wes.doc_search, Wes.doc_search_result],
             Wes.OP_DOC_BULK:    [Wes.doc_bulk, Wes.doc_bulk_result],
