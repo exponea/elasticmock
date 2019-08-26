@@ -38,27 +38,28 @@ class WesDefs():
         raise ValueError(f"ES_VERSION_RUNNING is unknown - {self.ES_VERSION_RUNNING}")
 
     # indice operations
-    OP_IND_CREATE   = "OP_IND_CREATE  : "
-    OP_IND_FLUSH    = "OP_IND_FLUSH   : "
-    OP_IND_REFRESH  = "OP_IND_REFRESH : "
-    OP_IND_EXIST    = "OP_IND_EXIST   : "
-    OP_IND_DELETE   = "OP_IND_DELETE  : "
-    OP_IND_GET_MAP  = "OP_IND_GET_MAP : "
-    OP_IND_PUT_MAP  = "OP_IND_PUT_MAP : "
-    OP_IND_GET_TMP  = "OP_IND_GET_TMP : "
-    OP_IND_PUT_TMP  = "OP_IND_PUT_TMP : "
+    OP_IND_CREATE   = "OP_IND_CREATE   : "
+    OP_IND_FLUSH    = "OP_IND_FLUSH    : "
+    OP_IND_REFRESH  = "OP_IND_REFRESH  : "
+    OP_IND_EXIST    = "OP_IND_EXIST    : "
+    OP_IND_DELETE   = "OP_IND_DELETE   : "
+    OP_IND_GET_MAP  = "OP_IND_GET_MAP  : "
+    OP_IND_PUT_MAP  = "OP_IND_PUT_MAP  : "
+    OP_IND_GET_TMP  = "OP_IND_GET_TMP  : "
+    OP_IND_PUT_TMP  = "OP_IND_PUT_TMP  : "
     # document operations
-    OP_DOC_ADD_UP   = "OP_DOC_ADD_UP  : "
-    OP_DOC_UPDATE   = "OP_DOC_UPDATE  : "
-    OP_DOC_GET      = "OP_DOC_GET     : "
-    OP_DOC_EXIST    = "OP_DOC_EXIST   : "
-    OP_DOC_DELETE   = "OP_DOC_DELETE  : "
+    OP_DOC_ADD_UP   = "OP_DOC_ADD_UP   : "
+    OP_DOC_UPDATE   = "OP_DOC_UPDATE   : "
+    OP_DOC_GET      = "OP_DOC_GET      : "
+    OP_DOC_EXIST    = "OP_DOC_EXIST    : "
+    OP_DOC_DEL      = "OP_DOC_DEL      : "
     # batch operations
-    OP_DOC_SEARCH   = "OP_DOC_SEARCH  : "
-    OP_DOC_BULK     = "OP_DOC_BULK    : "
-    OP_DOC_BULK_STR = "OP_DOC_BULK_STR: "
-    OP_DOC_SCAN     = "OP_DOC_SCAN    : "
-    OP_DOC_COUNT    = "OP_DOC_COUNT   : "
+    OP_DOC_DEL_QUERY= "OP_DOC_DEL_QUERY: "
+    OP_DOC_SEARCH   = "OP_DOC_SEARCH   : "
+    OP_DOC_BULK     = "OP_DOC_BULK     : "
+    OP_DOC_BULK_STR = "OP_DOC_BULK_STR : "
+    OP_DOC_SCAN     = "OP_DOC_SCAN     : "
+    OP_DOC_COUNT    = "OP_DOC_COUNT    : "
 
     # RC - 3 codes
     # - maybe useful later (low level could detect problem in data)
@@ -517,7 +518,7 @@ class Wes(WesDefs):
         "version",
         "version_type",
         "wait_for_active_shards",)
-    @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_DELETE)
+    @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_DEL)
     def doc_delete(self, index, id, doc_type="_doc", params=None):
         # TODO petee 'doc_type' is important for get - shouldn't be mandatory???
         return self.es.delete(index, id, doc_type=doc_type, params=params)
@@ -528,12 +529,59 @@ class Wes(WesDefs):
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"{key_str} {rcv.data}"
 
-        return self._operation_result(Wes.OP_DOC_DELETE, key_str, rc, fmt_fnc_ok)
+        return self._operation_result(Wes.OP_DOC_DEL, key_str, rc, fmt_fnc_ok)
 
 
     #####################
     # batch operations
     #####################
+    @query_params(
+        "_source",
+        "_source_exclude",
+        "_source_excludes",
+        "_source_include",
+        "_source_includes",
+        "allow_no_indices",
+        "analyze_wildcard",
+        "analyzer",
+        "conflicts",
+        "default_operator",
+        "df",
+        "expand_wildcards",
+        "from_",
+        "ignore_unavailable",
+        "lenient",
+        "preference",
+        "q",
+        "refresh",
+        "request_cache",
+        "requests_per_second",
+        "routing",
+        "scroll",
+        "scroll_size",
+        "search_timeout",
+        "search_type",
+        "size",
+        "slices",
+        "sort",
+        "stats",
+        "terminate_after",
+        "timeout",
+        "version",
+        "wait_for_active_shards",
+        "wait_for_completion",)
+    @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_DEL_QUERY)
+    def doc_delete_by_query(self, index, body, params=None):
+        return self.es.delete_by_query(index, body, params=params)
+
+    def doc_delete_by_query_result(self, rc: ExecCode) -> ExecCode:
+        key_str = f"KEY{rc.fnc_params[0]}"
+
+        def fmt_fnc_ok(rcv: ExecCode) -> str:
+            return f"{key_str} {rcv.data}"
+
+        return self._operation_result(Wes.OP_DOC_DEL_QUERY, key_str, rc, fmt_fnc_ok)
+
     @query_params(
         "_source",
         "_source_exclude",
@@ -820,13 +868,14 @@ class Wes(WesDefs):
             Wes.OP_DOC_UPDATE:  [Wes.doc_update, Wes.doc_update_result],
             Wes.OP_DOC_GET:     [Wes.doc_get, Wes.doc_get_result],
             Wes.OP_DOC_EXIST:   [Wes.doc_exists, Wes.doc_exists_result],
-            Wes.OP_DOC_DELETE:  [Wes.doc_delete, Wes.doc_delete_result],
+            Wes.OP_DOC_DEL:     [Wes.doc_delete, Wes.doc_delete_result],
             # batch operations
-            Wes.OP_DOC_SEARCH:  [Wes.doc_search, Wes.doc_search_result],
-            Wes.OP_DOC_BULK:    [Wes.doc_bulk, Wes.doc_bulk_result], # MSE_NOTES: RETURN FORMAT NOT MATCH EXPONEA
-            Wes.OP_DOC_BULK_STR:[Wes.doc_bulk_streaming, Wes.doc_bulk_streaming_result],
-            Wes.OP_DOC_SCAN:    [Wes.doc_scan, Wes.doc_scan_result],
-            Wes.OP_DOC_COUNT:   [Wes.doc_count, Wes.doc_count_result]
+            Wes.OP_DOC_DEL_QUERY:   [Wes.doc_delete_by_query, Wes.doc_delete_by_query_result],
+            Wes.OP_DOC_SEARCH:      [Wes.doc_search, Wes.doc_search_result],
+            Wes.OP_DOC_BULK:        [Wes.doc_bulk, Wes.doc_bulk_result], # MSE_NOTES: RETURN FORMAT NOT MATCH EXPONEA
+            Wes.OP_DOC_BULK_STR:    [Wes.doc_bulk_streaming, Wes.doc_bulk_streaming_result],
+            Wes.OP_DOC_SCAN:        [Wes.doc_scan, Wes.doc_scan_result],
+            Wes.OP_DOC_COUNT:       [Wes.doc_count, Wes.doc_count_result]
         }
 
         return operation_mapper.get(operation, None)

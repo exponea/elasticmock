@@ -73,7 +73,7 @@ class TestWesJsonHelper(unittest.TestCase):
                 doc_type = kwargs['doc_type'] = doc_type
                 Log.log(f"{operation} FIXER(kwargs) after  : doc_type({doc_type})")
 
-            elif operation == Wes.OP_DOC_DELETE:
+            elif operation == Wes.OP_DOC_DEL:
                 indice, doc_type = args
                 kw_doc_type = kwargs.get('doc_type', None)
                 kw_id = kwargs.get('id', None)
@@ -88,10 +88,12 @@ class TestWesJsonHelper(unittest.TestCase):
                 kw_id = kwargs.get('id', None)
                 Log.log(f"{operation} FIXER(kwargs) after  : doc_type({doc_type}) id({id})")
 
-            elif operation == Wes.OP_DOC_SEARCH:
+            elif operation == Wes.OP_DOC_SEARCH or \
+                    operation == Wes.OP_DOC_DEL_QUERY:
 
                 # FAKE as result of PYTHON API:
                 # EXCEPTION: Unknow L1 exception ... doc_search() got an unexpected keyword argument 'doc_type'
+                # EXCEPTION: Unknow L1 exception ... doc_delete_by_query() got an unexpected keyword argument 'doc_type'
                 kw_doc_type = kwargs.get('doc_type', None)
                 Log.log(f"{operation} FIXER(kwargs) before : doc_type({kw_doc_type})")
                 del kwargs['doc_type']
@@ -190,6 +192,11 @@ class TestWesJsonHelper(unittest.TestCase):
                     ext_doc = ext_sources[idx]
                     self.assertDictEqual(ext_doc, wes_doc)
 
+            elif operation == Wes.OP_DOC_DEL_QUERY:
+                # TODO petee what to compare? seems as no docs added
+                # TODO all dict problem on 'took', so probably 'deleted' field
+                self.assertEqual(rc_result.data['deleted'], rc_wes.data['deleted'])
+
             elif operation == Wes.OP_IND_REFRESH:
                 self.assertEqual(wes.ind_refresh_result_shard_nb_failed(rc_result),
                                  wes.ind_refresh_result_shard_nb_failed(rc_wes))
@@ -238,16 +245,17 @@ class TestWesJsonHelper(unittest.TestCase):
                 "get_template"  : Wes.OP_IND_GET_TMP,
             },
             'DOC': {
-                "index"     : Wes.OP_DOC_ADD_UP,
-                "update"    : Wes.OP_DOC_UPDATE,
-                "get"       : Wes.OP_DOC_GET,
-                "exists"    : Wes.OP_DOC_EXIST,
-                "delete"    : Wes.OP_DOC_DELETE,
+                "index"             : Wes.OP_DOC_ADD_UP,
+                "update"            : Wes.OP_DOC_UPDATE,
+                "get"               : Wes.OP_DOC_GET,
+                "exists"            : Wes.OP_DOC_EXIST,
+                "delete"            : Wes.OP_DOC_DEL,
 
-                "search"    : Wes.OP_DOC_SEARCH,
-                "bulk"      : Wes.OP_DOC_BULK_STR, # if 1 else Wes.OP_DOC_BULK, # MSE_NOTES: RETURN FORMAT NOT MATCH EXPONEA
-                "scan"      : Wes.OP_DOC_SCAN,
-                "count"     : Wes.OP_DOC_COUNT,
+                "delete_by_query"   : Wes.OP_DOC_DEL_QUERY,
+                "search"            : Wes.OP_DOC_SEARCH,
+                "bulk"              : Wes.OP_DOC_BULK_STR, # if 1 else Wes.OP_DOC_BULK, # MSE_NOTES: RETURN FORMAT NOT MATCH EXPONEA
+                "scan"              : Wes.OP_DOC_SCAN,
+                "count"             : Wes.OP_DOC_COUNT,
             }
         }
 
@@ -299,13 +307,13 @@ class TestWesJson(TestWesJsonHelper):
 
     def test_json_parser_passed(self):
         zip_path = "./exponea_tests/elasticmock-testcases.zip"
-        tests = ('{}.json'.format(nb) for nb in range(0, 5))
+        tests = ('{}.json'.format(nb) for nb in range(0, 8))
         self.helper_json_parser(zip_path, tests)
 
     # method for tests to pass
     def json_parser_todo(self):
         zip_path = "./exponea_tests/elasticmock-testcases.zip"
-        tests = ('5.json',)
+        tests = ('8.json',)
         self.helper_json_parser(zip_path, tests)
 
 
