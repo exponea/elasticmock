@@ -201,6 +201,12 @@ class TestWesJsonHelper(unittest.TestCase):
                 self.assertEqual(wes.ind_refresh_result_shard_nb_failed(rc_result),
                                  wes.ind_refresh_result_shard_nb_failed(rc_wes))
 
+            elif operation == Wes.OP_IND_GET:
+                print(wes.ind_get_result_dump_to_string(rc_result))
+                print(wes.ind_get_result_dump_to_string(rc_wes))
+
+                self.assertDictEqual(rc_result.data, rc_wes.data)
+
             elif operation == Wes.OP_DOC_BULK or operation == Wes.OP_DOC_BULK_STR:
                 # TODO differents format - no idea how to specify - petee???
                 # takes log time ...
@@ -224,7 +230,7 @@ class TestWesJsonHelper(unittest.TestCase):
         # Log.log(f"T[{test_name}] L[{line:3}] -> {group} "
         #         f"cmd({method} <-> args{args} <-> kwargs({kwargs})) result({result})")
 
-        Log.log(f"T[{test_name}] L[{line:3}] -> {group} cmd({method}) ")
+        Log.log(f"T[{test_name}] L[{line:3}] -> {group} accessor({accessor}) cmd({method}) ")
         Log.log(f"T[{test_name}] L[{line:3}] ->>> args{args} ")
         Log.log(f"T[{test_name}] L[{line:3}] ->>> kwargs({kwargs})) ")
         Log.log(f"T[{test_name}] L[{line:3}] ->>> result({result})")
@@ -239,6 +245,7 @@ class TestWesJsonHelper(unittest.TestCase):
                 "refresh"       : Wes.OP_IND_REFRESH,
                 "exists"        : Wes.OP_IND_EXIST,
                 "delete"        : Wes.OP_IND_DELETE,
+                "get"           : Wes.OP_IND_GET,
                 "get_mapping"   : Wes.OP_IND_GET_MAP,
                 "put_mapping"   : Wes.OP_IND_PUT_MAP,
                 "put_template"  : Wes.OP_IND_PUT_TMP,
@@ -341,7 +348,7 @@ class TestWesJson(TestWesJsonHelper):
     # method for tests to pass
     def json_parser_todo(self):
         zip_path = "./exponea_tests/elasticmock-testcases.zip"
-        tests = ('20.json',)
+        tests = ('40.json',)
         self.helper_json_parser(zip_path, tests)
 
 

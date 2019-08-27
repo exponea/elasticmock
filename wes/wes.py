@@ -43,6 +43,7 @@ class WesDefs():
     OP_IND_REFRESH  = "OP_IND_REFRESH  : "
     OP_IND_EXIST    = "OP_IND_EXIST    : "
     OP_IND_DELETE   = "OP_IND_DELETE   : "
+    OP_IND_GET      = "OP_IND_GET      : "
     OP_IND_GET_MAP  = "OP_IND_GET_MAP  : "
     OP_IND_PUT_MAP  = "OP_IND_PUT_MAP  : "
     OP_IND_GET_TMP  = "OP_IND_GET_TMP  : "
@@ -240,6 +241,36 @@ class Wes(WesDefs):
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"{key_str} {rcv.data['acknowledged']}"
         return self._operation_result(Wes.OP_IND_DELETE, key_str, rc, fmt_fnc_ok)
+
+    @query_params(
+        "allow_no_indices",
+        "expand_wildcards",
+        "flat_settings",
+        "ignore_unavailable",
+        "include_defaults",
+        "local",
+        "include_type_name",
+        "master_timeout",)
+    @WesDefs.Decor.operation_exec(WesDefs.OP_IND_GET)
+    def ind_get(self, index, feature=None, params=None):
+        return self.es.indices.get(index, feature=feature, params=params)
+
+    def ind_get_result(self, rc: ExecCode) -> ExecCode:
+        key_str = f"KEY[{rc.fnc_params[0]}]"
+
+        def fmt_fnc_ok(rcv: ExecCode) -> str:
+            return f"{key_str} {self. ind_get_result_dump_to_string(rc)}"
+
+        return self._operation_result(Wes.OP_IND_GET, key_str, rc, fmt_fnc_ok)
+
+    def ind_get_result_dump_to_string(self, rc: ExecCode):
+        res = ''
+        cnt = 0
+        for k in rc.data.keys():
+            res += '\n' + k + ' <-> ' + str(rc.data[k])
+            cnt += 1
+
+        return f"COUNT[{cnt}] {res}"
 
     @query_params(
         "allow_no_indices",
@@ -859,6 +890,7 @@ class Wes(WesDefs):
             Wes.OP_IND_REFRESH: [Wes.ind_refresh, Wes.ind_refresh_result],
             Wes.OP_IND_EXIST:   [Wes.ind_exist, Wes.ind_exist_result],
             Wes.OP_IND_DELETE:  [Wes.ind_delete, Wes.ind_delete_result],
+            Wes.OP_IND_GET:     [Wes.ind_get, Wes.ind_get_result],
             Wes.OP_IND_GET_MAP: [Wes.ind_get_mapping, Wes.ind_get_mapping_result],
             Wes.OP_IND_PUT_MAP: [Wes.ind_put_mapping, Wes.ind_put_mapping_result],
             Wes.OP_IND_PUT_TMP: [Wes.ind_put_template, Wes.ind_put_template_result],
