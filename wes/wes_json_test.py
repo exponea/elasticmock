@@ -313,16 +313,23 @@ class TestWesJson(TestWesJsonHelper):
 
             if nb in (20,  27,  34,  40,  67, 79,  94,  97,
                       116, 117, 124, 126, 143, 153, 166, 169, 179, 194):
+                #  20 - OP_DOC_SEARCH - AssertionError: 3 != 4
+                #  27 - OP_DOC_SEARCH - AssertionError: {'_id': '4', '_index': 'test_def_catalogs', '[1321 chars]1dd'} != {'_index': 'test_def_catalogs', '_type': 'pro[1323 chars]ng'}}
+                #  34 - OP_DOC_SEARCH - AssertionError: 3 != 4
+                #  40 - operation = method_mapper[group][method] KeyError: 'get'
+                #  76 - OP_DOC_SEARCH - ssertionError: {'_id': '5', '_index': 'test_def_catalogs', '[1323 chars]1cc'} != {'_index': 'test_def_catalogs', '_type': 'pro[1320 chars]ng'}}
+                #  74 - OP_DOC_SEARCH - AssertionError: 3 != 4
+                #  79 - OP_DOC_SEARCH - AssertionError: 5 != 10
                 #  97 - get_alias
                 # 116 - del kwargs['doc_type']
-                # 117 - AssertionError: 3 != 4
-                # 124 - AssertionError: 3 != 4
+                # 117 - OP_DOC_SEARCH - AssertionError: 3 != 4
+                # 124 - OP_DOC_SEARCH - AssertionError: 3 != 4
                 # 126 - File "... /elasticmock/wes/wes.py", line 761, in doc_bulk_streaming_result
                 # 143 - get_alias
-                # 153 - OP_DOC_SEARCH AssertionError: 1 != 2
-                # 166 - OP_DOC_SEARCH AssertionError: 3 != 4
-                # 169 - OP_DOC_SEARCH AssertionError: 3 != 4
-                # 179 - OP_DOC_SEARCH AssertionError: 3 != 4
+                # 153 - OP_DOC_SEARCH - AssertionError: 1 != 2
+                # 166 - OP_DOC_SEARCH - AssertionError: 3 != 4
+                # 169 - OP_DOC_SEARCH - AssertionError: 3 != 4
+                # 179 - OP_DOC_SEARCH - AssertionError: 3 != 4
                 # 194 - get_alias
                 return False
             else:
