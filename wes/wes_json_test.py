@@ -120,6 +120,19 @@ class TestWesJsonHelper(unittest.TestCase):
                 doc_type = kwargs.get('doc_type', None)
                 Log.log(f"{operation} FIXER(kwargs) after  : doc_type({doc_type})")
 
+                # MSE_NOTES: match all can't query doc_type, _type !!!
+                if kw_doc_type:
+                    kw_body = kwargs.get('body', None)
+                    Log.log(f"{operation} FIXER(kwargs) before : body({kw_body})")
+                    body = kw_body
+                    if kw_body:
+                        query = kw_body.get('query', None)
+                        # test 20.json, 117.json, 124.json, 179.json, 194.json
+                        if query and 'match_all' in query:
+                            del query['match_all']
+                            query['term'] = {'_type': kw_doc_type }
+                    Log.log(f"{operation} FIXER(kwargs) after  : body({body})")
+
             elif operation == Wes.OP_IND_PUT_MAP:
 
                 # EXCEPTION: Unknow L1 exception ... ind_put_mapping() got multiple values for argument 'body'
@@ -420,22 +433,15 @@ class TestWesJson(TestWesJsonHelper):
         def test_case_avoided(nb: int):
             self.assertTrue(nb < 207)
 
-            if nb in (20,  27,  34,    67, 79,  94,
-                      117, 124, 126,  153, 166, 169, 179, 194):
-                #  20 - OP_DOC_SEARCH - AssertionError: 3 != 4
+            if nb in (27,  34,  67, 79,  94, 126, 153, 166, 169):
                 #  27 - OP_DOC_SEARCH - AssertionError: {'_id': '4', '_index': 'test_def_catalogs', '[1321 chars]1dd'} != {'_index': 'test_def_catalogs', '_type': 'pro[1323 chars]ng'}}
                 #  34 - OP_DOC_SEARCH - AssertionError: 3 != 4
                 #  76 - OP_DOC_SEARCH - ssertionError: {'_id': '5', '_index': 'test_def_catalogs', '[1323 chars]1cc'} != {'_index': 'test_def_catalogs', '_type': 'pro[1320 chars]ng'}}
-                #  74 - OP_DOC_SEARCH - AssertionError: 3 != 4
                 #  79 - OP_DOC_SEARCH - AssertionError: 5 != 10
-                # 117 - OP_DOC_SEARCH - AssertionError: 3 != 4
-                # 124 - OP_DOC_SEARCH - AssertionError: 3 != 4
                 # 126 - File "... /elasticmock/wes/wes.py", line 761, in doc_bulk_streaming_result
                 # 153 - OP_DOC_SEARCH - AssertionError: 1 != 2
                 # 166 - OP_DOC_SEARCH - AssertionError: 3 != 4
                 # 169 - OP_DOC_SEARCH - AssertionError: 3 != 4
-                # 179 - OP_DOC_SEARCH - AssertionError: 3 != 4
-                # 194 - get_alias PO FIXE _DOC_DEL_QUERY:  KEY[] AssertionError: 3 != 4
                 return False
             else:
                 return True
@@ -446,7 +452,7 @@ class TestWesJson(TestWesJsonHelper):
     # method for tests to pass
     def json_parser_todo(self):
         zip_path = "./exponea_tests/elasticmock-testcases.zip"
-        tests = ('116.json',)
+        tests = ('169.json',)
         self.helper_json_parser(zip_path, tests)
 
 
