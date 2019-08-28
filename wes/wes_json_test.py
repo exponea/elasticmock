@@ -35,8 +35,10 @@ class TestWesJsonHelper(unittest.TestCase):
     def binder_get(self, operation, key):
         # print("BINDER GET ", operation, str(self.binder))
         rc = self.binder[operation].get(key, None)
-        if rc:
-            del self.binder[operation][key]
+        # KEEP USEFUL for scroll, clear_scroll
+        #if rc:
+        #    del self.binder[operation][key]
+
         return rc
 
     def indice_cleanup_all(self, wes):
@@ -151,8 +153,8 @@ class TestWesJsonHelper(unittest.TestCase):
                 split_len = len(split_list)
 
                 # !!! KEEP FOR DBG !!!
-                split_list_str = '\n' + args[0]
-                Log.log(f"{operation} FIXER(args) before : len({len_args_tuple}) type({type_args}) split_len({split_len}): {split_list_str}")
+                # split_list_str = '\n' + args[0]
+                # Log.log(f"{operation} FIXER(args) before : len({len_args_tuple}) type({type_args}) split_len({split_len}): {split_list_str}")
                 # !!! KEEP FOR DBG !!!
 
                 Log.log(f"{operation} FIXER(args) before : len({len_args_tuple}) type({type_args}) split_len({split_len})")
@@ -189,13 +191,28 @@ class TestWesJsonHelper(unittest.TestCase):
                 Log.log(f"{operation} FIXER(args) after  : len({len_args_tuple}) type({type_args}) split_len({split_len}) actions:{actions_str}")
 
             elif operation == Wes.OP_DOC_SCROLL:
-                scroll_id,  = args
+                # scroll_id,  = args             NOT USED THIS IS DYNAMIC VALUE !!!
                 kw_scroll_id = kwargs.get('scroll_id', None)
                 Log.log(f"{operation} FIXER(kwargs) before : scroll_id({kw_scroll_id})")
-                # scroll_id = kwargs['scroll_id'] = scroll_id NO THIS IS DYNAMIC VALUE !!!
-                scroll_id = kwargs['scroll_id'] = self.binder_get(operation, '_scroll_id')
+                # scroll_id = kwargs['scroll_id'] = scroll_id NOT USED THIS IS DYNAMIC VALUE !!!
+                scroll_id = kwargs['scroll_id'] = self.binder_get(Wes.OP_DOC_SEARCH, '_scroll_id')
                 Log.log(f"{operation} FIXER(kwargs) after  : scroll_id({scroll_id})")
                 args = ()
+
+            elif operation == Wes.OP_DOC_SCROLL_CLEAR:
+                kw_scroll_id = kwargs.get('scroll_id', None)
+                kw_body      = kwargs.get('body', None)
+                Log.log(f"{operation} FIXER(kwargs) before : scroll_id({kw_scroll_id})")
+                Log.log(f"{operation} FIXER(kwargs) before : body({kw_body})")
+
+                scroll_id = kwargs['scroll_id'] = self.binder_get(Wes.OP_DOC_SEARCH, '_scroll_id')
+                del kwargs['body']['scroll_id']
+                new_body = kwargs['body'].get('scroll_id', None)
+                Log.log(f"{operation} FIXER(kwargs) after  : scroll_id({scroll_id})")
+                Log.log(f"{operation} FIXER(kwargs) after  : body({new_body})")
+
+
+            # no fix needed
             else:
                 pass
         else:
@@ -219,7 +236,7 @@ class TestWesJsonHelper(unittest.TestCase):
                     ext_doc = ext_sources[idx]
                     self.assertDictEqual(ext_doc, wes_doc)
 
-                self.binder_set(Wes.OP_DOC_SCROLL, '_scroll_id', wes.doc_search_result_scroll_id(rc_wes))
+                self.binder_set(Wes.OP_DOC_SEARCH, '_scroll_id', wes.doc_search_result_scroll_id(rc_wes))
 
             elif operation == Wes.OP_DOC_SCROLL:
                 # 1. check nb match records
@@ -352,6 +369,7 @@ class TestWesJsonHelper(unittest.TestCase):
                 "scan"              : Wes.OP_DOC_SCAN,
                 "count"             : Wes.OP_DOC_COUNT,
                 "scroll"            : Wes.OP_DOC_SCROLL,
+                "clear_scroll"      : Wes.OP_DOC_SCROLL_CLEAR,
             }
         }
 
@@ -403,14 +421,13 @@ class TestWesJson(TestWesJsonHelper):
             self.assertTrue(nb < 207)
 
             if nb in (20,  27,  34,    67, 79,  94,
-                      116, 117, 124, 126,  153, 166, 169, 179, 194):
+                      117, 124, 126,  153, 166, 169, 179, 194):
                 #  20 - OP_DOC_SEARCH - AssertionError: 3 != 4
                 #  27 - OP_DOC_SEARCH - AssertionError: {'_id': '4', '_index': 'test_def_catalogs', '[1321 chars]1dd'} != {'_index': 'test_def_catalogs', '_type': 'pro[1323 chars]ng'}}
                 #  34 - OP_DOC_SEARCH - AssertionError: 3 != 4
                 #  76 - OP_DOC_SEARCH - ssertionError: {'_id': '5', '_index': 'test_def_catalogs', '[1323 chars]1cc'} != {'_index': 'test_def_catalogs', '_type': 'pro[1320 chars]ng'}}
                 #  74 - OP_DOC_SEARCH - AssertionError: 3 != 4
                 #  79 - OP_DOC_SEARCH - AssertionError: 5 != 10
-                # 116 - del kwargs['doc_type']
                 # 117 - OP_DOC_SEARCH - AssertionError: 3 != 4
                 # 124 - OP_DOC_SEARCH - AssertionError: 3 != 4
                 # 126 - File "... /elasticmock/wes/wes.py", line 761, in doc_bulk_streaming_result

@@ -38,32 +38,33 @@ class WesDefs():
         raise ValueError(f"ES_VERSION_RUNNING is unknown - {self.ES_VERSION_RUNNING}")
 
     # indice operations
-    OP_IND_CREATE       = "OP_IND_CREATE   : "
-    OP_IND_FLUSH        = "OP_IND_FLUSH    : "
-    OP_IND_REFRESH      = "OP_IND_REFRESH  : "
-    OP_IND_EXIST        = "OP_IND_EXIST    : "
-    OP_IND_DELETE       = "OP_IND_DELETE   : "
-    OP_IND_GET          = "OP_IND_GET      : "
-    OP_IND_GET_ALIAS    = "OP_IND_GET_ALIAS: "
-    OP_IND_DEL_ALIAS    = "OP_IND_DEL_ALIAS: "
-    OP_IND_GET_MAP      = "OP_IND_GET_MAP  : "
-    OP_IND_PUT_MAP      = "OP_IND_PUT_MAP  : "
-    OP_IND_GET_TMP      = "OP_IND_GET_TMP  : "
-    OP_IND_PUT_TMP      = "OP_IND_PUT_TMP  : "
+    OP_IND_CREATE       = "OP_IND_CREATE       : "
+    OP_IND_FLUSH        = "OP_IND_FLUSH        : "
+    OP_IND_REFRESH      = "OP_IND_REFRESH      : "
+    OP_IND_EXIST        = "OP_IND_EXIST        : "
+    OP_IND_DELETE       = "OP_IND_DELETE       : "
+    OP_IND_GET          = "OP_IND_GET          : "
+    OP_IND_GET_ALIAS    = "OP_IND_GET_ALIAS    : "
+    OP_IND_DEL_ALIAS    = "OP_IND_DEL_ALIAS    : "
+    OP_IND_GET_MAP      = "OP_IND_GET_MAP      : "
+    OP_IND_PUT_MAP      = "OP_IND_PUT_MAP      : "
+    OP_IND_GET_TMP      = "OP_IND_GET_TMP      : "
+    OP_IND_PUT_TMP      = "OP_IND_PUT_TMP      : "
     # document operations
-    OP_DOC_ADD_UP       = "OP_DOC_ADD_UP   : "
-    OP_DOC_UPDATE       = "OP_DOC_UPDATE   : "
-    OP_DOC_GET          = "OP_DOC_GET      : "
-    OP_DOC_EXIST        = "OP_DOC_EXIST    : "
-    OP_DOC_DEL          = "OP_DOC_DEL      : "
+    OP_DOC_ADD_UP       = "OP_DOC_ADD_UP       : "
+    OP_DOC_UPDATE       = "OP_DOC_UPDATE       : "
+    OP_DOC_GET          = "OP_DOC_GET          : "
+    OP_DOC_EXIST        = "OP_DOC_EXIST        : "
+    OP_DOC_DEL          = "OP_DOC_DEL          : "
     # batch operations
-    OP_DOC_DEL_QUERY    = "OP_DOC_DEL_QUERY: "
-    OP_DOC_SEARCH       = "OP_DOC_SEARCH   : "
-    OP_DOC_BULK         = "OP_DOC_BULK     : "
-    OP_DOC_BULK_STR     = "OP_DOC_BULK_STR : "
-    OP_DOC_SCAN         = "OP_DOC_SCAN     : "
-    OP_DOC_COUNT        = "OP_DOC_COUNT    : "
-    OP_DOC_SCROLL       = "OP_DOC_SCROLL   : "
+    OP_DOC_DEL_QUERY    = "OP_DOC_DEL_QUERY    : "
+    OP_DOC_SEARCH       = "OP_DOC_SEARCH       : "
+    OP_DOC_BULK         = "OP_DOC_BULK         : "
+    OP_DOC_BULK_STR     = "OP_DOC_BULK_STR     : "
+    OP_DOC_SCAN         = "OP_DOC_SCAN         : "
+    OP_DOC_COUNT        = "OP_DOC_COUNT        : "
+    OP_DOC_SCROLL       = "OP_DOC_SCROLL       : "
+    OP_DOC_SCROLL_CLEAR = "OP_DOC_SCROLL_CLEAR : "
 
     # RC - 3 codes
     # - maybe useful later (low level could detect problem in data)
@@ -983,6 +984,20 @@ class Wes(WesDefs):
         else:
             self.es_version_mismatch()
 
+    @query_params()
+    @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_SCROLL_CLEAR)
+    def doc_clear_scroll(self, scroll_id=None, body=None, params=None):
+        return self.es.clear_scroll(scroll_id=scroll_id, body=body, params=params)
+
+    def doc_clear_scroll_result(self, rc: ExecCode) -> ExecCode:
+        key_str = f"KEY{rc.fnc_params[0]}"
+
+        def fmt_fnc_ok(rcv: ExecCode) -> str:
+            return f"{key_str} {rcv.data}"
+
+        return self._operation_result(Wes.OP_DOC_SCROLL_CLEAR, key_str, rc, fmt_fnc_ok)
+
+
     @staticmethod
     def operation_mappers(operation: str):
         operation_mapper = {
@@ -1012,7 +1027,8 @@ class Wes(WesDefs):
             Wes.OP_DOC_BULK_STR:        [Wes.doc_bulk_streaming, Wes.doc_bulk_streaming_result],
             Wes.OP_DOC_SCAN:            [Wes.doc_scan, Wes.doc_scan_result],
             Wes.OP_DOC_COUNT:           [Wes.doc_count, Wes.doc_count_result],
-            Wes.OP_DOC_SCROLL:          [Wes.doc_scroll, Wes.doc_scroll_result]
+            Wes.OP_DOC_SCROLL:          [Wes.doc_scroll, Wes.doc_scroll_result],
+            Wes.OP_DOC_SCROLL_CLEAR:    [Wes.doc_clear_scroll, Wes.doc_clear_scroll_result],
         }
 
         return operation_mapper.get(operation, None)
