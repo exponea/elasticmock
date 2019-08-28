@@ -63,6 +63,7 @@ class WesDefs():
     OP_DOC_BULK_STR     = "OP_DOC_BULK_STR : "
     OP_DOC_SCAN         = "OP_DOC_SCAN     : "
     OP_DOC_COUNT        = "OP_DOC_COUNT    : "
+    OP_DOC_SCROLL       = "OP_DOC_SCROLL   : "
 
     # RC - 3 codes
     # - maybe useful later (low level could detect problem in data)
@@ -86,6 +87,8 @@ class WesDefs():
         # 		= RequestError(TransportError)           400  status code
         # 		= AuthenticationException(TransportError)401  status code
         # 		= AuthorizationException(TransportError) 403  status code
+        # 		????                                     405  status code
+        # 		????                                     500  status code  500 - {'root_cause': [{'type': 'illegal_state_exception', 'reason': 'node [FbBtYVegTjGw-KtAzsxYcw] is not available'}
         e = rc.data
         if isinstance(e, ImproperlyConfigured):
             log_fnc(f"{oper} {str(e)}")
@@ -136,7 +139,8 @@ class WesDefs():
                             log_fnc(f"{oper} {key_str} - {e.status_code} - {e.info['error']['type']} - {e.info['error']['reason']}")
                         # generic
                         else:
-                            if e.status_code == 405:
+                            if e.status_code == 405 or \
+                               e.status_code == 500:
                                 log_fnc(f"{oper} {key_str} - {e.status_code} - {e.info['error']}")
                             else:
                                 log_fnc(f"{oper} KEY[{e.info['_index']} <-> {e.info['_type']} <-> {e.info['_id']}] {str(e)}")
@@ -706,7 +710,7 @@ class Wes(WesDefs):
         key_str = f"KEY[{rc.fnc_params[1].get('index', '_all')} ]"
 
         def fmt_fnc_ok(rcv: ExecCode) -> str:
-            rec_list = rcv.data['hits']['hits']
+            rec_list = self.doc_search_result_hits_sources(rc)
             rec = ''
             rec = rec + '\nHITS:\n' + '\n'.join([str(item) for item in rec_list])
             rec = rec + '\nAGGS:\n'
@@ -717,17 +721,20 @@ class Wes(WesDefs):
                     for a_items in aggs[a]['buckets']:
                         rec = rec + str(a_items) + '\n'
 
-            return f"{key_str} NB REC[{self.doc_search_result_hits_nb(rcv)}] : {rec}"
+            return f"{key_str} NB TOTAL[{self.doc_search_result_total_nb(rcv)}] NB HITS[{self.doc_search_result_hits_nb(rcv)}]: {rec}"
 
         return self._operation_result(Wes.OP_DOC_SEARCH, key_str, rc, fmt_fnc_ok)
 
-    def doc_search_result_hits_nb(self, rc: ExecCode):
+    def doc_search_result_total_nb(self, rc: ExecCode):
         if self.ES_VERSION_RUNNING == self.ES_VERSION_7_3_0:
             return rc.data['hits']['total']['value']
         elif self.ES_VERSION_RUNNING == self.ES_VERSION_5_6_5:
             return rc.data['hits']['total']
         else:
             self.es_version_mismatch()
+
+    def doc_search_result_hits_nb(self, rc: ExecCode):
+        return len(self.doc_search_result_hits_sources(rc))
 
     def doc_search_result_hits_sources(self, rc: ExecCode):
 
@@ -737,6 +744,15 @@ class Wes(WesDefs):
             sources = rc.data['hits']['hits']
             # print("MISO---> : ", len(sources), type(sources), str(sources))
             return sources
+        else:
+            self.es_version_mismatch()
+
+    def doc_search_result_scroll_id(self, rc: ExecCode):
+
+        if self.ES_VERSION_RUNNING == self.ES_VERSION_7_3_0:
+            self.es_version_mismatch()
+        elif self.ES_VERSION_RUNNING == self.ES_VERSION_5_6_5:
+            return rc.data.get('_scroll_id', None)
         else:
             self.es_version_mismatch()
 
@@ -921,6 +937,52 @@ class Wes(WesDefs):
 
         return self._operation_result(WesDefs.OP_DOC_COUNT, key_str, rc, fmt_fnc_ok)
 
+    @query_params("scroll", "rest_total_hits_as_int", "scroll_id")
+    @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_SCROLL)
+    def doc_scroll(self, body=None, params=None):
+        return self.es.scroll(body=body, params=params)
+
+    def doc_scroll_result(self, rc: ExecCode) -> ExecCode:
+        key_str = f"KEY[{rc.fnc_params[1].get('index', '_all')}]"
+
+        def fmt_fnc_ok(rcv: ExecCode) -> str:
+            rec_list = self.doc_scroll_result_hits_sources(rc)
+            rec = ''
+            rec = rec + '\nHITS:\n' + '\n'.join([str(item) for item in rec_list])
+            rec = rec + '\nAGGS:\n'
+            aggs = rcv.data.get('aggregations', None)
+            if aggs:
+                for a in aggs.keys():
+                    rec = rec + a + '\n'
+                    for a_items in aggs[a]['buckets']:
+                        rec = rec + str(a_items) + '\n'
+
+            return f"{key_str} NB TOTAL[{self.doc_scroll_result_total_nb(rcv)}] NB HITS[{self.doc_scroll_result_hits_nb(rcv)}]: {rec}"
+
+        return self._operation_result(WesDefs.OP_DOC_SCROLL, key_str, rc, fmt_fnc_ok)
+
+    def doc_scroll_result_total_nb(self, rc: ExecCode):
+        if self.ES_VERSION_RUNNING == self.ES_VERSION_7_3_0:
+            return rc.data['hits']['total']['value']
+        elif self.ES_VERSION_RUNNING == self.ES_VERSION_5_6_5:
+            return rc.data['hits']['total']
+        else:
+            self.es_version_mismatch()
+
+    def doc_scroll_result_hits_nb(self, rc: ExecCode):
+        return len(self.doc_scroll_result_hits_sources(rc))
+
+    def doc_scroll_result_hits_sources(self, rc: ExecCode):
+
+        if self.ES_VERSION_RUNNING == self.ES_VERSION_7_3_0:
+            self.es_version_mismatch()
+        elif self.ES_VERSION_RUNNING == self.ES_VERSION_5_6_5:
+            sources = rc.data['hits']['hits']
+            # print("MISO---> : ", len(sources), type(sources), str(sources))
+            return sources
+        else:
+            self.es_version_mismatch()
+
     @staticmethod
     def operation_mappers(operation: str):
         operation_mapper = {
@@ -949,7 +1011,8 @@ class Wes(WesDefs):
             Wes.OP_DOC_BULK:            [Wes.doc_bulk, Wes.doc_bulk_result], # MSE_NOTES: RETURN FORMAT NOT MATCH EXPONEA
             Wes.OP_DOC_BULK_STR:        [Wes.doc_bulk_streaming, Wes.doc_bulk_streaming_result],
             Wes.OP_DOC_SCAN:            [Wes.doc_scan, Wes.doc_scan_result],
-            Wes.OP_DOC_COUNT:           [Wes.doc_count, Wes.doc_count_result]
+            Wes.OP_DOC_COUNT:           [Wes.doc_count, Wes.doc_count_result],
+            Wes.OP_DOC_SCROLL:          [Wes.doc_scroll, Wes.doc_scroll_result]
         }
 
         return operation_mapper.get(operation, None)

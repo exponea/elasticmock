@@ -22,6 +22,23 @@ import json
 
 class TestWesJsonHelper(unittest.TestCase):
 
+    def setUp(self):
+        self.wes = Wes()
+        self.binder = {}
+
+    def binder_set(self, operation, key, data):
+        if operation not in self.binder:
+            self.binder[operation] = {}
+        self.binder[operation][key] = data
+        # print("BINDER SET ", operation, str(self.binder))
+
+    def binder_get(self, operation, key):
+        # print("BINDER GET ", operation, str(self.binder))
+        rc = self.binder[operation].get(key, None)
+        if rc:
+            del self.binder[operation][key]
+        return rc
+
     def indice_cleanup_all(self, wes):
         self.assertEqual(Wes.RC_OK, wes.ind_delete_result(wes.ind_delete("_all")).status)
 
@@ -96,7 +113,8 @@ class TestWesJsonHelper(unittest.TestCase):
                 # EXCEPTION: Unknow L1 exception ... doc_delete_by_query() got an unexpected keyword argument 'doc_type'
                 kw_doc_type = kwargs.get('doc_type', None)
                 Log.log(f"{operation} FIXER(kwargs) before : doc_type({kw_doc_type})")
-                del kwargs['doc_type']
+                if kw_doc_type:  # fix for 116.json
+                    del kwargs['doc_type']
                 doc_type = kwargs.get('doc_type', None)
                 Log.log(f"{operation} FIXER(kwargs) after  : doc_type({doc_type})")
 
@@ -170,6 +188,14 @@ class TestWesJsonHelper(unittest.TestCase):
                 actions_str = '\n[\n' + '\n'.join([json.dumps(item) for item in actions]) + '\n]'
                 Log.log(f"{operation} FIXER(args) after  : len({len_args_tuple}) type({type_args}) split_len({split_len}) actions:{actions_str}")
 
+            elif operation == Wes.OP_DOC_SCROLL:
+                scroll_id,  = args
+                kw_scroll_id = kwargs.get('scroll_id', None)
+                Log.log(f"{operation} FIXER(kwargs) before : scroll_id({kw_scroll_id})")
+                # scroll_id = kwargs['scroll_id'] = scroll_id NO THIS IS DYNAMIC VALUE !!!
+                scroll_id = kwargs['scroll_id'] = self.binder_get(operation, '_scroll_id')
+                Log.log(f"{operation} FIXER(kwargs) after  : scroll_id({scroll_id})")
+                args = ()
             else:
                 pass
         else:
@@ -186,11 +212,29 @@ class TestWesJsonHelper(unittest.TestCase):
                                  wes.doc_search_result_hits_nb(rc_wes))
 
                 # 2. check docs by content
+                # at least '_scroll_id' will be different
                 ext_sources = wes.doc_search_result_hits_sources(rc_result)
                 wes_sources = wes.doc_search_result_hits_sources(rc_wes)
                 for idx, wes_doc in enumerate(wes_sources):
                     ext_doc = ext_sources[idx]
                     self.assertDictEqual(ext_doc, wes_doc)
+
+                self.binder_set(Wes.OP_DOC_SCROLL, '_scroll_id', wes.doc_search_result_scroll_id(rc_wes))
+
+            elif operation == Wes.OP_DOC_SCROLL:
+                # 1. check nb match records
+                self.assertEqual(wes.doc_scroll_result_hits_nb(rc_result),
+                                 wes.doc_scroll_result_hits_nb(rc_wes))
+
+                # 2. check docs by content
+                # at least '_scroll_id' will be different
+                ext_sources = wes.doc_scroll_result_hits_sources(rc_result)
+                wes_sources = wes.doc_scroll_result_hits_sources(rc_wes)
+                for idx, wes_doc in enumerate(wes_sources):
+                    ext_doc = ext_sources[idx]
+                    self.assertDictEqual(ext_doc, wes_doc)
+
+
 
             elif operation == Wes.OP_DOC_DEL_QUERY:
                 # TODO petee what to compare? seems as no docs added
@@ -307,6 +351,7 @@ class TestWesJsonHelper(unittest.TestCase):
                 "bulk"              : Wes.OP_DOC_BULK_STR, # if 1 else Wes.OP_DOC_BULK, # MSE_NOTES: RETURN FORMAT NOT MATCH EXPONEA
                 "scan"              : Wes.OP_DOC_SCAN,
                 "count"             : Wes.OP_DOC_COUNT,
+                "scroll"            : Wes.OP_DOC_SCROLL,
             }
         }
 
@@ -350,11 +395,6 @@ class TestWesJsonHelper(unittest.TestCase):
 
 class TestWesJson(TestWesJsonHelper):
 
-    def setUp(self):
-        self.wes = Wes()
-        # self.index_name = 'test_index'
-        # self.doc_type = 'doc-Type'
-        # self.body = {'string': 'content', 'id': 1}
 
     def test_json_parser_passed(self):
         zip_path = "./exponea_tests/elasticmock-testcases.zip"
@@ -389,7 +429,7 @@ class TestWesJson(TestWesJsonHelper):
     # method for tests to pass
     def json_parser_todo(self):
         zip_path = "./exponea_tests/elasticmock-testcases.zip"
-        tests = ('40.json',)
+        tests = ('116.json',)
         self.helper_json_parser(zip_path, tests)
 
 
