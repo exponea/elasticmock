@@ -194,7 +194,8 @@ class TestWesJsonHelper(unittest.TestCase):
 
             elif operation == Wes.OP_DOC_DEL_QUERY:
                 # TODO petee what to compare? seems as no docs added
-                # TODO all dict problem on 'took', so probably 'deleted' field
+                #  compare on full dict leads problem on 'took',
+                #  so probably 'deleted' field is sufficient
                 self.assertEqual(rc_result.data['deleted'], rc_wes.data['deleted'])
 
             elif operation == Wes.OP_IND_REFRESH:
@@ -202,14 +203,22 @@ class TestWesJsonHelper(unittest.TestCase):
                                  wes.ind_refresh_result_shard_nb_failed(rc_wes))
 
             elif operation == Wes.OP_IND_GET:
-                print(wes.ind_get_result_dump_to_string(rc_result))
-                print(wes.ind_get_result_dump_to_string(rc_wes))
+                # TODO exported data contain .monitorin/.watcher indice
+                #  so exported data will be shrink
 
-                self.assertDictEqual(rc_result.data, rc_wes.data)
+                # print(wes.ind_get_result_dump_to_string(rc_result))
+                # print(wes.ind_get_result_dump_to_string(rc_wes))
+
+                keys = list(rc_result.data.keys())
+                for k in keys:
+                    if k[0] == '.':
+                        del rc_result.data[k]
+
+                self.cmp_dict_with_skipp_keys(rc_result.data, rc_wes.data, ('creation_date', 'uuid'))
 
             elif operation == Wes.OP_DOC_BULK or operation == Wes.OP_DOC_BULK_STR:
-                # TODO differents format - no idea how to specify - petee???
-                # takes log time ...
+                # TODO different json formats - no idea how to specify - petee???
+                # exported is dict (like HTTP) but python has different structure ...
                 ext_list = rc_result.data['items']
                 wes_list = [long for short, long in rc_wes.data]
                 self.assertListEqual(ext_list, wes_list)
@@ -222,6 +231,31 @@ class TestWesJsonHelper(unittest.TestCase):
             # TODO peete pass exception status number - for T[1.json] L[ 11] there is result(None)
             self.assertEqual(rc_result.status, rc_wes.status)
 
+    def cmp_dict_with_skipp_keys(self, rc: dict, wes: dict, skip_keys: tuple, dbg: bool = False):
+
+        if dbg:
+            Log.log(" -------")
+            Log.log(str(rc))
+            Log.log(str(wes))
+            Log.log(" -------")
+
+        rc_keys = rc.keys()
+        wes_keys = wes.keys()
+        self.assertEqual(rc_keys, wes_keys)
+
+        for k in rc_keys:
+            rc_sub = rc[k]
+            wes_sub = wes[k]
+            if isinstance(rc_sub, dict) and isinstance(wes_sub, dict):
+                self.cmp_dict_with_skipp_keys(rc_sub, wes_sub, skip_keys, dbg)
+            else:
+                res = k + '\n' + str(rc_sub) + '\n' + str(wes_sub)
+                if k in skip_keys:
+                    Log.warn(res)
+                else:
+                    if dbg:
+                        Log.log(res)
+                    self.assertEqual(rc_sub, wes_sub)
 
     def helper_run_unpacked_test(self, wes: Wes, test_name: str, line: int, result, accessor, method, *args, **kwargs):
 
