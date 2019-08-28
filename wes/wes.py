@@ -38,29 +38,31 @@ class WesDefs():
         raise ValueError(f"ES_VERSION_RUNNING is unknown - {self.ES_VERSION_RUNNING}")
 
     # indice operations
-    OP_IND_CREATE   = "OP_IND_CREATE   : "
-    OP_IND_FLUSH    = "OP_IND_FLUSH    : "
-    OP_IND_REFRESH  = "OP_IND_REFRESH  : "
-    OP_IND_EXIST    = "OP_IND_EXIST    : "
-    OP_IND_DELETE   = "OP_IND_DELETE   : "
-    OP_IND_GET      = "OP_IND_GET      : "
-    OP_IND_GET_MAP  = "OP_IND_GET_MAP  : "
-    OP_IND_PUT_MAP  = "OP_IND_PUT_MAP  : "
-    OP_IND_GET_TMP  = "OP_IND_GET_TMP  : "
-    OP_IND_PUT_TMP  = "OP_IND_PUT_TMP  : "
+    OP_IND_CREATE       = "OP_IND_CREATE   : "
+    OP_IND_FLUSH        = "OP_IND_FLUSH    : "
+    OP_IND_REFRESH      = "OP_IND_REFRESH  : "
+    OP_IND_EXIST        = "OP_IND_EXIST    : "
+    OP_IND_DELETE       = "OP_IND_DELETE   : "
+    OP_IND_GET          = "OP_IND_GET      : "
+    OP_IND_GET_ALIAS    = "OP_IND_GET_ALIAS: "
+    OP_IND_DEL_ALIAS    = "OP_IND_DEL_ALIAS: "
+    OP_IND_GET_MAP      = "OP_IND_GET_MAP  : "
+    OP_IND_PUT_MAP      = "OP_IND_PUT_MAP  : "
+    OP_IND_GET_TMP      = "OP_IND_GET_TMP  : "
+    OP_IND_PUT_TMP      = "OP_IND_PUT_TMP  : "
     # document operations
-    OP_DOC_ADD_UP   = "OP_DOC_ADD_UP   : "
-    OP_DOC_UPDATE   = "OP_DOC_UPDATE   : "
-    OP_DOC_GET      = "OP_DOC_GET      : "
-    OP_DOC_EXIST    = "OP_DOC_EXIST    : "
-    OP_DOC_DEL      = "OP_DOC_DEL      : "
+    OP_DOC_ADD_UP       = "OP_DOC_ADD_UP   : "
+    OP_DOC_UPDATE       = "OP_DOC_UPDATE   : "
+    OP_DOC_GET          = "OP_DOC_GET      : "
+    OP_DOC_EXIST        = "OP_DOC_EXIST    : "
+    OP_DOC_DEL          = "OP_DOC_DEL      : "
     # batch operations
-    OP_DOC_DEL_QUERY= "OP_DOC_DEL_QUERY: "
-    OP_DOC_SEARCH   = "OP_DOC_SEARCH   : "
-    OP_DOC_BULK     = "OP_DOC_BULK     : "
-    OP_DOC_BULK_STR = "OP_DOC_BULK_STR : "
-    OP_DOC_SCAN     = "OP_DOC_SCAN     : "
-    OP_DOC_COUNT    = "OP_DOC_COUNT    : "
+    OP_DOC_DEL_QUERY    = "OP_DOC_DEL_QUERY: "
+    OP_DOC_SEARCH       = "OP_DOC_SEARCH   : "
+    OP_DOC_BULK         = "OP_DOC_BULK     : "
+    OP_DOC_BULK_STR     = "OP_DOC_BULK_STR : "
+    OP_DOC_SCAN         = "OP_DOC_SCAN     : "
+    OP_DOC_COUNT        = "OP_DOC_COUNT    : "
 
     # RC - 3 codes
     # - maybe useful later (low level could detect problem in data)
@@ -181,6 +183,16 @@ class WesDefs():
         else:
             # use what is inside positional
             return str(rc.fnc_params[0])
+
+    def helper_key_name(self, rc: ExecCode) -> str:
+        # check if index in kwargs
+        has_index = rc.fnc_params[1].get('name', None)
+        if has_index:
+            return f"[{has_index}]"
+        else:
+            # use what is inside positional
+            return str(rc.fnc_params[0])
+
 
 class Wes(WesDefs):
 
@@ -414,7 +426,7 @@ class Wes(WesDefs):
     def ind_get_template(self, name=None, params=None):
         return self.es.indices.get_template(name=name, params=params)
 
-    def ind_get_template_result(self, rc: ExecCode, is_per_line: bool = True) -> ExecCode:
+    def ind_get_template_result(self, rc: ExecCode) -> ExecCode:
         key_str = f"KEY{rc.fnc_params[0]}"
 
         def fmt_fnc_ok(rcv: ExecCode) -> str:
@@ -422,6 +434,34 @@ class Wes(WesDefs):
 
         return self._operation_result(Wes.OP_IND_GET_TMP, key_str, rc, fmt_fnc_ok)
 
+
+    @query_params("allow_no_indices", "expand_wildcards", "ignore_unavailable", "local")
+    @WesDefs.Decor.operation_exec(WesDefs.OP_IND_GET_ALIAS)
+    def ind_get_alias(self, index=None, name=None, params=None):
+        return self.es.indices.get_alias(index=index, name=name, params=params)
+
+    def ind_get_alias_result(self, rc: ExecCode) -> ExecCode:
+        key_str = f"KEY{self.helper_key_index(rc)}{self.helper_key_name(rc)}"
+
+        def fmt_fnc_ok(rcv: ExecCode) -> str:
+            res = "\n" + str(rcv.data)
+            return f"{key_str} ALIAS GET: {res}"
+
+        return self._operation_result(Wes.OP_IND_GET_ALIAS, key_str, rc, fmt_fnc_ok)
+
+
+    @query_params("master_timeout", "request_timeout", "timeout")
+    @WesDefs.Decor.operation_exec(WesDefs.OP_IND_DEL_ALIAS)
+    def ind_delete_alias(self, index, name, params=None):
+        return self.es.indices.delete_alias(index, name, params=params)
+
+    def ind_delete_alias_result(self, rc: ExecCode) -> ExecCode:
+        key_str = f"KEY{self.helper_key_index(rc)}{self.helper_key_name(rc)}"
+
+        def fmt_fnc_ok(rcv: ExecCode) -> str:
+            return f"{key_str} ALIAS DEL: {str(rcv.data['acknowledged'])}"
+
+        return self._operation_result(Wes.OP_IND_DEL_ALIAS, key_str, rc, fmt_fnc_ok)
 
     #####################
     # doc operations
@@ -885,29 +925,31 @@ class Wes(WesDefs):
     def operation_mappers(operation: str):
         operation_mapper = {
             # indice operations
-            Wes.OP_IND_CREATE:  [Wes.ind_create, Wes.ind_create_result],
-            Wes.OP_IND_FLUSH:   [Wes.ind_flush, Wes.ind_flush_result],
-            Wes.OP_IND_REFRESH: [Wes.ind_refresh, Wes.ind_refresh_result],
-            Wes.OP_IND_EXIST:   [Wes.ind_exist, Wes.ind_exist_result],
-            Wes.OP_IND_DELETE:  [Wes.ind_delete, Wes.ind_delete_result],
-            Wes.OP_IND_GET:     [Wes.ind_get, Wes.ind_get_result],
-            Wes.OP_IND_GET_MAP: [Wes.ind_get_mapping, Wes.ind_get_mapping_result],
-            Wes.OP_IND_PUT_MAP: [Wes.ind_put_mapping, Wes.ind_put_mapping_result],
-            Wes.OP_IND_PUT_TMP: [Wes.ind_put_template, Wes.ind_put_template_result],
-            Wes.OP_IND_GET_TMP: [Wes.ind_get_template, Wes.ind_get_template_result],
+            Wes.OP_IND_CREATE:          [Wes.ind_create, Wes.ind_create_result],
+            Wes.OP_IND_FLUSH:           [Wes.ind_flush, Wes.ind_flush_result],
+            Wes.OP_IND_REFRESH:         [Wes.ind_refresh, Wes.ind_refresh_result],
+            Wes.OP_IND_EXIST:           [Wes.ind_exist, Wes.ind_exist_result],
+            Wes.OP_IND_DELETE:          [Wes.ind_delete, Wes.ind_delete_result],
+            Wes.OP_IND_GET:             [Wes.ind_get, Wes.ind_get_result],
+            Wes.OP_IND_GET_ALIAS:       [Wes.ind_get_alias, Wes.ind_get_alias_result],
+            Wes.OP_IND_DEL_ALIAS:       [Wes.ind_delete_alias, Wes.ind_delete_alias_result],
+            Wes.OP_IND_GET_MAP:         [Wes.ind_get_mapping, Wes.ind_get_mapping_result],
+            Wes.OP_IND_PUT_MAP:         [Wes.ind_put_mapping, Wes.ind_put_mapping_result],
+            Wes.OP_IND_PUT_TMP:         [Wes.ind_put_template, Wes.ind_put_template_result],
+            Wes.OP_IND_GET_TMP:         [Wes.ind_get_template, Wes.ind_get_template_result],
             # document operations
-            Wes.OP_DOC_ADD_UP:  [Wes.doc_addup, Wes.doc_addup_result],
-            Wes.OP_DOC_UPDATE:  [Wes.doc_update, Wes.doc_update_result],
-            Wes.OP_DOC_GET:     [Wes.doc_get, Wes.doc_get_result],
-            Wes.OP_DOC_EXIST:   [Wes.doc_exists, Wes.doc_exists_result],
-            Wes.OP_DOC_DEL:     [Wes.doc_delete, Wes.doc_delete_result],
+            Wes.OP_DOC_ADD_UP:          [Wes.doc_addup, Wes.doc_addup_result],
+            Wes.OP_DOC_UPDATE:          [Wes.doc_update, Wes.doc_update_result],
+            Wes.OP_DOC_GET:             [Wes.doc_get, Wes.doc_get_result],
+            Wes.OP_DOC_EXIST:           [Wes.doc_exists, Wes.doc_exists_result],
+            Wes.OP_DOC_DEL:             [Wes.doc_delete, Wes.doc_delete_result],
             # batch operations
-            Wes.OP_DOC_DEL_QUERY:   [Wes.doc_delete_by_query, Wes.doc_delete_by_query_result],
-            Wes.OP_DOC_SEARCH:      [Wes.doc_search, Wes.doc_search_result],
-            Wes.OP_DOC_BULK:        [Wes.doc_bulk, Wes.doc_bulk_result], # MSE_NOTES: RETURN FORMAT NOT MATCH EXPONEA
-            Wes.OP_DOC_BULK_STR:    [Wes.doc_bulk_streaming, Wes.doc_bulk_streaming_result],
-            Wes.OP_DOC_SCAN:        [Wes.doc_scan, Wes.doc_scan_result],
-            Wes.OP_DOC_COUNT:       [Wes.doc_count, Wes.doc_count_result]
+            Wes.OP_DOC_DEL_QUERY:       [Wes.doc_delete_by_query, Wes.doc_delete_by_query_result],
+            Wes.OP_DOC_SEARCH:          [Wes.doc_search, Wes.doc_search_result],
+            Wes.OP_DOC_BULK:            [Wes.doc_bulk, Wes.doc_bulk_result], # MSE_NOTES: RETURN FORMAT NOT MATCH EXPONEA
+            Wes.OP_DOC_BULK_STR:        [Wes.doc_bulk_streaming, Wes.doc_bulk_streaming_result],
+            Wes.OP_DOC_SCAN:            [Wes.doc_scan, Wes.doc_scan_result],
+            Wes.OP_DOC_COUNT:           [Wes.doc_count, Wes.doc_count_result]
         }
 
         return operation_mapper.get(operation, None)
