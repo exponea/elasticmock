@@ -79,34 +79,42 @@ class WesCommon():
                     # 		= AuthenticationException(TransportError)401  status code
                     # 		= AuthorizationException(TransportError) 403  status code
 
-                    # print(type(e.error)) => <class 'str'>
-                    # print(type(e.info))  => <class 'dict'>
+                    # print(type(e.error)) # => <class 'str'>
+                    # print(type(e.info))  # => <class 'dict'>
                     if is_l1:
-                        log_fnc(f"{oper} {e.status_code} - {e.info} ")
+                        log_fnc(f"{oper} {e.status_code} - {e.info} - {e.error}")
                     else:
-                        if isinstance(e, NotFoundError):
-                            if oper in {WesDefs.OP_IND_DELETE,
-                                        WesDefs.OP_DOC_SCAN,
-                                        WesDefs.OP_DOC_UPDATE}:
-                                log_fnc(f"{oper} KEY[{e.info['error']['index']}] - {e.status_code} - {e.info['error']['type']}")
-                            else:
-                                log_fnc(f"{oper} KEY[{e.info['_index']} <-> {e.info['_type']} <-> {e.info['_id']}] {str(e)}")
-                        elif isinstance(e, RequestError):
-                            #
-                            # OP_DOC_SEARCH  'type': 'parsing_exception'
-                            # OP_IND_CREATE  'type': 'invalid_index_name_exception',
-                            #                        'reason': 'Invalid index name [first_IND1], must be lowercase'
-
-                            log_fnc(f"{oper} {key_str} - {e.status_code} - {e.info['error']['type']} - {e.info['error']['reason']}")
-                        elif isinstance(e, AuthenticationException):
-                            log_fnc(f"{oper} {key_str} - {e.status_code} - {e.info['error']['type']} - {e.info['error']['reason']}")
-                        # generic
-                        else:
-                            if e.status_code == 405 or \
-                               e.status_code == 500:
-                                log_fnc(f"{oper} {key_str} - {e.status_code} - {e.info['error']}")
-                            else:
-                                log_fnc(f"{oper} KEY[{e.info['_index']} <-> {e.info['_type']} <-> {e.info['_id']}] {str(e)}")
+                        log_fnc(f"{oper} {key_str} {e.status_code} - {e.info} - {e.error}")
+                    # TOO MESSY
+                    #     if isinstance(e, NotFoundError):
+                    #         if oper in {WesDefs.OP_IND_DELETE,
+                    #                     WesDefs.OP_DOC_SCAN,
+                    #                     WesDefs.OP_DOC_UPDATE}:
+                    #             print('e.error -->', e.error)
+                    #             print('e.info -->', e.info)
+                    #             print('e.info[error] -->', e.info['error'])
+                    #             print('e.info[error][index] -->', e.info['error']['index'])
+                    #             print(e.status_code)
+                    #             print('e.info[error][type] -->', e.info['error']['type'])
+                    #             log_fnc(f"{oper} KEY[{e.info['error']['index']}] - {e.status_code} - {e.info['error']['type']}")
+                    #         else:
+                    #             log_fnc(f"{oper} KEY[{e.info['_index']} <-> {e.info['_type']} <-> {e.info['_id']}] {str(e)}")
+                    #     elif isinstance(e, RequestError):
+                    #         #
+                    #         # OP_DOC_SEARCH  'type': 'parsing_exception'
+                    #         # OP_IND_CREATE  'type': 'invalid_index_name_exception',
+                    #         #                        'reason': 'Invalid index name [first_IND1], must be lowercase'
+                    #
+                    #         log_fnc(f"{oper} {key_str} - {e.status_code} - {e.info['error']['type']} - {e.info['error']['reason']}")
+                    #     elif isinstance(e, AuthenticationException):
+                    #         log_fnc(f"{oper} {key_str} - {e.status_code} - {e.info['error']['type']} - {e.info['error']['reason']}")
+                    #     # generic
+                    #     else:
+                    #         if e.status_code == 405 or \
+                    #            e.status_code == 500:
+                    #             log_fnc(f"{oper} {key_str} - {e.status_code} - {e.info['error']}")
+                    #         else:
+                    #             log_fnc(f"{oper} KEY[{e.info['_index']} <-> {e.info['_type']} <-> {e.info['_id']}] {str(e)}")
             else:
                 Log.err(f"{oper} Unknow L2 exception ... {str(e)}")
                 raise e

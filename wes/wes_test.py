@@ -62,7 +62,7 @@ class TestWesHelper(unittest.TestCase):
         self.force_reindex(wes)
 
 
-class TestWesReal(TestWesHelper):
+class TestWes(TestWesHelper):
 
     def setUp(self):
         self.wes = Wes()
@@ -620,16 +620,28 @@ class TestWesReal(TestWesHelper):
 
         self.wes.ind_delete_result(self.wes.ind_delete(ind_special_cleanup))
 
+class TestWesReal(TestWes):
+
+    def setUp(self):
+        self.wes = Wes(False)
+
+class TestWesMock(TestWes):
+
+    def setUp(self):
+        self.wes = Wes(True)
 
 if __name__ == '__main__':
     if True:
-        unittest.main()
+        unittest.main(TestWesReal())
     else:
         suite = unittest.TestSuite()
+
         # suite.addTest(TestWesReal("test_general"))
-        suite.addTest(TestWesMock("test_general"))
+        # suite.addTest(TestWesMock("test_general"))
         # suite.addTest(TestWesReal("test_indice_basic"))
+        # suite.addTest(TestWesMock("test_indice_basic"))
         # suite.addTest(TestWesReal("test_documents_basic"))
+        # suite.addTest(TestWesMock("test_documents_basic"))
         # suite.addTest(TestWesReal("test_query_basic"))
         # suite.addTest(TestWesReal("test_complex_queries"))
         # suite.addTest(TestWesReal("test_mappings_get"))
