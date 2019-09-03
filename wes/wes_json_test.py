@@ -370,6 +370,11 @@ class TestWesJsonHelper(unittest.TestCase):
                 "get_template"  : Wes.OP_IND_GET_TMP,
             },
             'DOC': {
+                # general TODO not sure how used
+                "ping"              :Wes.OP_GEN_PING,
+                "info"              :Wes.OP_GEN_INFO,
+
+                # documents
                 "index"             : Wes.OP_DOC_ADD_UP,
                 "update"            : Wes.OP_DOC_UPDATE,
                 "get"               : Wes.OP_DOC_GET,

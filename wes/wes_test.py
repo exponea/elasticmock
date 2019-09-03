@@ -68,6 +68,15 @@ class TestWes(TestWesHelper):
         # self.doc_type = 'doc-Type'
         # self.body = {'string': 'content', 'id': 1}
 
+    def test_general(self):
+
+        global ind_str
+        self.indice_cleanup_all(self.wes)
+
+        self.assertEqual(True, self.wes.gen_ping_result(self.wes.gen_ping()).data)
+        self.assertEqual(Wes.RC_OK, self.wes.gen_info_result(self.wes.gen_info()).status)
+
+
     def test_indice_basic(self):
 
         global ind_str
@@ -618,7 +627,7 @@ if __name__ == '__main__':
         unittest.main()
     else:
         suite = unittest.TestSuite()
-
+        # suite.addTest(TestWes("test_general"))
         # suite.addTest(TestWes("test_indice_basic"))
         # suite.addTest(TestWes("test_documents_basic"))
         # suite.addTest(TestWes("test_query_basic"))

@@ -50,6 +50,9 @@ class WesDefs():
     OP_IND_PUT_MAP      = "OP_IND_PUT_MAP      : "
     OP_IND_GET_TMP      = "OP_IND_GET_TMP      : "
     OP_IND_PUT_TMP      = "OP_IND_PUT_TMP      : "
+    # general
+    OP_GEN_PING         = "OP_GEN_PING         : "
+    OP_GEN_INFO         = "OP_GEN_INFO         : "
     # document operations
     OP_DOC_ADD_UP       = "OP_DOC_ADD_UP       : "
     OP_DOC_UPDATE       = "OP_DOC_UPDATE       : "
@@ -469,6 +472,36 @@ class Wes(WesDefs):
         return self._operation_result(Wes.OP_IND_DEL_ALIAS, key_str, rc, fmt_fnc_ok)
 
     #####################
+    # general
+    #####################
+    @query_params()
+    @WesDefs.Decor.operation_exec(WesDefs.OP_GEN_PING)
+    def gen_ping(self, params=None):
+        return self.es.ping(params=params)
+
+    def gen_ping_result(self, rc: ExecCode) -> ExecCode:
+        key_str = f"PING{rc.fnc_params[0]}"
+
+        def fmt_fnc_ok(rcv: ExecCode) -> str:
+            return f"{key_str} - {rcv.data}"
+
+        return self._operation_result(Wes.OP_GEN_PING, key_str, rc, fmt_fnc_ok)
+
+
+    @query_params()
+    @WesDefs.Decor.operation_exec(WesDefs.OP_GEN_INFO)
+    def gen_info(self, params=None):
+        return self.es.info(params=params)
+
+    def gen_info_result(self, rc: ExecCode) -> ExecCode:
+        key_str = f"INFO{rc.fnc_params[0]}"
+
+        def fmt_fnc_ok(rcv: ExecCode) -> str:
+            return f"{key_str} - {rcv.data}"
+
+        return self._operation_result(Wes.OP_GEN_INFO, key_str, rc, fmt_fnc_ok)
+
+    #####################
     # doc operations
     #####################
     @query_params(
@@ -800,7 +833,8 @@ class Wes(WesDefs):
             def fmt_fnc_nok(rcv: ExecCode) -> str:
                 return f"{ret_str_hdr}  err ... {ret_str_ftr}"
 
-            status = Wes.RC_OK if len(rc.data[1]) == 0 else Wes.RC_NOK
+            status = Wes.RC_NOK if nb_err > 0 else Wes.RC_OK
+            rc = ExecCode(status, rc.data, rc.fnc_params)
 
         rc = ExecCode(rc.status, rc.data, rc.fnc_params)
         return self._operation_result(Wes.OP_DOC_BULK, key_str, rc, fmt_fnc_ok, fmt_fnc_nok)
@@ -1014,6 +1048,9 @@ class Wes(WesDefs):
             Wes.OP_IND_PUT_MAP:         [Wes.ind_put_mapping, Wes.ind_put_mapping_result],
             Wes.OP_IND_PUT_TMP:         [Wes.ind_put_template, Wes.ind_put_template_result],
             Wes.OP_IND_GET_TMP:         [Wes.ind_get_template, Wes.ind_get_template_result],
+            # general
+            Wes.OP_GEN_PING:            [Wes.gen_ping, Wes.gen_ping_result],
+            Wes.OP_GEN_INFO:            [Wes.gen_info, Wes.gen_info_result],
             # document operations
             Wes.OP_DOC_ADD_UP:          [Wes.doc_addup, Wes.doc_addup_result],
             Wes.OP_DOC_UPDATE:          [Wes.doc_update, Wes.doc_update_result],
