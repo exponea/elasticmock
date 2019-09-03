@@ -24,58 +24,16 @@ from collections import namedtuple
 
 from log import Log
 from mock_es import MockEs
+from common import WesDefs
+
 
 __all__ = ["Wes", "ExecCode"]
 
 ExecCode = namedtuple('ExecCode', 'status data fnc_params')
 
-class WesDefs():
-    # Elasticsearch version
-    ES_VERSION_7_3_0 = '7.3.0'
-    ES_VERSION_5_6_5 = '5.6.5'
-    ES_VERSION_RUNNING = ES_VERSION_5_6_5
+class WesCommon():
 
-    def es_version_mismatch(self):
-        raise ValueError(f"ES_VERSION_RUNNING is unknown - {self.ES_VERSION_RUNNING}")
-
-    # indice operations
-    OP_IND_CREATE       = "OP_IND_CREATE       : "
-    OP_IND_FLUSH        = "OP_IND_FLUSH        : "
-    OP_IND_REFRESH      = "OP_IND_REFRESH      : "
-    OP_IND_EXIST        = "OP_IND_EXIST        : "
-    OP_IND_DELETE       = "OP_IND_DELETE       : "
-    OP_IND_GET          = "OP_IND_GET          : "
-    OP_IND_GET_ALIAS    = "OP_IND_GET_ALIAS    : "
-    OP_IND_DEL_ALIAS    = "OP_IND_DEL_ALIAS    : "
-    OP_IND_GET_MAP      = "OP_IND_GET_MAP      : "
-    OP_IND_PUT_MAP      = "OP_IND_PUT_MAP      : "
-    OP_IND_GET_TMP      = "OP_IND_GET_TMP      : "
-    OP_IND_PUT_TMP      = "OP_IND_PUT_TMP      : "
-    # general
-    OP_GEN_PING         = "OP_GEN_PING         : "
-    OP_GEN_INFO         = "OP_GEN_INFO         : "
-    # document operations
-    OP_DOC_ADD_UP       = "OP_DOC_ADD_UP       : "
-    OP_DOC_UPDATE       = "OP_DOC_UPDATE       : "
-    OP_DOC_GET          = "OP_DOC_GET          : "
-    OP_DOC_EXIST        = "OP_DOC_EXIST        : "
-    OP_DOC_DEL          = "OP_DOC_DEL          : "
-    # batch operations
-    OP_DOC_DEL_QUERY    = "OP_DOC_DEL_QUERY    : "
-    OP_DOC_SEARCH       = "OP_DOC_SEARCH       : "
-    OP_DOC_BULK         = "OP_DOC_BULK         : "
-    OP_DOC_BULK_STR     = "OP_DOC_BULK_STR     : "
-    OP_DOC_SCAN         = "OP_DOC_SCAN         : "
-    OP_DOC_COUNT        = "OP_DOC_COUNT        : "
-    OP_DOC_SCROLL       = "OP_DOC_SCROLL       : "
-    OP_DOC_SCROLL_CLEAR = "OP_DOC_SCROLL_CLEAR : "
-
-    # RC - 3 codes
-    # - maybe useful later (low level could detect problem in data)
-    # - e.g. no exception but status is wrong TODO discuss wit petee
-    RC_EXCE    = "RC_EXCE"
-    RC_NOK     = "RC_NOK"
-    RC_OK      = "RC_OK"
+    ES_VERSION_RUNNING = WesDefs.ES_VERSION_5_6_5
 
     def _dump_exeption(self, oper, rc: ExecCode, is_l1, log_fnc, key_str='???'):
         # ImproperlyConfigured(Exception)
@@ -157,11 +115,11 @@ class WesDefs():
             raise e
 
     def _operation_result(self, oper: str, key_str: str, rc: ExecCode, fmt_fnc_ok=None, fmt_fnc_nok=None) -> ExecCode:
-        if rc.status == Wes.RC_OK:
+        if rc.status == WesDefs.RC_OK:
             Log.ok(f"{oper} {fmt_fnc_ok(rc)}")
-        elif rc.status == Wes.RC_NOK:
+        elif rc.status == WesDefs.RC_NOK:
             Log.err(f"{oper} {fmt_fnc_nok(rc)}")
-        elif rc.status == Wes.RC_EXCE:
+        elif rc.status == WesDefs.RC_EXCE:
             self._dump_exeption(oper, rc, False, Log.err, key_str)  # this is L2 - use error
         else:
             raise ValueError(f"{oper} unknown status - {rc.status}")
@@ -203,9 +161,7 @@ class WesDefs():
             return str(rc.fnc_params[0])
 
 
-class Wes(WesDefs):
-
-    # !!! keep always in sync !!!
+class Wes(WesCommon):
 
     def __init__(self, use_mocked: bool = False):
         # self.es = Elasticsearch(HOST="http://localhost", PORT=9200)  # remote instance
@@ -219,7 +175,7 @@ class Wes(WesDefs):
         "timeout" "request_timeout",
         "wait_for_active_shards",
         "include_type_name",)
-    @WesDefs.Decor.operation_exec(WesDefs.OP_IND_CREATE)
+    @WesCommon.Decor.operation_exec(WesDefs.OP_IND_CREATE)
     def ind_create(self, index, body=None, params=None):
         return self.es.indices.create(index, body=body, params=params)
 
@@ -227,7 +183,7 @@ class Wes(WesDefs):
         key_str = f"KEY{self.helper_key_index(rc)}"
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"{key_str} ack[{rcv.data['acknowledged']} - {rcv.data['shards_acknowledged']}]"
-        return self._operation_result(Wes.OP_IND_CREATE, key_str, rc, fmt_fnc_ok)
+        return self._operation_result(WesDefs.OP_IND_CREATE, key_str, rc, fmt_fnc_ok)
 
     @query_params(
         "allow_no_indices",
@@ -236,7 +192,7 @@ class Wes(WesDefs):
         "ignore_unavailable",
         "include_defaults",
         "local",)
-    @WesDefs.Decor.operation_exec(WesDefs.OP_IND_EXIST)
+    @WesCommon.Decor.operation_exec(WesDefs.OP_IND_EXIST)
     def ind_exist(self, index, params=None):
         return self.es.indices.exists(index, params=params)
 
@@ -244,7 +200,7 @@ class Wes(WesDefs):
         key_str = f"KEY{self.helper_key_index(rc)}"
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"{key_str} {rcv.data}"
-        return self._operation_result(Wes.OP_IND_EXIST, key_str, rc, fmt_fnc_ok)
+        return self._operation_result(WesDefs.OP_IND_EXIST, key_str, rc, fmt_fnc_ok)
 
     @query_params(
         "allow_no_indices",
@@ -253,7 +209,7 @@ class Wes(WesDefs):
         "timeout",
         "master_timeout",
         "request_timeout",)
-    @WesDefs.Decor.operation_exec(WesDefs.OP_IND_DELETE)
+    @WesCommon.Decor.operation_exec(WesDefs.OP_IND_DELETE)
     def ind_delete(self, index, params=None):
         return self.es.indices.delete(index, params=params)
 
@@ -261,7 +217,7 @@ class Wes(WesDefs):
         key_str = f"KEY{self.helper_key_index(rc)}"
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"{key_str} {rcv.data['acknowledged']}"
-        return self._operation_result(Wes.OP_IND_DELETE, key_str, rc, fmt_fnc_ok)
+        return self._operation_result(WesDefs.OP_IND_DELETE, key_str, rc, fmt_fnc_ok)
 
     @query_params(
         "allow_no_indices",
@@ -272,7 +228,7 @@ class Wes(WesDefs):
         "local",
         "include_type_name",
         "master_timeout",)
-    @WesDefs.Decor.operation_exec(WesDefs.OP_IND_GET)
+    @WesCommon.Decor.operation_exec(WesDefs.OP_IND_GET)
     def ind_get(self, index, feature=None, params=None):
         return self.es.indices.get(index, feature=feature, params=params)
 
@@ -282,7 +238,7 @@ class Wes(WesDefs):
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"{key_str} {self. ind_get_result_dump_to_string(rc)}"
 
-        return self._operation_result(Wes.OP_IND_GET, key_str, rc, fmt_fnc_ok)
+        return self._operation_result(WesDefs.OP_IND_GET, key_str, rc, fmt_fnc_ok)
 
     def ind_get_result_dump_to_string(self, rc: ExecCode):
         res = ''
@@ -299,7 +255,7 @@ class Wes(WesDefs):
         "force",
         "ignore_unavailable",
         "wait_if_ongoing",)
-    @WesDefs.Decor.operation_exec(WesDefs.OP_IND_FLUSH)
+    @WesCommon.Decor.operation_exec(WesDefs.OP_IND_FLUSH)
     def ind_flush(self, index=None, params=None):
         return self.es.indices.flush(index=index, params=params)
 
@@ -307,12 +263,12 @@ class Wes(WesDefs):
         key_str = f"KEY[{rc.fnc_params[1].get('index', '_all')}]"
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"{key_str} {str(rcv.data)}"
-        return self._operation_result(Wes.OP_IND_FLUSH, key_str, rc, fmt_fnc_ok)
+        return self._operation_result(WesDefs.OP_IND_FLUSH, key_str, rc, fmt_fnc_ok)
 
     @query_params("allow_no_indices",
                   "expand_wildcards",
                   "ignore_unavailable")
-    @WesDefs.Decor.operation_exec(WesDefs.OP_IND_REFRESH)
+    @WesCommon.Decor.operation_exec(WesDefs.OP_IND_REFRESH)
     def ind_refresh(self, index=None, params=None):
         return self.es.indices.refresh(index=index, params=params)
 
@@ -320,7 +276,7 @@ class Wes(WesDefs):
         key_str = f"KEY[{rc.fnc_params[1].get('index', '_all')}]"
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"{key_str} {str(rcv.data)}"
-        return self._operation_result(Wes.OP_IND_REFRESH, key_str, rc, fmt_fnc_ok)
+        return self._operation_result(WesDefs.OP_IND_REFRESH, key_str, rc, fmt_fnc_ok)
 
     def ind_refresh_result_shard_nb_failed(self, rc: ExecCode) -> ExecCode:
         # TODO any idea what to check?
@@ -333,13 +289,13 @@ class Wes(WesDefs):
         "local",
         "include_type_name",
         "master_timeout",)
-    @WesDefs.Decor.operation_exec(WesDefs.OP_IND_GET_MAP)
+    @WesCommon.Decor.operation_exec(WesDefs.OP_IND_GET_MAP)
     def ind_get_mapping(self, index=None, doc_type=None, params=None):
         return self.es.indices.get_mapping(index=index, doc_type=doc_type, params=params)
 
     def ind_get_mapping_result(self, rc: ExecCode) -> ExecCode:
         key_str = None
-        if ExecCode.status == Wes.RC_OK:
+        if ExecCode.status == WesDefs.RC_OK:
             key_str = f"KEY[{rc.fnc_params[1].get('index', '_all')} <-> {rc.fnc_params[1].get('doc_type', '_all')}]"
         else:
             key_str = f"KEY{rc.fnc_params[0]}"
@@ -355,7 +311,7 @@ class Wes(WesDefs):
                     rec += " : Missing mappings" + '\n'
                     continue
                 else:
-                    if Wes.ES_VERSION_RUNNING == Wes.ES_VERSION_7_3_0:
+                    if self.ES_VERSION_RUNNING == WesDefs.ES_VERSION_7_3_0:
                         propsCheck = mappings.get('properties', None)
                         if propsCheck is None:
                             # doc_type is nested
@@ -368,7 +324,7 @@ class Wes(WesDefs):
                         mappings = mappings.get('properties', None)
                         for prop in mappings:
                             rec = rec + str(prop) + ": " + str(mappings[prop]) + '\n'
-                    elif Wes.ES_VERSION_RUNNING == Wes.ES_VERSION_5_6_5:
+                    elif self.ES_VERSION_RUNNING == WesDefs.ES_VERSION_5_6_5:
                         for maps in mappings:
                             rec += '\n' + str(maps) + '\n'
                             for map in mappings[maps]:
@@ -380,11 +336,11 @@ class Wes(WesDefs):
                                 else:
                                     rec += '---> ' + str(is_dict) + '\n'
                     else:
-                        self.es_version_mismatch()
+                        WesDefs.es_version_mismatch(self.ES_VERSION_RUNNING)
 
             return f"{key_str} MAPPING: {rec}"
 
-        return self._operation_result(Wes.OP_IND_GET_MAP, key_str, rc, fmt_fnc_ok)
+        return self._operation_result(WesDefs.OP_IND_GET_MAP, key_str, rc, fmt_fnc_ok)
 
     @query_params(
         "allow_no_indices",
@@ -394,7 +350,7 @@ class Wes(WesDefs):
         "timeout",
         "request_timeout",
         "include_type_name",)
-    @WesDefs.Decor.operation_exec(WesDefs.OP_IND_PUT_MAP)
+    @WesCommon.Decor.operation_exec(WesDefs.OP_IND_PUT_MAP)
     def ind_put_mapping(self, body, doc_type=None, index=None, params=None):
         # TODO petee 'index' is important - shouldn't be mandatory???
         # TODO petee 'doc_type' is important - shouldn't be mandatory???
@@ -405,7 +361,7 @@ class Wes(WesDefs):
 
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"MAPPING: <-> {str(rcv.data)}"
-        return self._operation_result(Wes.OP_IND_PUT_MAP, key_str, rc, fmt_fnc_ok)
+        return self._operation_result(WesDefs.OP_IND_PUT_MAP, key_str, rc, fmt_fnc_ok)
 
     @query_params(
         "create",
@@ -415,7 +371,7 @@ class Wes(WesDefs):
         "request_timeout",
         "timeout",
         "include_type_name",)
-    @WesDefs.Decor.operation_exec(WesDefs.OP_IND_PUT_TMP)
+    @WesCommon.Decor.operation_exec(WesDefs.OP_IND_PUT_TMP)
     def ind_put_template(self, name, body, params=None):
         return self.es.indices.put_template(name=name, body=body, params=params)
 
@@ -425,13 +381,13 @@ class Wes(WesDefs):
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"TEMPLATE: <-> {str(rcv.data)}"
 
-        return self._operation_result(Wes.OP_IND_PUT_TMP, key_str, rc, fmt_fnc_ok)
+        return self._operation_result(WesDefs.OP_IND_PUT_TMP, key_str, rc, fmt_fnc_ok)
 
     @query_params("flat_settings",
                   "local",
                   "master_timeout",
                   "include_type_name")
-    @WesDefs.Decor.operation_exec(WesDefs.OP_IND_GET_TMP)
+    @WesCommon.Decor.operation_exec(WesDefs.OP_IND_GET_TMP)
     def ind_get_template(self, name=None, params=None):
         return self.es.indices.get_template(name=name, params=params)
 
@@ -441,11 +397,11 @@ class Wes(WesDefs):
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"TEMPLATE: <-> {str(rcv.data)}"
 
-        return self._operation_result(Wes.OP_IND_GET_TMP, key_str, rc, fmt_fnc_ok)
+        return self._operation_result(WesDefs.OP_IND_GET_TMP, key_str, rc, fmt_fnc_ok)
 
 
     @query_params("allow_no_indices", "expand_wildcards", "ignore_unavailable", "local")
-    @WesDefs.Decor.operation_exec(WesDefs.OP_IND_GET_ALIAS)
+    @WesCommon.Decor.operation_exec(WesDefs.OP_IND_GET_ALIAS)
     def ind_get_alias(self, index=None, name=None, params=None):
         return self.es.indices.get_alias(index=index, name=name, params=params)
 
@@ -456,11 +412,11 @@ class Wes(WesDefs):
             res = "\n" + str(rcv.data)
             return f"{key_str} ALIAS GET: {res}"
 
-        return self._operation_result(Wes.OP_IND_GET_ALIAS, key_str, rc, fmt_fnc_ok)
+        return self._operation_result(WesDefs.OP_IND_GET_ALIAS, key_str, rc, fmt_fnc_ok)
 
 
     @query_params("master_timeout", "request_timeout", "timeout")
-    @WesDefs.Decor.operation_exec(WesDefs.OP_IND_DEL_ALIAS)
+    @WesCommon.Decor.operation_exec(WesDefs.OP_IND_DEL_ALIAS)
     def ind_delete_alias(self, index, name, params=None):
         return self.es.indices.delete_alias(index, name, params=params)
 
@@ -470,13 +426,13 @@ class Wes(WesDefs):
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"{key_str} ALIAS DEL: {str(rcv.data['acknowledged'])}"
 
-        return self._operation_result(Wes.OP_IND_DEL_ALIAS, key_str, rc, fmt_fnc_ok)
+        return self._operation_result(WesDefs.OP_IND_DEL_ALIAS, key_str, rc, fmt_fnc_ok)
 
     #####################
     # general
     #####################
     @query_params()
-    @WesDefs.Decor.operation_exec(WesDefs.OP_GEN_PING)
+    @WesCommon.Decor.operation_exec(WesDefs.OP_GEN_PING)
     def gen_ping(self, params=None):
         return self.es.ping(params=params)
 
@@ -486,11 +442,11 @@ class Wes(WesDefs):
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"{key_str} - {rcv.data}"
 
-        return self._operation_result(Wes.OP_GEN_PING, key_str, rc, fmt_fnc_ok)
+        return self._operation_result(WesDefs.OP_GEN_PING, key_str, rc, fmt_fnc_ok)
 
 
     @query_params()
-    @WesDefs.Decor.operation_exec(WesDefs.OP_GEN_INFO)
+    @WesCommon.Decor.operation_exec(WesDefs.OP_GEN_INFO)
     def gen_info(self, params=None):
         return self.es.info(params=params)
 
@@ -500,7 +456,7 @@ class Wes(WesDefs):
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"{key_str} - {rcv.data}"
 
-        return self._operation_result(Wes.OP_GEN_INFO, key_str, rc, fmt_fnc_ok)
+        return self._operation_result(WesDefs.OP_GEN_INFO, key_str, rc, fmt_fnc_ok)
 
     #####################
     # doc operations
@@ -519,7 +475,7 @@ class Wes(WesDefs):
         "version",
         "version_type",
         "wait_for_active_shards",)
-    @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_ADD_UP)
+    @WesCommon.Decor.operation_exec(WesDefs.OP_DOC_ADD_UP)
     def doc_addup(self, index, body, doc_type="_doc", id=None, params=None):
         # TODO petee 'id' is important for get - shouldn't be mandatory???
         # TODO petee 'doc_type' is important for get - shouldn't be mandatory???
@@ -531,7 +487,7 @@ class Wes(WesDefs):
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"KEY[{rcv.data['_index']} <-> {rcv.data['_type']} <-> {rcv.data['_id']}] {rcv.data['result']} {rcv.data['_shards']}"
 
-        return self._operation_result(Wes.OP_DOC_ADD_UP, key_str, rc, fmt_fnc_ok)
+        return self._operation_result(WesDefs.OP_DOC_ADD_UP, key_str, rc, fmt_fnc_ok)
 
     @query_params(
         "_source",
@@ -553,7 +509,7 @@ class Wes(WesDefs):
         "version",
         "version_type",
         "wait_for_active_shards",)
-    @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_UPDATE)
+    @WesCommon.Decor.operation_exec(WesDefs.OP_DOC_UPDATE)
     def doc_update(self, index, id, doc_type="_doc", body=None, params=None):
         # TODO petee 'doc_type' is important for get - shouldn't be mandatory???
         return self.es.update(index, id, doc_type=doc_type, body=body, params=params)
@@ -564,7 +520,7 @@ class Wes(WesDefs):
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"KEY[{rcv.data['_index']} <-> {rcv.data['_type']} <-> {rcv.data['_id']}] {rcv.data['result']} {rcv.data['_shards']}"
 
-        return self._operation_result(Wes.OP_DOC_UPDATE, key_str, rc, fmt_fnc_ok)
+        return self._operation_result(WesDefs.OP_DOC_UPDATE, key_str, rc, fmt_fnc_ok)
 
     @query_params(
         "_source",
@@ -580,7 +536,7 @@ class Wes(WesDefs):
         "stored_fields",
         "version",
         "version_type",)
-    @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_GET)
+    @WesCommon.Decor.operation_exec(WesDefs.OP_DOC_GET)
     def doc_get(self, index, id, doc_type="_doc", params=None):
         return self.es.get(index, id, doc_type=doc_type, params=params)
 
@@ -589,7 +545,7 @@ class Wes(WesDefs):
 
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"KEY[{rcv.data['_index']} <-> {rcv.data['_type']} <-> {rcv.data['_id']}] {rcv.data['_source']}"
-        return self._operation_result(Wes.OP_DOC_GET, key_str, rc, fmt_fnc_ok)
+        return self._operation_result(WesDefs.OP_DOC_GET, key_str, rc, fmt_fnc_ok)
 
     @query_params(
         "_source",
@@ -605,7 +561,7 @@ class Wes(WesDefs):
         "stored_fields",
         "version",
         "version_type",)
-    @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_EXIST)
+    @WesCommon.Decor.operation_exec(WesDefs.OP_DOC_EXIST)
     def doc_exists(self, index, id, doc_type="_doc", params=None):
         # TODO petee 'doc_type' is important for get - shouldn't be mandatory???
         return self.es.exists(index, id, doc_type=doc_type, params=params)
@@ -616,7 +572,7 @@ class Wes(WesDefs):
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"{key_str} {rcv.data}"
 
-        return self._operation_result(Wes.OP_DOC_EXIST, key_str, rc, fmt_fnc_ok)
+        return self._operation_result(WesDefs.OP_DOC_EXIST, key_str, rc, fmt_fnc_ok)
 
     @query_params(
         "if_seq_no",
@@ -628,7 +584,7 @@ class Wes(WesDefs):
         "version",
         "version_type",
         "wait_for_active_shards",)
-    @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_DEL)
+    @WesCommon.Decor.operation_exec(WesDefs.OP_DOC_DEL)
     def doc_delete(self, index, id, doc_type="_doc", params=None):
         # TODO petee 'doc_type' is important for get - shouldn't be mandatory???
         return self.es.delete(index, id, doc_type=doc_type, params=params)
@@ -639,7 +595,7 @@ class Wes(WesDefs):
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"{key_str} {rcv.data}"
 
-        return self._operation_result(Wes.OP_DOC_DEL, key_str, rc, fmt_fnc_ok)
+        return self._operation_result(WesDefs.OP_DOC_DEL, key_str, rc, fmt_fnc_ok)
 
 
     #####################
@@ -680,7 +636,7 @@ class Wes(WesDefs):
         "version",
         "wait_for_active_shards",
         "wait_for_completion",)
-    @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_DEL_QUERY)
+    @WesCommon.Decor.operation_exec(WesDefs.OP_DOC_DEL_QUERY)
     def doc_delete_by_query(self, index, body, params=None):
         return self.es.delete_by_query(index, body, params=params)
 
@@ -690,7 +646,7 @@ class Wes(WesDefs):
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"{key_str} {rcv.data}"
 
-        return self._operation_result(Wes.OP_DOC_DEL_QUERY, key_str, rc, fmt_fnc_ok)
+        return self._operation_result(WesDefs.OP_DOC_DEL_QUERY, key_str, rc, fmt_fnc_ok)
 
     @query_params(
         "_source",
@@ -737,7 +693,7 @@ class Wes(WesDefs):
         "track_total_hits",
         "typed_keys",
         "version",)
-    @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_SEARCH)
+    @WesCommon.Decor.operation_exec(WesDefs.OP_DOC_SEARCH)
     def doc_search(self, index=None, body=None, params=None):
         return self.es.search(index=index, body=body, params=params)
 
@@ -758,41 +714,41 @@ class Wes(WesDefs):
 
             return f"{key_str} NB TOTAL[{self.doc_search_result_total_nb(rcv)}] NB HITS[{self.doc_search_result_hits_nb(rcv)}]: {rec}"
 
-        return self._operation_result(Wes.OP_DOC_SEARCH, key_str, rc, fmt_fnc_ok)
+        return self._operation_result(WesDefs.OP_DOC_SEARCH, key_str, rc, fmt_fnc_ok)
 
     def doc_search_result_total_nb(self, rc: ExecCode):
-        if self.ES_VERSION_RUNNING == self.ES_VERSION_7_3_0:
+        if self.ES_VERSION_RUNNING == WesDefs.ES_VERSION_7_3_0:
             return rc.data['hits']['total']['value']
-        elif self.ES_VERSION_RUNNING == self.ES_VERSION_5_6_5:
+        elif self.ES_VERSION_RUNNING == WesDefs.ES_VERSION_5_6_5:
             return rc.data['hits']['total']
         else:
-            self.es_version_mismatch()
+            WesDefs.es_version_mismatch(self.ES_VERSION_RUNNING)
 
     def doc_search_result_hits_nb(self, rc: ExecCode):
         return len(self.doc_search_result_hits_sources(rc))
 
     def doc_search_result_hits_sources(self, rc: ExecCode):
 
-        if self.ES_VERSION_RUNNING == self.ES_VERSION_7_3_0:
-            self.es_version_mismatch()
-        elif self.ES_VERSION_RUNNING == self.ES_VERSION_5_6_5:
+        if self.ES_VERSION_RUNNING == WesDefs.ES_VERSION_7_3_0:
+            WesDefs.es_version_mismatch(self.ES_VERSION_RUNNING)
+        elif self.ES_VERSION_RUNNING == WesDefs.ES_VERSION_5_6_5:
             sources = rc.data['hits']['hits']
             # print("MISO---> : ", len(sources), type(sources), str(sources))
             return sources
         else:
-            self.es_version_mismatch()
+            WesDefs.es_version_mismatch(self.ES_VERSION_RUNNING)
 
     def doc_search_result_scroll_id(self, rc: ExecCode):
 
-        if self.ES_VERSION_RUNNING == self.ES_VERSION_7_3_0:
-            self.es_version_mismatch()
-        elif self.ES_VERSION_RUNNING == self.ES_VERSION_5_6_5:
+        if self.ES_VERSION_RUNNING == WesDefs.ES_VERSION_7_3_0:
+            WesDefs.es_version_mismatch(self.ES_VERSION_RUNNING)
+        elif self.ES_VERSION_RUNNING == WesDefs.ES_VERSION_5_6_5:
             return rc.data.get('_scroll_id', None)
         else:
-            self.es_version_mismatch()
+            WesDefs.es_version_mismatch(self.ES_VERSION_RUNNING)
 
 
-    @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_BULK)
+    @WesCommon.Decor.operation_exec(WesDefs.OP_DOC_BULK)
     def doc_bulk(self, actions, stats_only=False, *args, **kwargs):
         # The bulk() api accepts 'index', 'create', 'delete', 'update' actions.
         # '_op_type' field to specify an action ( DEFAULTS to 'index'):
@@ -819,7 +775,7 @@ class Wes(WesDefs):
         fmt_fnc_ok = None
         fmt_fnc_nok = None
 
-        if rc.status == Wes.RC_OK:
+        if rc.status == WesDefs.RC_OK:
             nb_ok = rc.data[0]
             err_list = [str(item) for item in rc.data[1]]
             nb_err = len(err_list)
@@ -834,13 +790,13 @@ class Wes(WesDefs):
             def fmt_fnc_nok(rcv: ExecCode) -> str:
                 return f"{ret_str_hdr}  err ... {ret_str_ftr}"
 
-            status = Wes.RC_NOK if nb_err > 0 else Wes.RC_OK
+            status = WesDefs.RC_NOK if nb_err > 0 else WesDefs.RC_OK
             rc = ExecCode(status, rc.data, rc.fnc_params)
 
         rc = ExecCode(rc.status, rc.data, rc.fnc_params)
-        return self._operation_result(Wes.OP_DOC_BULK, key_str, rc, fmt_fnc_ok, fmt_fnc_nok)
+        return self._operation_result(WesDefs.OP_DOC_BULK, key_str, rc, fmt_fnc_ok, fmt_fnc_nok)
 
-    @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_BULK_STR)
+    @WesCommon.Decor.operation_exec(WesDefs.OP_DOC_BULK_STR)
     def doc_bulk_streaming(self,
                            actions,
                            chunk_size=500,
@@ -875,7 +831,7 @@ class Wes(WesDefs):
 
         fmt_fnc = None
 
-        if rc.status == Wes.RC_OK:
+        if rc.status == WesDefs.RC_OK:
             # MSE NOTES:
             # !!! returns generator    !!!
             # !!! can't iterate again  !!!
@@ -893,9 +849,9 @@ class Wes(WesDefs):
 
                 return f"{key_str} OK/NOK ??? ... {res}"  # TODO
 
-        return self._operation_result(Wes.OP_DOC_BULK_STR, key_str, rc, fmt_fnc)
+        return self._operation_result(WesDefs.OP_DOC_BULK_STR, key_str, rc, fmt_fnc)
 
-    @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_SCAN)
+    @WesCommon.Decor.operation_exec(WesDefs.OP_DOC_SCAN)
     def doc_scan(self,
                  query=None,
                  scroll="5m",
@@ -932,7 +888,7 @@ class Wes(WesDefs):
             for a in rc.data:
                 break
         except Exception as e:
-            rc = ExecCode(Wes.RC_EXCE, e, rc.fnc_params)
+            rc = ExecCode(WesDefs.RC_EXCE, e, rc.fnc_params)
 
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             rec = ''
@@ -943,7 +899,7 @@ class Wes(WesDefs):
 
             return f"SCAN NB[{nb_rec}] {rec}"
 
-        return self._operation_result(Wes.OP_DOC_SCAN, key_str, rc, fmt_fnc_ok)
+        return self._operation_result(WesDefs.OP_DOC_SCAN, key_str, rc, fmt_fnc_ok)
 
     @query_params(
         "allow_no_indices",
@@ -960,7 +916,7 @@ class Wes(WesDefs):
         "q",
         "routing",
         "terminate_after",)
-    @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_COUNT)
+    @WesCommon.Decor.operation_exec(WesDefs.OP_DOC_COUNT)
     def doc_count(self, doc_type=None, index=None, body=None, params=None):
         return self.es.count(doc_type=doc_type, index=index, body=body, params=params)
 
@@ -974,7 +930,7 @@ class Wes(WesDefs):
         return self._operation_result(WesDefs.OP_DOC_COUNT, key_str, rc, fmt_fnc_ok)
 
     @query_params("scroll", "rest_total_hits_as_int", "scroll_id")
-    @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_SCROLL)
+    @WesCommon.Decor.operation_exec(WesDefs.OP_DOC_SCROLL)
     def doc_scroll(self, body=None, params=None):
         return self.es.scroll(body=body, params=params)
 
@@ -998,29 +954,29 @@ class Wes(WesDefs):
         return self._operation_result(WesDefs.OP_DOC_SCROLL, key_str, rc, fmt_fnc_ok)
 
     def doc_scroll_result_total_nb(self, rc: ExecCode):
-        if self.ES_VERSION_RUNNING == self.ES_VERSION_7_3_0:
+        if self.ES_VERSION_RUNNING == WesDefs.ES_VERSION_7_3_0:
             return rc.data['hits']['total']['value']
-        elif self.ES_VERSION_RUNNING == self.ES_VERSION_5_6_5:
+        elif self.ES_VERSION_RUNNING == WesDefs.ES_VERSION_5_6_5:
             return rc.data['hits']['total']
         else:
-            self.es_version_mismatch()
+            WesDefs.es_version_mismatch(self.ES_VERSION_RUNNING)
 
     def doc_scroll_result_hits_nb(self, rc: ExecCode):
         return len(self.doc_scroll_result_hits_sources(rc))
 
     def doc_scroll_result_hits_sources(self, rc: ExecCode):
 
-        if self.ES_VERSION_RUNNING == self.ES_VERSION_7_3_0:
-            self.es_version_mismatch()
-        elif self.ES_VERSION_RUNNING == self.ES_VERSION_5_6_5:
+        if self.ES_VERSION_RUNNING == WesDefs.ES_VERSION_7_3_0:
+            WesDefs.es_version_mismatch(self.ES_VERSION_RUNNING)
+        elif self.ES_VERSION_RUNNING == WesDefs.ES_VERSION_5_6_5:
             sources = rc.data['hits']['hits']
             # print("MISO---> : ", len(sources), type(sources), str(sources))
             return sources
         else:
-            self.es_version_mismatch()
+            WesDefs.es_version_mismatch(self.ES_VERSION_RUNNING)
 
     @query_params()
-    @WesDefs.Decor.operation_exec(WesDefs.OP_DOC_SCROLL_CLEAR)
+    @WesCommon.Decor.operation_exec(WesDefs.OP_DOC_SCROLL_CLEAR)
     def doc_clear_scroll(self, scroll_id=None, body=None, params=None):
         return self.es.clear_scroll(scroll_id=scroll_id, body=body, params=params)
 
@@ -1030,43 +986,43 @@ class Wes(WesDefs):
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"{key_str} {rcv.data}"
 
-        return self._operation_result(Wes.OP_DOC_SCROLL_CLEAR, key_str, rc, fmt_fnc_ok)
+        return self._operation_result(WesDefs.OP_DOC_SCROLL_CLEAR, key_str, rc, fmt_fnc_ok)
 
 
     @staticmethod
     def operation_mappers(operation: str):
         operation_mapper = {
             # indice operations
-            Wes.OP_IND_CREATE:          [Wes.ind_create, Wes.ind_create_result],
-            Wes.OP_IND_FLUSH:           [Wes.ind_flush, Wes.ind_flush_result],
-            Wes.OP_IND_REFRESH:         [Wes.ind_refresh, Wes.ind_refresh_result],
-            Wes.OP_IND_EXIST:           [Wes.ind_exist, Wes.ind_exist_result],
-            Wes.OP_IND_DELETE:          [Wes.ind_delete, Wes.ind_delete_result],
-            Wes.OP_IND_GET:             [Wes.ind_get, Wes.ind_get_result],
-            Wes.OP_IND_GET_ALIAS:       [Wes.ind_get_alias, Wes.ind_get_alias_result],
-            Wes.OP_IND_DEL_ALIAS:       [Wes.ind_delete_alias, Wes.ind_delete_alias_result],
-            Wes.OP_IND_GET_MAP:         [Wes.ind_get_mapping, Wes.ind_get_mapping_result],
-            Wes.OP_IND_PUT_MAP:         [Wes.ind_put_mapping, Wes.ind_put_mapping_result],
-            Wes.OP_IND_PUT_TMP:         [Wes.ind_put_template, Wes.ind_put_template_result],
-            Wes.OP_IND_GET_TMP:         [Wes.ind_get_template, Wes.ind_get_template_result],
+            WesDefs.OP_IND_CREATE:          [Wes.ind_create, Wes.ind_create_result],
+            WesDefs.OP_IND_FLUSH:           [Wes.ind_flush, Wes.ind_flush_result],
+            WesDefs.OP_IND_REFRESH:         [Wes.ind_refresh, Wes.ind_refresh_result],
+            WesDefs.OP_IND_EXIST:           [Wes.ind_exist, Wes.ind_exist_result],
+            WesDefs.OP_IND_DELETE:          [Wes.ind_delete, Wes.ind_delete_result],
+            WesDefs.OP_IND_GET:             [Wes.ind_get, Wes.ind_get_result],
+            WesDefs.OP_IND_GET_ALIAS:       [Wes.ind_get_alias, Wes.ind_get_alias_result],
+            WesDefs.OP_IND_DEL_ALIAS:       [Wes.ind_delete_alias, Wes.ind_delete_alias_result],
+            WesDefs.OP_IND_GET_MAP:         [Wes.ind_get_mapping, Wes.ind_get_mapping_result],
+            WesDefs.OP_IND_PUT_MAP:         [Wes.ind_put_mapping, Wes.ind_put_mapping_result],
+            WesDefs.OP_IND_PUT_TMP:         [Wes.ind_put_template, Wes.ind_put_template_result],
+            WesDefs.OP_IND_GET_TMP:         [Wes.ind_get_template, Wes.ind_get_template_result],
             # general
-            Wes.OP_GEN_PING:            [Wes.gen_ping, Wes.gen_ping_result],
-            Wes.OP_GEN_INFO:            [Wes.gen_info, Wes.gen_info_result],
+            WesDefs.OP_GEN_PING:            [Wes.gen_ping, Wes.gen_ping_result],
+            WesDefs.OP_GEN_INFO:            [Wes.gen_info, Wes.gen_info_result],
             # document operations
-            Wes.OP_DOC_ADD_UP:          [Wes.doc_addup, Wes.doc_addup_result],
-            Wes.OP_DOC_UPDATE:          [Wes.doc_update, Wes.doc_update_result],
-            Wes.OP_DOC_GET:             [Wes.doc_get, Wes.doc_get_result],
-            Wes.OP_DOC_EXIST:           [Wes.doc_exists, Wes.doc_exists_result],
-            Wes.OP_DOC_DEL:             [Wes.doc_delete, Wes.doc_delete_result],
+            WesDefs.OP_DOC_ADD_UP:          [Wes.doc_addup, Wes.doc_addup_result],
+            WesDefs.OP_DOC_UPDATE:          [Wes.doc_update, Wes.doc_update_result],
+            WesDefs.OP_DOC_GET:             [Wes.doc_get, Wes.doc_get_result],
+            WesDefs.OP_DOC_EXIST:           [Wes.doc_exists, Wes.doc_exists_result],
+            WesDefs.OP_DOC_DEL:             [Wes.doc_delete, Wes.doc_delete_result],
             # batch operations
-            Wes.OP_DOC_DEL_QUERY:       [Wes.doc_delete_by_query, Wes.doc_delete_by_query_result],
-            Wes.OP_DOC_SEARCH:          [Wes.doc_search, Wes.doc_search_result],
-            Wes.OP_DOC_BULK:            [Wes.doc_bulk, Wes.doc_bulk_result], # MSE_NOTES: RETURN FORMAT NOT MATCH EXPONEA
-            Wes.OP_DOC_BULK_STR:        [Wes.doc_bulk_streaming, Wes.doc_bulk_streaming_result],
-            Wes.OP_DOC_SCAN:            [Wes.doc_scan, Wes.doc_scan_result],
-            Wes.OP_DOC_COUNT:           [Wes.doc_count, Wes.doc_count_result],
-            Wes.OP_DOC_SCROLL:          [Wes.doc_scroll, Wes.doc_scroll_result],
-            Wes.OP_DOC_SCROLL_CLEAR:    [Wes.doc_clear_scroll, Wes.doc_clear_scroll_result],
+            WesDefs.OP_DOC_DEL_QUERY:       [Wes.doc_delete_by_query, Wes.doc_delete_by_query_result],
+            WesDefs.OP_DOC_SEARCH:          [Wes.doc_search, Wes.doc_search_result],
+            WesDefs.OP_DOC_BULK:            [Wes.doc_bulk, Wes.doc_bulk_result], # MSE_NOTES: RETURN FORMAT NOT MATCH EXPONEA
+            WesDefs.OP_DOC_BULK_STR:        [Wes.doc_bulk_streaming, Wes.doc_bulk_streaming_result],
+            WesDefs.OP_DOC_SCAN:            [Wes.doc_scan, Wes.doc_scan_result],
+            WesDefs.OP_DOC_COUNT:           [Wes.doc_count, Wes.doc_count_result],
+            WesDefs.OP_DOC_SCROLL:          [Wes.doc_scroll, Wes.doc_scroll_result],
+            WesDefs.OP_DOC_SCROLL_CLEAR:    [Wes.doc_clear_scroll, Wes.doc_clear_scroll_result],
         }
 
         return operation_mapper.get(operation, None)

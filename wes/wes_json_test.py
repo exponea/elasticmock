@@ -1,3 +1,4 @@
+from common import WesDefs
 from wes import Wes, ExecCode
 from log import Log
 import unittest
@@ -42,7 +43,7 @@ class TestWesJsonHelper(unittest.TestCase):
         return rc
 
     def indice_cleanup_all(self, wes):
-        self.assertEqual(Wes.RC_OK, wes.ind_delete_result(wes.ind_delete("_all")).status)
+        self.assertEqual(WesDefs.RC_OK, wes.ind_delete_result(wes.ind_delete("_all")).status)
 
     def _helper_zip_unpack(self, path_to_zip, file_to_extract="all"):
         file = Path(path_to_zip)
@@ -75,10 +76,10 @@ class TestWesJsonHelper(unittest.TestCase):
         return tests
 
     def helper_arguments_values_fixer(self, wes, operation, *args, **kwargs):
-        if wes.ES_VERSION_RUNNING == Wes.ES_VERSION_5_6_5:
+        if wes.ES_VERSION_RUNNING == WesDefs.ES_VERSION_5_6_5:
 
-            if operation == Wes.OP_DOC_ADD_UP or \
-               operation == Wes.OP_DOC_UPDATE:
+            if operation == WesDefs.OP_DOC_ADD_UP or \
+               operation == WesDefs.OP_DOC_UPDATE:
                 indice, doc_type = args
                 Log.log(f"{operation} FIXER(  args) before : {args}")
                 args = (indice,)
@@ -92,7 +93,7 @@ class TestWesJsonHelper(unittest.TestCase):
                 doc_type = kwargs['doc_type'] = doc_type
                 Log.log(f"{operation} FIXER(kwargs) after  : doc_type({doc_type})")
 
-            elif operation == Wes.OP_DOC_DEL:
+            elif operation == WesDefs.OP_DOC_DEL:
                 indice, doc_type = args
                 kw_doc_type = kwargs.get('doc_type', None)
                 kw_id = kwargs.get('id', None)
@@ -107,8 +108,8 @@ class TestWesJsonHelper(unittest.TestCase):
                 kw_id = kwargs.get('id', None)
                 Log.log(f"{operation} FIXER(kwargs) after  : doc_type({doc_type}) id({id})")
 
-            elif operation == Wes.OP_DOC_SEARCH or \
-                    operation == Wes.OP_DOC_DEL_QUERY:
+            elif operation == WesDefs.OP_DOC_SEARCH or \
+                    operation == WesDefs.OP_DOC_DEL_QUERY:
 
                 # FAKE as result of PYTHON API:
                 # EXCEPTION: Unknow L1 exception ... doc_search() got an unexpected keyword argument 'doc_type'
@@ -133,7 +134,7 @@ class TestWesJsonHelper(unittest.TestCase):
                             query['term'] = {'_type': kw_doc_type }
                     Log.log(f"{operation} FIXER(kwargs) after  : body({body})")
 
-            elif operation == Wes.OP_IND_PUT_MAP:
+            elif operation == WesDefs.OP_IND_PUT_MAP:
 
                 # EXCEPTION: Unknow L1 exception ... ind_put_mapping() got multiple values for argument 'body'
                 if len(args) > 0:
@@ -156,7 +157,7 @@ class TestWesJsonHelper(unittest.TestCase):
                 args = (kw_body,)
                 Log.log(f"{operation} FIXER(args) after  : ({args})")
 
-            elif operation == Wes.OP_DOC_BULK or operation == Wes.OP_DOC_BULK_STR:
+            elif operation == WesDefs.OP_DOC_BULK or operation == WesDefs.OP_DOC_BULK_STR:
 
                 len_args_tuple = len(args)
                 type_args = type(args[0])  # class 'str'
@@ -203,22 +204,22 @@ class TestWesJsonHelper(unittest.TestCase):
                 actions_str = '\n[\n' + '\n'.join([json.dumps(item) for item in actions]) + '\n]'
                 Log.log(f"{operation} FIXER(args) after  : len({len_args_tuple}) type({type_args}) split_len({split_len}) actions:{actions_str}")
 
-            elif operation == Wes.OP_DOC_SCROLL:
+            elif operation == WesDefs.OP_DOC_SCROLL:
                 # scroll_id,  = args             NOT USED THIS IS DYNAMIC VALUE !!!
                 kw_scroll_id = kwargs.get('scroll_id', None)
                 Log.log(f"{operation} FIXER(kwargs) before : scroll_id({kw_scroll_id})")
                 # scroll_id = kwargs['scroll_id'] = scroll_id NOT USED THIS IS DYNAMIC VALUE !!!
-                scroll_id = kwargs['scroll_id'] = self.binder_get(Wes.OP_DOC_SEARCH, '_scroll_id')
+                scroll_id = kwargs['scroll_id'] = self.binder_get(WesDefs.OP_DOC_SEARCH, '_scroll_id')
                 Log.log(f"{operation} FIXER(kwargs) after  : scroll_id({scroll_id})")
                 args = ()
 
-            elif operation == Wes.OP_DOC_SCROLL_CLEAR:
+            elif operation == WesDefs.OP_DOC_SCROLL_CLEAR:
                 kw_scroll_id = kwargs.get('scroll_id', None)
                 kw_body      = kwargs.get('body', None)
                 Log.log(f"{operation} FIXER(kwargs) before : scroll_id({kw_scroll_id})")
                 Log.log(f"{operation} FIXER(kwargs) before : body({kw_body})")
 
-                scroll_id = kwargs['scroll_id'] = self.binder_get(Wes.OP_DOC_SEARCH, '_scroll_id')
+                scroll_id = kwargs['scroll_id'] = self.binder_get(WesDefs.OP_DOC_SEARCH, '_scroll_id')
                 del kwargs['body']['scroll_id']
                 new_body = kwargs['body'].get('scroll_id', None)
                 Log.log(f"{operation} FIXER(kwargs) after  : scroll_id({scroll_id})")
@@ -229,14 +230,14 @@ class TestWesJsonHelper(unittest.TestCase):
             else:
                 pass
         else:
-            wes.es_version_mismatch()
+            wes.es_version_mismatch(self.ES_VERSION_RUNNING)
 
         return args, kwargs
 
     def helper_validate_rc(self, wes: Wes, operation, rc_result: ExecCode, rc_wes: ExecCode):
-        if rc_wes.status == Wes.RC_OK:
+        if rc_wes.status == WesDefs.RC_OK:
 
-            if operation == Wes.OP_DOC_SEARCH:
+            if operation == WesDefs.OP_DOC_SEARCH:
                 # 1. check nb match records
                 self.assertEqual(wes.doc_search_result_hits_nb(rc_result),
                                  wes.doc_search_result_hits_nb(rc_wes))
@@ -249,9 +250,9 @@ class TestWesJsonHelper(unittest.TestCase):
                     ext_doc = ext_sources[idx]
                     self.assertDictEqual(ext_doc, wes_doc)
 
-                self.binder_set(Wes.OP_DOC_SEARCH, '_scroll_id', wes.doc_search_result_scroll_id(rc_wes))
+                self.binder_set(WesDefs.OP_DOC_SEARCH, '_scroll_id', wes.doc_search_result_scroll_id(rc_wes))
 
-            elif operation == Wes.OP_DOC_SCROLL:
+            elif operation == WesDefs.OP_DOC_SCROLL:
                 # 1. check nb match records
                 self.assertEqual(wes.doc_scroll_result_hits_nb(rc_result),
                                  wes.doc_scroll_result_hits_nb(rc_wes))
@@ -266,17 +267,17 @@ class TestWesJsonHelper(unittest.TestCase):
 
 
 
-            elif operation == Wes.OP_DOC_DEL_QUERY:
+            elif operation == WesDefs.OP_DOC_DEL_QUERY:
                 # TODO petee what to compare? seems as no docs added
                 #  compare on full dict leads problem on 'took',
                 #  so probably 'deleted' field is sufficient
                 self.assertEqual(rc_result.data['deleted'], rc_wes.data['deleted'])
 
-            elif operation == Wes.OP_IND_REFRESH:
+            elif operation == WesDefs.OP_IND_REFRESH:
                 self.assertEqual(wes.ind_refresh_result_shard_nb_failed(rc_result),
                                  wes.ind_refresh_result_shard_nb_failed(rc_wes))
 
-            elif operation == Wes.OP_IND_GET:
+            elif operation == WesDefs.OP_IND_GET:
                 # TODO exported data contain .monitorin/.watcher indice
                 #  so exported data will be shrink
 
@@ -298,7 +299,7 @@ class TestWesJsonHelper(unittest.TestCase):
 
                 self.cmp_dict_with_skipp_keys(rc_result.data, rc_wes.data, ('creation_date', 'uuid'), True)
 
-            elif operation == Wes.OP_DOC_BULK or operation == Wes.OP_DOC_BULK_STR:
+            elif operation == WesDefs.OP_DOC_BULK or operation == WesDefs.OP_DOC_BULK_STR:
                 # TODO different json formats - no idea how to specify - petee???
                 # exported is dict (like HTTP) but python has different structure ...
                 ext_list = rc_result.data['items']
@@ -307,9 +308,9 @@ class TestWesJsonHelper(unittest.TestCase):
             else:
                 self.assertDictEqual(rc_result.data, rc_wes.data)
 
-        elif rc_wes.status == Wes.RC_NOK:
+        elif rc_wes.status == WesDefs.RC_NOK:
             raise ValueError("not handled - now")
-        elif rc_wes.status == Wes.RC_EXCE:
+        elif rc_wes.status == WesDefs.RC_EXCE:
             # TODO peete pass exception status number - for T[1.json] L[ 11] there is result(None)
             self.assertEqual(rc_result.status, rc_wes.status)
 
@@ -356,38 +357,38 @@ class TestWesJsonHelper(unittest.TestCase):
         # TODO which methods are used in exponea?
         method_mapper = {
             "IND": {
-                "create"        : Wes.OP_IND_CREATE,
-                "flush"         : Wes.OP_IND_FLUSH,
-                "refresh"       : Wes.OP_IND_REFRESH,
-                "exists"        : Wes.OP_IND_EXIST,
-                "delete"        : Wes.OP_IND_DELETE,
-                "get"           : Wes.OP_IND_GET,
-                "get_alias"     : Wes.OP_IND_GET_ALIAS,
-                "delete_alias"  : Wes.OP_IND_DEL_ALIAS,
-                "get_mapping"   : Wes.OP_IND_GET_MAP,
-                "put_mapping"   : Wes.OP_IND_PUT_MAP,
-                "put_template"  : Wes.OP_IND_PUT_TMP,
-                "get_template"  : Wes.OP_IND_GET_TMP,
+                "create"        : WesDefs.OP_IND_CREATE,
+                "flush"         : WesDefs.OP_IND_FLUSH,
+                "refresh"       : WesDefs.OP_IND_REFRESH,
+                "exists"        : WesDefs.OP_IND_EXIST,
+                "delete"        : WesDefs.OP_IND_DELETE,
+                "get"           : WesDefs.OP_IND_GET,
+                "get_alias"     : WesDefs.OP_IND_GET_ALIAS,
+                "delete_alias"  : WesDefs.OP_IND_DEL_ALIAS,
+                "get_mapping"   : WesDefs.OP_IND_GET_MAP,
+                "put_mapping"   : WesDefs.OP_IND_PUT_MAP,
+                "put_template"  : WesDefs.OP_IND_PUT_TMP,
+                "get_template"  : WesDefs.OP_IND_GET_TMP,
             },
             'DOC': {
                 # general TODO not sure how used
-                "ping"              :Wes.OP_GEN_PING,
-                "info"              :Wes.OP_GEN_INFO,
+                "ping"              :WesDefs.OP_GEN_PING,
+                "info"              :WesDefs.OP_GEN_INFO,
 
                 # documents
-                "index"             : Wes.OP_DOC_ADD_UP,
-                "update"            : Wes.OP_DOC_UPDATE,
-                "get"               : Wes.OP_DOC_GET,
-                "exists"            : Wes.OP_DOC_EXIST,
-                "delete"            : Wes.OP_DOC_DEL,
+                "index"             : WesDefs.OP_DOC_ADD_UP,
+                "update"            : WesDefs.OP_DOC_UPDATE,
+                "get"               : WesDefs.OP_DOC_GET,
+                "exists"            : WesDefs.OP_DOC_EXIST,
+                "delete"            : WesDefs.OP_DOC_DEL,
 
-                "delete_by_query"   : Wes.OP_DOC_DEL_QUERY,
-                "search"            : Wes.OP_DOC_SEARCH,
-                "bulk"              : Wes.OP_DOC_BULK_STR, # if 1 else Wes.OP_DOC_BULK, # MSE_NOTES: RETURN FORMAT NOT MATCH EXPONEA
-                "scan"              : Wes.OP_DOC_SCAN,
-                "count"             : Wes.OP_DOC_COUNT,
-                "scroll"            : Wes.OP_DOC_SCROLL,
-                "clear_scroll"      : Wes.OP_DOC_SCROLL_CLEAR,
+                "delete_by_query"   : WesDefs.OP_DOC_DEL_QUERY,
+                "search"            : WesDefs.OP_DOC_SEARCH,
+                "bulk"              : WesDefs.OP_DOC_BULK_STR, # if 1 else WesDefs.OP_DOC_BULK, # MSE_NOTES: RETURN FORMAT NOT MATCH EXPONEA
+                "scan"              : WesDefs.OP_DOC_SCAN,
+                "count"             : WesDefs.OP_DOC_COUNT,
+                "scroll"            : WesDefs.OP_DOC_SCROLL,
+                "clear_scroll"      : WesDefs.OP_DOC_SCROLL_CLEAR,
             }
         }
 
@@ -406,7 +407,7 @@ class TestWesJsonHelper(unittest.TestCase):
         Log.log(f"{operation} MAPPERS: {str(wes_mappers)}")
         rc_wes = wes_mappers_operation_result(wes, wes_mappers_operation(wes, *args, **kwargs))
 
-        rc_result = ExecCode(Wes.RC_EXCE if result is None else Wes.RC_OK,
+        rc_result = ExecCode(WesDefs.RC_EXCE if result is None else WesDefs.RC_OK,
                              result,
                              rc_wes.fnc_params)
 

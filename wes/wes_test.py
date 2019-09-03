@@ -21,23 +21,25 @@ ind_str2 = "first_ind2"
 ind_str_doc_type = "first_ind1_docT"
 ind_str_doc_type = "first_ind2_docT"
 
+from common import WesDefs
+
 class TestWesHelper(unittest.TestCase):
 
     def indice_cleanup_all(self, wes):
-        self.assertEqual(Wes.RC_OK, wes.ind_delete_result(wes.ind_delete("_all")).status)
+        self.assertEqual(WesDefs.RC_OK, wes.ind_delete_result(wes.ind_delete("_all")).status)
 
     def force_reindex(self, wes):
-        self.assertEqual(Wes.RC_OK, wes.ind_flush_result(wes.ind_flush(wait_if_ongoing=True)).status)
-        self.assertEqual(Wes.RC_OK, wes.ind_refresh_result(wes.ind_refresh()).status)
+        self.assertEqual(WesDefs.RC_OK, wes.ind_flush_result(wes.ind_flush(wait_if_ongoing=True)).status)
+        self.assertEqual(WesDefs.RC_OK, wes.ind_refresh_result(wes.ind_refresh()).status)
 
-        self.assertEqual(Wes.RC_OK, wes.ind_get_mapping_result(wes.ind_get_mapping()).status)
+        self.assertEqual(WesDefs.RC_OK, wes.ind_get_mapping_result(wes.ind_get_mapping()).status)
 
     def indice_create_exists(self, wes, ind_str):
         wes.ind_delete_result(wes.ind_delete(ind_str))
-        self.assertEqual(Wes.RC_OK, wes.ind_create_result(wes.ind_create(ind_str)).status)
+        self.assertEqual(WesDefs.RC_OK, wes.ind_create_result(wes.ind_create(ind_str)).status)
         self.assertEqual(True, wes.ind_exist_result(wes.ind_exist(ind_str)).data)
 
-        self.assertEqual(Wes.RC_OK, wes.ind_get_mapping_result(wes.ind_get_mapping()).status)
+        self.assertEqual(WesDefs.RC_OK, wes.ind_get_mapping_result(wes.ind_get_mapping()).status)
 
     def documents_create(self, wes, ind_str, doc_type):
         doc1 = {"city": "Bratislava1", "country": "slovakia ", "sentence": "The slovakia is a country"}
@@ -60,13 +62,10 @@ class TestWesHelper(unittest.TestCase):
         self.force_reindex(wes)
 
 
-class TestWes(TestWesHelper):
+class TestWesReal(TestWesHelper):
 
     def setUp(self):
         self.wes = Wes()
-        # self.index_name = 'test_index'
-        # self.doc_type = 'doc-Type'
-        # self.body = {'string': 'content', 'id': 1}
 
     def test_general(self):
 
@@ -74,7 +73,7 @@ class TestWes(TestWesHelper):
         self.indice_cleanup_all(self.wes)
 
         self.assertEqual(True, self.wes.gen_ping_result(self.wes.gen_ping()).data)
-        self.assertEqual(Wes.RC_OK, self.wes.gen_info_result(self.wes.gen_info()).status)
+        self.assertEqual(WesDefs.RC_OK, self.wes.gen_info_result(self.wes.gen_info()).status)
 
 
     def test_indice_basic(self):
@@ -103,33 +102,33 @@ class TestWes(TestWesHelper):
         self.indice_create_exists(self.wes, ind_str)
         self.documents_create(self.wes, ind_str, ind_str_doc_type)
         #                                                                                                  MSE_NOTES:  IMPO_GET_1 ok/exc                                    IMPO_GET_2
-        self.assertEqual(Wes.RC_OK, self.wes.doc_get_result(self.wes.doc_get(ind_str, 1, doc_type=ind_str_doc_type)).status)  # MSE_NOTES: 'found': True,                 '_seq_no': 0,  '_source': {'city': 'Bratislava1', 'coutry': 'slovakia1'}
-        self.assertEqual(Wes.RC_OK, self.wes.doc_get_result(self.wes.doc_get(ind_str, 2, doc_type=ind_str_doc_type)).status)  # MSE_NOTES: 'found': True,                 '_seq_no': 1,  '_source': {'city': 'Bratislava1', 'coutry': 'slovakia2'}
-        self.assertEqual(Wes.RC_OK, self.wes.doc_get_result(self.wes.doc_get(ind_str, 3, doc_type=ind_str_doc_type)).status)  # MSE_NOTES: 'found': True,                 '_seq_no': 2,  '_source': {'city': 'Bratislava1', 'coutry': 'slovakia2'}
+        self.assertEqual(WesDefs.RC_OK, self.wes.doc_get_result(self.wes.doc_get(ind_str, 1, doc_type=ind_str_doc_type)).status)  # MSE_NOTES: 'found': True,                 '_seq_no': 0,  '_source': {'city': 'Bratislava1', 'coutry': 'slovakia1'}
+        self.assertEqual(WesDefs.RC_OK, self.wes.doc_get_result(self.wes.doc_get(ind_str, 2, doc_type=ind_str_doc_type)).status)  # MSE_NOTES: 'found': True,                 '_seq_no': 1,  '_source': {'city': 'Bratislava1', 'coutry': 'slovakia2'}
+        self.assertEqual(WesDefs.RC_OK, self.wes.doc_get_result(self.wes.doc_get(ind_str, 3, doc_type=ind_str_doc_type)).status)  # MSE_NOTES: 'found': True,                 '_seq_no': 2,  '_source': {'city': 'Bratislava1', 'coutry': 'slovakia2'}
         self.assertTrue(isinstance(self.wes.doc_get_result(self.wes.doc_get(ind_str, 9, doc_type=ind_str_doc_type)).data, NotFoundError))  # MSE_NOTES:  WesNotFoundError !!!
 
         # check docs existence
-        if self.wes.ES_VERSION_RUNNING == Wes.ES_VERSION_7_3_0:
+        if self.wes.ES_VERSION_RUNNING == WesDefs.ES_VERSION_7_3_0:
             self.assertTrue(self.wes.doc_exists_result(self.wes.doc_exists(ind_str, 5)).data)
             self.assertFalse(self.wes.doc_exists_result(self.wes.doc_exists(ind_str, 9)).data)
-        elif self.wes.ES_VERSION_RUNNING == Wes.ES_VERSION_5_6_5:
+        elif self.wes.ES_VERSION_RUNNING == WesDefs.ES_VERSION_5_6_5:
             # TODO - python lib API  ( use 'doc_type' because default goes as '_doc' )
             self.assertTrue(self.wes.doc_exists_result(self.wes.doc_exists(ind_str, 5, doc_type=ind_str_doc_type)).data)
             self.assertFalse(self.wes.doc_exists_result(self.wes.doc_exists(ind_str, 9, doc_type=ind_str_doc_type)).data)
         else:
-            self.es_version_mismatch()
+            WesDefs.es_version_mismatch(self.ES_VERSION_RUNNING)
 
         # check doc with different type vs. indice
         doc6 = {"city": "Bratislava4", "country": "SLOVAKIA5", "sentence": "The small COUNTRy is slovakia"}
-        if self.wes.ES_VERSION_RUNNING == Wes.ES_VERSION_7_3_0:
+        if self.wes.ES_VERSION_RUNNING == WesDefs.ES_VERSION_7_3_0:
             # MSE_NOTES: #1 400 - illegal_argument_exception - Rejecting mapping update to [first_ind1] as the final mapping would have more than 1 type: [any, any2]
             self.assertTrue(isinstance(self.wes.doc_addup_result(self.wes.doc_addup(ind_str, doc6, doc_type="any2", id=6)).data, RequestError))
-        elif self.wes.ES_VERSION_RUNNING == Wes.ES_VERSION_5_6_5:
+        elif self.wes.ES_VERSION_RUNNING == WesDefs.ES_VERSION_5_6_5:
             # TODO - python lib API  ( use 'doc_type' because default goes as '_doc' )
             # MSE_NOTES: no EXEPTION !!!
             self.assertEqual('created', self.wes.doc_addup_result(self.wes.doc_addup(ind_str, doc6, doc_type="any2", id=6)).data['result'])
         else:
-            self.es_version_mismatch()
+            WesDefs.es_version_mismatch(self.ES_VERSION_RUNNING)
 
 
     def test_query_basic(self):
@@ -145,7 +144,7 @@ class TestWes(TestWesHelper):
         # QUERY(all)
         ###########################################################
         # MSE_NOTES: #1 search ALL in DB
-        self.assertEqual(Wes.RC_OK, self.wes.doc_search_result(self.wes.doc_search()).status)
+        self.assertEqual(WesDefs.RC_OK, self.wes.doc_search_result(self.wes.doc_search()).status)
         # MSE_NOTES: #2 search ALL in specific INDICE
         self.assertEqual(5, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search(index=ind_str))))
         # MSE_NOTES: #3 equivalent to #2
@@ -254,24 +253,24 @@ class TestWes(TestWesHelper):
         Log.notice("--------------------------------------------------------------------------------------")
 
 
-        if self.wes.ES_VERSION_RUNNING == Wes.ES_VERSION_7_3_0:
+        if self.wes.ES_VERSION_RUNNING == WesDefs.ES_VERSION_7_3_0:
             # MSE_NOTES: #1 400 - illegal_argument_exception - Types cannot be provided in get mapping requests, unless include_type_name is set to true.
             self.assertTrue(isinstance(self.wes.ind_get_mapping_result(self.wes.ind_get_mapping(ind_str, doc_type=ind_str_doc_type)).data, RequestError))
-        elif self.wes.ES_VERSION_RUNNING == Wes.ES_VERSION_5_6_5:
+        elif self.wes.ES_VERSION_RUNNING == WesDefs.ES_VERSION_5_6_5:
             # TODO - no exception raised in comparision with ES_VERSION_7_3_0
-            self.assertEqual(Wes.RC_OK, self.wes.ind_get_mapping_result(self.wes.ind_get_mapping(ind_str, doc_type=ind_str_doc_type)).status)
+            self.assertEqual(WesDefs.RC_OK, self.wes.ind_get_mapping_result(self.wes.ind_get_mapping(ind_str, doc_type=ind_str_doc_type)).status)
 
-            self.assertEqual(Wes.RC_OK, self.wes.ind_get_mapping_result(self.wes.ind_get_mapping(ind_str)).status)
+            self.assertEqual(WesDefs.RC_OK, self.wes.ind_get_mapping_result(self.wes.ind_get_mapping(ind_str)).status)
         else:
-            self.wes.es_version_mismatch()
+            self.wes.es_version_mismatch(self.ES_VERSION_RUNNING)
 
-        if self.wes.ES_VERSION_RUNNING == Wes.ES_VERSION_7_3_0:
+        if self.wes.ES_VERSION_RUNNING == WesDefs.ES_VERSION_7_3_0:
             self.assertEqual(1, len(self.wes.ind_get_mapping_result(self.wes.ind_get_mapping(ind_str, doc_type=ind_str_doc_type, include_type_name=True)).data.keys()))
-        elif self.wes.ES_VERSION_RUNNING == Wes.ES_VERSION_5_6_5:
+        elif self.wes.ES_VERSION_RUNNING == WesDefs.ES_VERSION_5_6_5:
             # TODO - 400 - illegal_argument_exception - request [/first_ind1/_mapping/first_ind2_docT] contains unrecognized parameter: [include_type_name]
             self.assertTrue(isinstance(self.wes.ind_get_mapping_result(self.wes.ind_get_mapping(ind_str, doc_type=ind_str_doc_type, include_type_name=True)).data, RequestError))
         else:
-            self.wes.es_version_mismatch()
+            self.wes.es_version_mismatch(self.ES_VERSION_RUNNING)
 
     def test_mappings_get_put(self):
         # MSE_NOTES: mapping is process of defining how documents looks like (which fields contains, field types, how is filed indexed)
@@ -311,13 +310,13 @@ class TestWes(TestWesHelper):
           }
          # }, 'first_ind2': {'mappings': {}}}
 
-        if self.wes.ES_VERSION_RUNNING == Wes.ES_VERSION_7_3_0:
+        if self.wes.ES_VERSION_RUNNING == WesDefs.ES_VERSION_7_3_0:
             # OP_IND_PUT_MAP 405 - {'error': 'Incorrect HTTP method for uri [/_mapping] and method [PUT], allowed: [GET]', 'status': 405}
             self.assertEqual(405, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new)).data.status_code)
-        elif self.wes.ES_VERSION_RUNNING == Wes.ES_VERSION_5_6_5:
+        elif self.wes.ES_VERSION_RUNNING == WesDefs.ES_VERSION_5_6_5:
             self.assertEqual(400, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new)).data.status_code)
         else:
-            self.wes.es_version_mismatch()
+            self.wes.es_version_mismatch(self.ES_VERSION_RUNNING)
 
         # OP_IND_PUT_MAP KEY[???] - 400 - illegal_argument_exception - Types cannot be provided in put mapping requests, unless the include_type_name parameter is set to true.
         self.assertEqual(400, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str)).data.status_code)
@@ -327,15 +326,15 @@ class TestWes(TestWesHelper):
         # MSE_NOTES: #2 u can't change mapping if docs present in IND !!!
         self.indice_create_exists(self.wes, ind_str)
 
-        if self.wes.ES_VERSION_RUNNING == Wes.ES_VERSION_7_3_0:
+        if self.wes.ES_VERSION_RUNNING == WesDefs.ES_VERSION_7_3_0:
             # MSE_NOTES: #3 u should specified IND + DOC_TYPE !!!
-            self.assertEqual(Wes.RC_OK, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str, include_type_name=True)).status)
-        elif self.wes.ES_VERSION_RUNNING == Wes.ES_VERSION_5_6_5:
+            self.assertEqual(WesDefs.RC_OK, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str, include_type_name=True)).status)
+        elif self.wes.ES_VERSION_RUNNING == WesDefs.ES_VERSION_5_6_5:
             # TODO python lib API 400 - illegal_argument_exception - request [/first_ind1/_mapping/first_ind2_docT] contains unrecognized parameter: [include_type_name]
-            self.assertEqual(Wes.RC_EXCE, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str, include_type_name=True)).status)
-            self.assertEqual(Wes.RC_OK, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str)).status)
+            self.assertEqual(WesDefs.RC_EXCE, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str, include_type_name=True)).status)
+            self.assertEqual(WesDefs.RC_OK, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str)).status)
         else:
-            self.wes.es_version_mismatch()
+            self.wes.es_version_mismatch(self.ES_VERSION_RUNNING)
 
         Log.notice("--------------------------------------------------------------------------------------")
         # MSE_NOTES: #4 type was changed :)
@@ -389,15 +388,15 @@ class TestWes(TestWesHelper):
                         }
         }
 
-        if self.wes.ES_VERSION_RUNNING == Wes.ES_VERSION_7_3_0:
+        if self.wes.ES_VERSION_RUNNING == WesDefs.ES_VERSION_7_3_0:
             # MSE_NOTES: #3 u should specified IND + DOC_TYPE !!!
-            self.assertEqual(Wes.RC_OK, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str, include_type_name=True)).status)
-        elif self.wes.ES_VERSION_RUNNING == Wes.ES_VERSION_5_6_5:
+            self.assertEqual(WesDefs.RC_OK, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str, include_type_name=True)).status)
+        elif self.wes.ES_VERSION_RUNNING == WesDefs.ES_VERSION_5_6_5:
             # TODO python lib API 400 - illegal_argument_exception - request [/first_ind1/_mapping/first_ind2_docT] contains unrecognized parameter: [include_type_name]
-            self.assertEqual(Wes.RC_EXCE, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str, include_type_name=True)).status)
-            self.assertEqual(Wes.RC_OK, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str)).status)
+            self.assertEqual(WesDefs.RC_EXCE, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str, include_type_name=True)).status)
+            self.assertEqual(WesDefs.RC_OK, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str)).status)
         else:
-            self.wes.es_version_mismatch()
+            self.wes.es_version_mismatch(self.ES_VERSION_RUNNING)
 
 
         doc1 = {"city":"Bangalore", "country": "India", "datetime":"2018,01,01,10,20,00"} #datetime format: yyyy,MM,dd,hh,mm,ss",
@@ -469,7 +468,7 @@ class TestWes(TestWesHelper):
             }
             for j in range(0, 5)
         ]
-        self.assertEqual(Wes.RC_OK, self.wes.doc_bulk_result(self.wes.doc_bulk(actions)).status)
+        self.assertEqual(WesDefs.RC_OK, self.wes.doc_bulk_result(self.wes.doc_bulk(actions)).status)
         self.force_reindex(self.wes)
 
         body = {"query": {"match_all": {}}}
@@ -491,7 +490,7 @@ class TestWes(TestWesHelper):
             }
             for j in range(3, 5)
         ]
-        self.assertEqual(Wes.RC_OK, self.wes.doc_bulk_result(self.wes.doc_bulk(actions)).status)
+        self.assertEqual(WesDefs.RC_OK, self.wes.doc_bulk_result(self.wes.doc_bulk(actions)).status)
         self.force_reindex(self.wes)
 
         body = {"query": {"match_all": {}}}
@@ -513,7 +512,7 @@ class TestWes(TestWesHelper):
             }
             for j in range(1, 4)
         ]
-        self.assertEqual(Wes.RC_NOK, self.wes.doc_bulk_result(self.wes.doc_bulk(actions)).status)
+        self.assertEqual(WesDefs.RC_NOK, self.wes.doc_bulk_result(self.wes.doc_bulk(actions)).status)
         self.force_reindex(self.wes)
 
         # FINAL 0,1,2,3
@@ -540,17 +539,17 @@ class TestWes(TestWesHelper):
             }
             for j in range(0, 5)
         ]
-        self.assertEqual(Wes.RC_OK, self.wes.doc_bulk_result(self.wes.doc_bulk(actions)).status)
+        self.assertEqual(WesDefs.RC_OK, self.wes.doc_bulk_result(self.wes.doc_bulk(actions)).status)
         self.force_reindex(self.wes)
 
         body = {"query": {"match_all": {}}}
         self.assertEqual(5, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
 
         Log.notice("--------------------------------------------------------------------------------------")
-        self.assertEqual(Wes.RC_OK, self.wes.doc_scan_result(self.wes.doc_scan(query=body)).status)
+        self.assertEqual(WesDefs.RC_OK, self.wes.doc_scan_result(self.wes.doc_scan(query=body)).status)
 
         Log.notice("--------------------------------------------------------------------------------------")
-        self.assertEqual(Wes.RC_EXCE, self.wes.doc_scan_result(self.wes.doc_scan(index='pako', query=body)).status)
+        self.assertEqual(WesDefs.RC_EXCE, self.wes.doc_scan_result(self.wes.doc_scan(index='pako', query=body)).status)
 
     def test_count(self):
 
@@ -561,20 +560,20 @@ class TestWes(TestWesHelper):
         self.documents_create(self.wes, ind_str, ind_str_doc_type)
 
         # 1.
-        self.assertEqual(Wes.RC_OK, self.wes.doc_count_result(self.wes.doc_count()).status)
+        self.assertEqual(WesDefs.RC_OK, self.wes.doc_count_result(self.wes.doc_count()).status)
 
         # 2.
         # EXEPTION KEY[first_ind1] - 400 - parsing_exception - request does not support [from]
         body = {"from": 0, "size": 10,
                 #"query": {"match": {}} EXCEPTION:  400 - parsing_exception - No text specified for text query
                 "query": {"match": {"country": "slovakia"}}}
-        self.assertEqual(Wes.RC_EXCE, self.wes.doc_count_result(self.wes.doc_count(index=ind_str, body=body)).status)
+        self.assertEqual(WesDefs.RC_EXCE, self.wes.doc_count_result(self.wes.doc_count(index=ind_str, body=body)).status)
 
         # 3.
         # EXEPTION KEY[first_ind1] - 400 - parsing_exception - request does not support [size]
         body = {"size": 10,
                 "query": {"match": {"country": "slovakia"}}}
-        self.assertEqual(Wes.RC_EXCE, self.wes.doc_count_result(self.wes.doc_count(index=ind_str, body=body)).status)
+        self.assertEqual(WesDefs.RC_EXCE, self.wes.doc_count_result(self.wes.doc_count(index=ind_str, body=body)).status)
 
         # 4.
         body = {"query": {"match": {"country": "slovakia"}}}
@@ -611,13 +610,13 @@ class TestWes(TestWesHelper):
         self.indice_create_exists(self.wes, ind_str)
 
         Log.notice("--------------------------------------------------------------------------------------")
-        self.assertEqual(Wes.RC_OK, self.wes.ind_get_template_result(self.wes.ind_get_template()).status)
-        self.assertEqual(Wes.RC_OK, self.wes.ind_put_template_result(self.wes.ind_put_template(**body_exponea)).status)
-        self.assertEqual(Wes.RC_OK, self.wes.ind_get_template_result(self.wes.ind_get_template()).status)
+        self.assertEqual(WesDefs.RC_OK, self.wes.ind_get_template_result(self.wes.ind_get_template()).status)
+        self.assertEqual(WesDefs.RC_OK, self.wes.ind_put_template_result(self.wes.ind_put_template(**body_exponea)).status)
+        self.assertEqual(WesDefs.RC_OK, self.wes.ind_get_template_result(self.wes.ind_get_template()).status)
 
         Log.notice("--------------------------------------------------------------------------------------")
         self.indice_create_exists(self.wes, ind_special_NEW)
-        self.assertEqual(Wes.RC_OK, self.wes.ind_get_template_result(self.wes.ind_get_template()).status)
+        self.assertEqual(WesDefs.RC_OK, self.wes.ind_get_template_result(self.wes.ind_get_template()).status)
 
         self.wes.ind_delete_result(self.wes.ind_delete(ind_special_cleanup))
 
@@ -627,18 +626,19 @@ if __name__ == '__main__':
         unittest.main()
     else:
         suite = unittest.TestSuite()
-        # suite.addTest(TestWes("test_general"))
-        # suite.addTest(TestWes("test_indice_basic"))
-        # suite.addTest(TestWes("test_documents_basic"))
-        # suite.addTest(TestWes("test_query_basic"))
-        # suite.addTest(TestWes("test_complex_queries"))
-        # suite.addTest(TestWes("test_mappings_get"))
-        # suite.addTest(TestWes("test_mappings_get_put"))
-        # suite.addTest(TestWes("test_aggregations"))
-        # suite.addTest(TestWes("test_bulk"))
-        # suite.addTest(TestWes("test_scan"))
-        # suite.addTest(TestWes("test_count"))
-        # suite.addTest(TestWes("test_templates_get_put"))
+        # suite.addTest(TestWesReal("test_general"))
+        suite.addTest(TestWesMock("test_general"))
+        # suite.addTest(TestWesReal("test_indice_basic"))
+        # suite.addTest(TestWesReal("test_documents_basic"))
+        # suite.addTest(TestWesReal("test_query_basic"))
+        # suite.addTest(TestWesReal("test_complex_queries"))
+        # suite.addTest(TestWesReal("test_mappings_get"))
+        # suite.addTest(TestWesReal("test_mappings_get_put"))
+        # suite.addTest(TestWesReal("test_aggregations"))
+        # suite.addTest(TestWesReal("test_bulk"))
+        # suite.addTest(TestWesReal("test_scan"))
+        # suite.addTest(TestWesReal("test_count"))
+        # suite.addTest(TestWesReal("test_templates_get_put"))
 
         runner = unittest.TextTestRunner()
         runner.run(suite)
