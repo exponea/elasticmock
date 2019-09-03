@@ -438,7 +438,8 @@ class TestWesJson(TestWesJsonHelper):
                 #  34 - OP_DOC_SEARCH - AssertionError: 3 != 4
                 #  76 - OP_DOC_SEARCH - ssertionError: {'_id': '5', '_index': 'test_def_catalogs', '[1323 chars]1cc'} != {'_index': 'test_def_catalogs', '_type': 'pro[1320 chars]ng'}}
                 #  79 - OP_DOC_SEARCH - AssertionError: 5 != 10
-                # 126 - File "... /elasticmock/wes/wes.py", line 761, in doc_bulk_streaming_result
+                #  94 - OP_DOC_SEARCH - AssertionError: 2 != 3
+                # 126 - File "... /elasticmock/wes/wes.py", line 761, in doc_bulk_streaming_result PROBLEM IN WES!
                 # 153 - OP_DOC_SEARCH - AssertionError: 1 != 2
                 # 166 - OP_DOC_SEARCH - AssertionError: 3 != 4
                 # 169 - OP_DOC_SEARCH - AssertionError: 3 != 4
@@ -452,7 +453,7 @@ class TestWesJson(TestWesJsonHelper):
     # method for tests to pass
     def json_parser_todo(self):
         zip_path = "./exponea_tests/elasticmock-testcases.zip"
-        tests = ('169.json',)
+        tests = ('94.json',)
         self.helper_json_parser(zip_path, tests)
 
 
