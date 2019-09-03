@@ -73,7 +73,8 @@ class MockEsCommon:
                 def wrapper(self, *args, **kwargs):
                         Log.notice3(f"{oper} is mock")
                         rc = fnc(self, *args, **kwargs)
-                        dict_print = '\n' + str(self.parent.documents_dict)
+                        dict_to_print = self.parent.documents_dict if hasattr(self, 'parent') else self.documents_dict
+                        dict_print = '\n' + str(dict_to_print)
                         Log.log(f"{oper} is mock {dict_print}")
                         return rc
                 return wrapper
