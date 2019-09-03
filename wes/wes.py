@@ -23,6 +23,7 @@ from elasticsearch.helpers.actions import expand_action
 from collections import namedtuple
 
 from log import Log
+from mock_es import MockEs
 
 __all__ = ["Wes", "ExecCode"]
 
@@ -206,9 +207,9 @@ class Wes(WesDefs):
 
     # !!! keep always in sync !!!
 
-    def __init__(self):
+    def __init__(self, use_mocked: bool = False):
         # self.es = Elasticsearch(HOST="http://localhost", PORT=9200)  # remote instance
-        self.es = Elasticsearch()  # local instance
+        self.es = MockEs() if use_mocked else Elasticsearch() # local instance
 
     #####################
     # indice operations
