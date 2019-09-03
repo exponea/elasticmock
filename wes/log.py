@@ -66,6 +66,28 @@ class LogInternal:
         print("\33[1;37;44m%s%s NOTI:: %s\33[0m" % (prefix, LogInternal._time(),  str(msg)))
         LogInternal._flush_io()
 
+
+    # print colored msg
+    @staticmethod
+    def _log_red_background_msg(prefix, msg):
+        print("%s%s ERR :: \33[1;37;41m%s\33[0m" % (prefix, LogInternal._time(),  str(msg)))
+        LogInternal._flush_io()
+
+    @staticmethod
+    def _log_green_background_msg(prefix, msg):
+        print("%s%s LOG :: \33[1;37;42m%s\33[0m" % (prefix, LogInternal._time(),  str(msg)))
+        LogInternal._flush_io()
+
+    @staticmethod
+    def _log_yellow_background_msg(prefix, msg):
+        print("%s%s WARN:: \33[1;37;43m%s\33[0m" % (prefix, LogInternal._time(),  str(msg)))
+        LogInternal._flush_io()
+
+    @staticmethod
+    def _log_blue_background_msg(prefix, msg):
+        print("%s%s NOTI:: \33[1;37;44m%s\33[0m" % (prefix, LogInternal._time(),  str(msg)))
+        LogInternal._flush_io()
+
     # cmd border
     MSELINE = 80
     @staticmethod
@@ -112,6 +134,21 @@ class Log(LogInternal):
     def notice2(msg):
         LogInternal._log_blue_background_long("", msg)
 
+    # API time + msg background colours
+    @staticmethod
+    def ok3(msg):
+        LogInternal._log_green_background_msg("", msg)
+    @staticmethod
+    def err3(msg):
+        LogInternal._log_red_background_msg("", msg)
+    @staticmethod
+    def warn3(msg):
+        LogInternal._log_yellow_background_msg("", msg)
+    @staticmethod
+    def notice3(msg):
+        LogInternal._log_blue_background_msg("", msg)
+
+
     # API cmd border
     @staticmethod
     def border_ok(caller, result, cmd, name):
@@ -142,12 +179,16 @@ class TestClog(unittest.TestCase):
         Log.log(log_me)
         Log.ok(log_me)
         Log.ok2(log_me)
+        Log.ok3(log_me)
         Log.err(log_me)
         Log.err2(log_me)
+        Log.err3(log_me)
         Log.warn(log_me)
         Log.warn2(log_me)
+        Log.warn3(log_me)
         Log.notice(log_me)
         Log.notice2(log_me)
+        Log.notice3(log_me)
 
         Log.border_ok("CALLER", "RES", "CMD", "NAME")
         Log.border_err("CALLER", "RES", "CMD", "NAME")
