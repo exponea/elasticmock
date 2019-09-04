@@ -35,6 +35,86 @@ from log import Log
 
 __all__ = ["MockEs"]
 
+class MockEsQuery:
+
+    def __init__(self, operation, body):
+        self.q_oper = operation
+        self._q_match_rules = []
+        self._q_size = None
+        self._q_from = None
+        self._q_query = None
+        self._q_query_name = None
+
+        self.parser(body)
+
+    def parser(self, body):
+
+        if body:
+            self._q_size = body.get('size', None)
+            self._q_from = body.get('from', None)
+            self._q_query = body.get('query', None)
+
+            if not self._q_query:
+                raise ValueError("'query' missing in body")
+
+            self._q_query_name = list(self._q_query.keys())
+
+            if len(self._q_query_name) != 1:
+                raise ValueError(f"body contains more queries {self._q_query_name}")
+
+            name = self._q_query_name[0]
+            self._q_query_name = name
+            q_data = (name, self._q_query[name])
+
+        else:
+            self._q_query_name = "match_all"
+            q_data = ("match_all", "")
+
+        self._q_match_rules.append(q_data)
+
+        print("MSE PARSER --- body  ", body)
+        Log.err2(f"{self.q_oper} Q_NAME: {self._q_query_name} Q_RULES: {self._q_match_rules}")
+
+
+    def q_exec(self, doc):
+        q_match_results = []
+        print("MSE DBG ---", self._q_match_rules)
+        for q_data in self._q_match_rules:
+            print("MSE DBG ---", q_data)
+            fnc_name, data_to_match = q_data
+            fnc = self.q_mapper(fnc_name)
+            q_match_results.append(fnc(self, data_to_match, doc))
+
+        if len(q_match_results) != 1:
+            raise ValueError("more rules not supported now")
+
+        return q_match_results[0]
+
+    def q_match_all(self, data_to_match, doc):
+        return True
+
+    def q_match(self, data_to_match, doc):
+        raise ValueError("not implemented q_match")
+
+    def q_match_phrase(self, data_to_match, doc):
+        raise ValueError("not implemented q_match_phrase")
+
+    def q_term(self, data_to_match, doc):
+        raise ValueError("not implemented q_term")
+
+    def q_bool(self, data_to_match, doc):
+        raise ValueError("not implemented q_bool")
+
+    def q_mapper(self, query: str):
+        q_mapper = {
+            "match_all":    MockEsQuery.q_match_all,
+            "match":        MockEsQuery.q_match,
+            "match_phrase": MockEsQuery.q_match_phrase,
+            "term":         MockEsQuery.q_term,
+            "bool":         MockEsQuery.q_bool,
+        }
+        return q_mapper[query]
+
 
 class MockEsCommon:
 
@@ -101,6 +181,15 @@ class MockEsCommon:
                 if ind in all_ind_values:
                     return True
             return False
+        elif operation == WesDefs.OP_DOC_SEARCH:
+            all_ind_values = ['_all', '']
+            for ind in indices:
+                if ind in all_ind_values:
+                    return True
+            return False
+        else:
+            raise ValueError(f"{operation} no handling provided")
+
 
     @staticmethod
     def normalize_index_to_list(obj, index):
@@ -744,55 +833,228 @@ class MockEs(MockEsCommon):
     #     return self.es.delete_by_query(index, body, params=params)
     #
     #
-    # @query_params(
-    #     "_source",
-    #     "_source_exclude",
-    #     "_source_excludes",
-    #     "_source_include",
-    #     "_source_includes",
-    #     "allow_no_indices",
-    #     "allow_partial_search_results",
-    #     "analyze_wildcard",
-    #     "analyzer",
-    #     "batched_reduce_size",
-    #     "ccs_minimize_roundtrips",
-    #     "default_operator",
-    #     "df",
-    #     "docvalue_fields",
-    #     "expand_wildcards",
-    #     "explain",
-    #     "from_",
-    #     "ignore_throttled",
-    #     "ignore_unavailable",
-    #     "lenient",
-    #     "max_concurrent_shard_requests",
-    #     "pre_filter_shard_size",
-    #     "preference",
-    #     "q",
-    #     "rest_total_hits_as_int",
-    #     "request_cache",
-    #     "routing",
-    #     "scroll",
-    #     "search_type",
-    #     "seq_no_primary_term",
-    #     "size",
-    #     "sort",
-    #     "stats",
-    #     "stored_fields",
-    #     "suggest_field",
-    #     "suggest_mode",
-    #     "suggest_size",
-    #     "suggest_text",
-    #     "terminate_after",
-    #     "timeout",
-    #     "track_scores",
-    #     "track_total_hits",
-    #     "typed_keys",
-    #     "version",)
-    # @MockEsCommon.Decor.operation_mock(WesDefs.OP_DOC_SEARCH)
-    # def doc_search(self, index=None, body=None, params=None):
-    #     return self.es.search(index=index, body=body, params=params)
-    #
+    @query_params(
+        "_source",
+        "_source_exclude",
+        "_source_excludes",
+        "_source_include",
+        "_source_includes",
+        "allow_no_indices",
+        "allow_partial_search_results",
+        "analyze_wildcard",
+        "analyzer",
+        "batched_reduce_size",
+        "ccs_minimize_roundtrips",
+        "default_operator",
+        "df",
+        "docvalue_fields",
+        "expand_wildcards",
+        "explain",
+        "from_",
+        "ignore_throttled",
+        "ignore_unavailable",
+        "lenient",
+        "max_concurrent_shard_requests",
+        "pre_filter_shard_size",
+        "preference",
+        "q",
+        "rest_total_hits_as_int",
+        "request_cache",
+        "routing",
+        "scroll",
+        "search_type",
+        "seq_no_primary_term",
+        "size",
+        "sort",
+        "stats",
+        "stored_fields",
+        "suggest_field",
+        "suggest_mode",
+        "suggest_size",
+        "suggest_text",
+        "terminate_after",
+        "timeout",
+        "track_scores",
+        "track_total_hits",
+        "typed_keys",
+        "version",)
+    @MockEsCommon.Decor.operation_mock(WesDefs.OP_DOC_SEARCH)
+    def search(self, index=None, body=None, params=None):
+        """
+        Execute a search query and get back search hits that match the query.
+        `<http://www.elastic.co/guide/en/elasticsearch/reference/current/search-search.html>`_
+
+        :arg index: A list of index names to search, or a string containing a
+            comma-separated list of index names to search; use `_all`
+            or empty string to perform the operation on all indices
+        :arg body: The search definition using the Query DSL
+        :arg _source: True or false to return the _source field or not, or a
+            list of fields to return
+        :arg _source_exclude: A list of fields to exclude from the returned
+            _source field
+        :arg _source_include: A list of fields to extract and return from the
+            _source field
+        :arg allow_no_indices: Whether to ignore if a wildcard indices
+            expression resolves into no concrete indices. (This includes `_all`
+            string or when no indices have been specified)
+        :arg allow_partial_search_results: Set to false to return an overall
+            failure if the request would produce partial results. Defaults to
+            True, which will allow partial results in the case of timeouts or
+            partial failures
+        :arg analyze_wildcard: Specify whether wildcard and prefix queries
+            should be analyzed (default: false)
+        :arg analyzer: The analyzer to use for the query string
+        :arg batched_reduce_size: The number of shard results that should be
+            reduced at once on the coordinating node. This value should be used
+            as a protection mechanism to reduce the memory overhead per search
+            request if the potential number of shards in the request can be
+            large., default 512
+        :arg ccs_minimize_roundtrips: Indicates whether network round-trips
+            should be minimized as part of cross-cluster search requests
+            execution, default 'true'
+        :arg default_operator: The default operator for query string query (AND
+            or OR), default 'OR', valid choices are: 'AND', 'OR'
+        :arg df: The field to use as default where no field prefix is given in
+            the query string
+        :arg docvalue_fields: A comma-separated list of fields to return as the
+            docvalue representation of a field for each hit
+        :arg expand_wildcards: Whether to expand wildcard expression to concrete
+            indices that are open, closed or both., default 'open', valid
+            choices are: 'open', 'closed', 'none', 'all'
+        :arg explain: Specify whether to return detailed information about score
+            computation as part of a hit
+        :arg from\\_: Starting offset (default: 0)
+        :arg ignore_unavailable: Whether specified concrete indices should be
+            ignored when unavailable (missing or closed)
+        :arg lenient: Specify whether format-based query failures (such as
+            providing text to a numeric field) should be ignored
+        :arg max_concurrent_shard_requests: The number of concurrent shard
+            requests this search executes concurrently. This value should be
+            used to limit the impact of the search on the cluster in order to
+            limit the number of concurrent shard requests, default 'The default
+            grows with the number of nodes in the cluster but is at most 256.'
+        :arg pre_filter_shard_size: A threshold that enforces a pre-filter
+            roundtrip to prefilter search shards based on query rewriting if
+            the number of shards the search request expands to exceeds the
+            threshold. This filter roundtrip can limit the number of shards
+            significantly if for instance a shard can not match any documents
+            based on it's rewrite method ie. if date filters are mandatory to
+            match but the shard bounds and the query are disjoint., default 128
+        :arg preference: Specify the node or shard the operation should be
+            performed on (default: random)
+        :arg q: Query in the Lucene query string syntax
+        :arg rest_total_hits_as_int: This parameter is used to restore the total hits as a number
+            in the response. This param is added version 6.x to handle mixed cluster queries where nodes
+            are in multiple versions (7.0 and 6.latest)
+        :arg request_cache: Specify if request cache should be used for this
+            request or not, defaults to index level setting
+        :arg routing: A comma-separated list of specific routing values
+        :arg scroll: Specify how long a consistent view of the index should be
+            maintained for scrolled search
+        :arg search_type: Search operation type, valid choices are:
+            'query_then_fetch', 'dfs_query_then_fetch'
+        :arg size: Number of hits to return (default: 10)
+        :arg sort: A comma-separated list of <field>:<direction> pairs
+        :arg stats: Specific 'tag' of the request for logging and statistical
+            purposes
+        :arg stored_fields: A comma-separated list of stored fields to return as
+            part of a hit
+        :arg suggest_field: Specify which field to use for suggestions
+        :arg suggest_mode: Specify suggest mode, default 'missing', valid
+            choices are: 'missing', 'popular', 'always'
+        :arg suggest_size: How many suggestions to return in response
+        :arg suggest_text: The source text for which the suggestions should be
+            returned
+        :arg terminate_after: The maximum number of documents to collect for
+            each shard, upon reaching which the query execution will terminate
+            early.
+        :arg timeout: Explicit operation timeout
+        :arg track_scores: Whether to calculate and return scores even if they
+            are not used for sorting
+        :arg track_total_hits: Indicate if the number of documents that match
+            the query should be tracked
+        :arg typed_keys: Specify whether aggregation and suggester names should
+            be prefixed by their respective types in the response
+        :arg version: Specify whether to return document version as part of a
+            hit
+        """
+        # from is a reserved word so it cannot be used, use from_ instead
+        if "from_" in params:
+            params["from"] = params.pop("from_")
+
+        if not index:
+            index = "_all"
+        searchable_indexes = MockEsCommon.normalize_index_to_list(self, index)
+
+        if MockEsCommon.apply_all_indicies(WesDefs.OP_DOC_SEARCH, searchable_indexes):
+            searchable_indexes = MockEsCommon.get_dict(self).keys()
+
+        matches = []
+        q = MockEsQuery(WesDefs.OP_DOC_SEARCH, body)
+
+        print("MSE --->>", searchable_indexes)
+        for search_idx in searchable_indexes:
+            docs = MockEsCommon.get_idx_docs(self, search_idx)
+            #print("MSE --->>", str(docs))
+            for doc_id in docs:
+                doc = docs[doc_id]
+                print("MSE --->>", str(doc))
+                if q.q_exec(doc):
+                    print("MSE --->> MATCH ", str(doc))
+                    matches.append(doc)
+                else:
+                    pass # use query
+                    print("MSE --->> PASS ", str(doc))
+
+        result = {
+            'hits': {
+                'total': len(matches),
+                'max_score': 1.0
+            },
+            '_shards': {
+                # Simulate indexes with 1 shard each
+                'successful': len(searchable_indexes),
+                'failed': 0,
+                'total': len(searchable_indexes)
+            },
+            'took': 1,
+            'timed_out': False
+        }
+
+        hits = []
+        for match in matches:
+            match['_score'] = 1.0
+            hits.append(match)
+
+        # build aggregations
+        if body is not None and 'aggs' in body:
+            aggregations = {}
+
+            for aggregation, definition in body['aggs'].items():
+                aggregations[aggregation] = {
+                    "doc_count_error_upper_bound": 0,
+                    "sum_other_doc_count": 0,
+                    "buckets": []
+                }
+
+            if aggregations:
+                result['aggregations'] = aggregations
+
+        if 'scroll' in params:
+            result['_scroll_id'] = str(get_random_scroll_id())
+            params['size'] = int(params.get('size') if 'size' in params else 10)
+            params['from'] = int(params.get('from') + params.get('size') if 'from' in params else 0)
+            self.__scrolls[result.get('_scroll_id')] = {
+                'index': index,
+                #'doc_type': doc_type, TODO MSE
+                'body': body,
+                'params': params
+            }
+            hits = hits[params.get('from'):params.get('from') + params.get('size')]
+
+        result['hits']['hits'] = hits
+
+        return result
 
     # @MockEsCommon.Decor.operation_mock(WesDefs.OP_DOC_BULK)
     # def doc_bulk(self, actions, stats_only=False, *args, **kwargs):
