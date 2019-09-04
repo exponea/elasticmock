@@ -27,6 +27,7 @@ if PY3:
     unicode = str
 
 from elasticsearch.client.utils import SKIP_IN_PATH
+from elasticmock.utilities import get_random_id, get_random_scroll_id
 
 from common import WesDefs
 
@@ -73,14 +74,25 @@ class MockEsCommon:
                 def wrapper(self, *args, **kwargs):
                         Log.notice3(f"{oper} is mock")
                         rc = fnc(self, *args, **kwargs)
-                        dict_to_print = self.parent.documents_dict if hasattr(self, 'parent') else self.documents_dict
-                        dict_print = '\n' + str(dict_to_print)
-                        Log.log(f"{oper} is mock {dict_print}")
+                        MockEsCommon.dump_dict(oper, self)
                         return rc
                 return wrapper
             return wrapper_mk
 
-    def _apply_all_indicies(self, operation, indices: list):
+    @staticmethod
+    def dump_dict(oper, obj):
+        dict_to_print = MockEsCommon.get_dict(obj)
+        dict_print = ''
+        for index in dict_to_print.keys():
+            dict_print += '\n' + str(index)
+            docs = MockEsCommon.get_idx_docs(obj, index)
+            for id in docs:
+                dict_print += '\n' + str(docs[id])
+
+        Log.log(f"{oper} is mock {dict_print}")
+
+    @staticmethod
+    def apply_all_indicies(operation, indices: list):
         if operation == WesDefs.OP_IND_GET_MAP:
             return True if len(indices) == 0 else False
         elif operation == WesDefs.OP_IND_DELETE:
@@ -90,10 +102,12 @@ class MockEsCommon:
                     return True
             return False
 
-    def _normalize_index_to_list(self, index):
+    @staticmethod
+    def normalize_index_to_list(obj, index):
+        _dict = MockEsCommon.get_dict(obj)
         # Ensure to have a list of index
         if index is None:
-            searchable_indexes = self.documents_dict.keys()
+            searchable_indexes = _dict.keys()
         elif isinstance(index, str) or isinstance(index, unicode):
             searchable_indexes = [index]
         elif isinstance(index, list):
@@ -109,12 +123,22 @@ class MockEsCommon:
 
         return searchable_indexes
 
-    def get_idx_mappings(self, idx):
-        return self.documents_dict[idx].get('mappings', {})
+    @staticmethod
+    def get_idx_mappings(obj, idx):
+        return MockEsCommon.get_dict(obj).get('mappings', {})
 
-    def get_idx_settings(self, idx):
-        return self.documents_dict[idx].get('settings', {})
+    @staticmethod
+    def get_idx_settings(obj, idx):
+        return MockEsCommon.get_dict(obj).get('settings', {})
 
+    @staticmethod
+    def get_idx_docs(obj, idx):
+        return MockEsCommon.get_dict(obj)[idx]['docs']
+
+    @staticmethod
+    def get_dict(obj):
+        parent_dict = obj.parent.documents_dict if hasattr(obj, 'parent') else obj.documents_dict
+        return parent_dict
 
 class MockEsIndicesClient:
 
@@ -148,7 +172,7 @@ class MockEsIndicesClient:
         if index in SKIP_IN_PATH:
             raise ValueError("Empty value passed for a required argument 'index'.")
 
-        searchable_indexes = self.parent._normalize_index_to_list(index)
+        searchable_indexes = MockEsCommon.normalize_index_to_list(self, index)
 
         if len(searchable_indexes) > 1:
             raise ValueError("'index' contains more indexes - it cannot be list ")
@@ -160,7 +184,7 @@ class MockEsIndicesClient:
             self.parent.raiseRequestError(['???'], searchable_indexes[0])
         else:
             self.parent.documents_dict[searchable_indexes[0]] = {
-                'docs': [],
+                'docs': {},
                 'mappings': mappings,
                 'settings': settings,
             }
@@ -197,7 +221,7 @@ class MockEsIndicesClient:
         if index in SKIP_IN_PATH:
             raise ValueError("Empty value passed for a required argument 'index'.")
 
-        searchable_indexes = self.parent._normalize_index_to_list(index)
+        searchable_indexes = MockEsCommon.normalize_index_to_list(self, index)
 
         if len(searchable_indexes) > 1:
             raise ValueError("'index' contains more indexes - it cannot be list for now")
@@ -233,9 +257,9 @@ class MockEsIndicesClient:
         if index in SKIP_IN_PATH:
             raise ValueError("Empty value passed for a required argument 'index'.")
 
-        searchable_indexes = self.parent._normalize_index_to_list(index)
+        searchable_indexes = MockEsCommon.normalize_index_to_list(self, index)
 
-        if self.parent._apply_all_indicies(WesDefs.OP_IND_DELETE, searchable_indexes):
+        if MockEsCommon.apply_all_indicies(WesDefs.OP_IND_DELETE, searchable_indexes):
             self.parent.documents_dict = {}
             return {'acknowledged': True}
         else:
@@ -260,7 +284,6 @@ class MockEsIndicesClient:
             else:
                 self.parent.raiseNotFound(err_list, first_idx)
 
-                #
     # @query_params(
     #     "allow_no_indices",
     #     "expand_wildcards",
@@ -273,25 +296,65 @@ class MockEsIndicesClient:
     # @MockEsCommon.Decor.operation_mock(WesDefs.OP_IND_GET)
     # def ind_get(self, index, feature=None, params=None):
     #     return self.es.indices.get(index, feature=feature, params=params)
-    #
-    # @query_params(
-    #     "allow_no_indices",
-    #     "expand_wildcards",
-    #     "force",
-    #     "ignore_unavailable",
-    #     "wait_if_ongoing",)
-    # @MockEsCommon.Decor.operation_mock(WesDefs.OP_IND_FLUSH)
-    # def ind_flush(self, index=None, params=None):
-    #     return self.es.indices.flush(index=index, params=params)
-    #
-    #
-    # @query_params("allow_no_indices",
-    #               "expand_wildcards",
-    #               "ignore_unavailable")
-    # @MockEsCommon.Decor.operation_mock(WesDefs.OP_IND_REFRESH)
-    # def ind_refresh(self, index=None, params=None):
-    #     return self.es.indices.refresh(index=index, params=params)
-    #
+
+
+    @query_params(
+        "allow_no_indices",
+        "expand_wildcards",
+        "force",
+        "ignore_unavailable",
+        "wait_if_ongoing",)
+    @MockEsCommon.Decor.operation_mock(WesDefs.OP_IND_FLUSH)
+    def flush(self, index=None, params=None):
+        """
+        Explicitly flush one or more indices.
+        `<http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-flush.html>`_
+
+        :arg index: A comma-separated list of index names; use `_all` or empty
+            string for all indices
+        :arg allow_no_indices: Whether to ignore if a wildcard indices
+            expression resolves into no concrete indices. (This includes `_all`
+            string or when no indices have been specified)
+        :arg expand_wildcards: Whether to expand wildcard expression to concrete
+            indices that are open, closed or both., default 'open', valid
+            choices are: 'open', 'closed', 'none', 'all'
+        :arg force: Whether a flush should be forced even if it is not
+            necessarily needed ie. if no changes will be committed to the index.
+            This is useful if transaction log IDs should be incremented even if
+            no uncommitted changes are present. (This setting can be considered
+            as internal)
+        :arg ignore_unavailable: Whether specified concrete indices should be
+            ignored when unavailable (missing or closed)
+        :arg wait_if_ongoing: If set to true the flush operation will block
+            until the flush can be executed if another flush operation is
+            already executing. The default is true. If set to false the flush
+            will be skipped iff if another flush operation is already running.
+        """
+        return True
+
+    @query_params("allow_no_indices",
+                  "expand_wildcards",
+                  "ignore_unavailable")
+    @MockEsCommon.Decor.operation_mock(WesDefs.OP_IND_REFRESH)
+    def refresh(self, index=None, params=None):
+        """
+        Explicitly refresh one or more index, making all operations performed
+        since the last refresh available for search.
+        `<http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-refresh.html>`_
+
+        :arg index: A comma-separated list of index names; use `_all` or empty
+            string to perform the operation on all indices
+        :arg allow_no_indices: Whether to ignore if a wildcard indices
+            expression resolves into no concrete indices. (This includes `_all`
+            string or when no indices have been specified)
+        :arg expand_wildcards: Whether to expand wildcard expression to concrete
+            indices that are open, closed or both., default 'open', valid
+            choices are: 'open', 'closed', 'none', 'all'
+        :arg ignore_unavailable: Whether specified concrete indices should be
+            ignored when unavailable (missing or closed)
+        """
+        return {'_shards': {'total': 2, 'successful': 2, 'failed': 0}}
+
     @query_params(
         "allow_no_indices",
         "expand_wildcards",
@@ -324,16 +387,16 @@ class MockEsIndicesClient:
         # if index in SKIP_IN_PATH:
         #     raise ValueError("Empty value passed for a required argument 'index'.")
 
-        searchable_indexes = self.parent._normalize_index_to_list(index)
+        searchable_indexes = MockEsCommon.normalize_index_to_list(self, index)
 
-        for_all = self.parent._apply_all_indicies(WesDefs.OP_IND_GET_MAP, searchable_indexes)
+        for_all = MockEsCommon.apply_all_indicies(WesDefs.OP_IND_GET_MAP, searchable_indexes)
 
         ret_dict = {}
         for idx in self.parent.documents_dict.keys():
             if for_all or idx in searchable_indexes:
                 ret_dict[idx] = {
-                    'mappings': self.parent.get_idx_mappings(idx),
-                    'settings': self.parent.get_idx_settings(idx)
+                    'mappings': MockEsCommon.get_idx_mappings(self, idx),
+                    'settings': MockEsCommon.get_idx_settings(self, idx)
                 }
 
         return ret_dict
@@ -417,25 +480,55 @@ class MockEs(MockEsCommon):
     # #####################
     # # doc operations
     # #####################
-    # @query_params(
-    #     "if_seq_no",
-    #     "if_primary_term",
-    #     "op_type",
-    #     "parent",
-    #     "pipeline",
-    #     "refresh",
-    #     "routing",
-    #     "timeout",
-    #     "timestamp",
-    #     "ttl",
-    #     "version",
-    #     "version_type",
-    #     "wait_for_active_shards",)
-    # @MockEsCommon.Decor.operation_mock(WesDefs.OP_DOC_ADD_UP)
-    # def doc_addup(self, index, body, doc_type="_doc", id=None, params=None):
-    #     # TODO petee 'id' is important for get - shouldn't be mandatory???
-    #     # TODO petee 'doc_type' is important for get - shouldn't be mandatory???
-    #     return self.es.index(index, body, doc_type=doc_type, id=id, params=params)
+    @query_params(
+        "if_seq_no",
+        "if_primary_term",
+        "op_type",
+        "parent",
+        "pipeline",
+        "refresh",
+        "routing",
+        "timeout",
+        "timestamp",
+        "ttl",
+        "version",
+        "version_type",
+        "wait_for_active_shards",)
+    @MockEsCommon.Decor.operation_mock(WesDefs.OP_DOC_ADD_UP)
+    def index(self, index, body, doc_type="_doc", id=None, params=None):
+        # TODO petee 'id' is important for get - shouldn't be mandatory???
+        # TODO petee 'doc_type' is important for get - shouldn't be mandatory???
+        if index not in self.documents_dict:
+            self.indices.create(index,
+                                # body=body, TODO can be mappings settings included???
+                                params=params)
+
+        docs = MockEsCommon.get_idx_docs(self, index)
+        doc_found = docs.get(id, None)
+        if id is None:
+            id = get_random_id()
+
+
+        version = doc_found['_version'] if doc_found else 1
+
+        MockEsCommon.get_idx_docs(self, index)[id] = {
+            '_type': doc_type,
+            '_id': id,
+            '_source': body,
+            '_index': index,
+            '_version': version,
+        }
+
+        return {
+            '_type': doc_type,
+            '_id': id,
+            'created':  False if doc_found else True,
+            '_version': version,
+            '_index': index,
+            'result': 'updated' if doc_found else 'created',
+            '_shards': {'total': 2, 'successful': 1, 'failed': 0}  # keep hardcoded
+        }
+
     #
     # @query_params(
     #     "_source",
@@ -462,42 +555,135 @@ class MockEs(MockEsCommon):
     #     # TODO petee 'doc_type' is important for get - shouldn't be mandatory???
     #     return self.es.update(index, id, doc_type=doc_type, body=body, params=params)
 
-    # @query_params(
-    #     "_source",
-    #     "_source_exclude",
-    #     "_source_excludes",
-    #     "_source_include",
-    #     "_source_includes",
-    #     "parent",
-    #     "preference",
-    #     "realtime",
-    #     "refresh",
-    #     "routing",
-    #     "stored_fields",
-    #     "version",
-    #     "version_type",)
-    # @MockEsCommon.Decor.operation_mock(WesDefs.OP_DOC_GET)
-    # def doc_get(self, index, id, doc_type="_doc", params=None):
-    #     return self.es.get(index, id, doc_type=doc_type, params=params)
-    #
-    # @query_params(
-    #     "_source",
-    #     "_source_exclude",
-    #     "_source_excludes",
-    #     "_source_include",
-    #     "_source_includes",
-    #     "parent",
-    #     "preference",
-    #     "realtime",
-    #     "refresh",
-    #     "routing",
-    #     "stored_fields",
-    #     "version",
-    #     "version_type",)
-    # @MockEsCommon.Decor.operation_mock(WesDefs.OP_DOC_EXIST)
-    # def doc_exists(self, index, id, doc_type="_doc", params=None):
-    #     # TODO petee 'doc_type' is important for get - shouldn't be mandatory???
-    #     return self.es.exists(index, id, doc_type=doc_type, params=params)
+    @query_params(
+        "_source",
+        "_source_exclude",
+        "_source_excludes",
+        "_source_include",
+        "_source_includes",
+        "parent",
+        "preference",
+        "realtime",
+        "refresh",
+        "routing",
+        "stored_fields",
+        "version",
+        "version_type",)
+    @MockEsCommon.Decor.operation_mock(WesDefs.OP_DOC_GET)
+    def get(self, index, id, doc_type="_doc", params=None):
+        """
+        Get a typed JSON document from the index based on its id.
+        `<http://www.elastic.co/guide/en/elasticsearch/reference/current/docs-get.html>`_
+
+        :arg index: The name of the index
+        :arg id: The document ID
+        :arg _source: True or false to return the _source field or not, or a
+            list of fields to return
+        :arg _source_exclude: A list of fields to exclude from the returned
+            _source field
+        :arg _source_include: A list of fields to extract and return from the
+            _source field
+        :arg parent: The ID of the parent document
+        :arg preference: Specify the node or shard the operation should be
+            performed on (default: random)
+        :arg realtime: Specify whether to perform the operation in realtime or
+            search mode
+        :arg refresh: Refresh the shard containing the document before
+            performing the operation
+        :arg routing: Specific routing value
+        :arg stored_fields: A comma-separated list of stored fields to return in
+            the response
+        :arg version: Explicit version number for concurrency control
+        :arg version_type: Specific version type, valid choices are: 'internal',
+            'external', 'external_gte', 'force'
+        """
+        for param in (index, id):
+            if param in SKIP_IN_PATH:
+                raise ValueError("Empty value passed for a required argument.")
+
+        result = None
+
+        docs = MockEsCommon.get_idx_docs(self, index)
+
+        for doc_id in docs:
+            doc = docs[doc_id]
+            if doc.get('_id') == id:
+                if doc_type == '_all':
+                    result = doc
+                    break
+                else:
+                    if doc.get('_type') == doc_type:
+                        result = doc
+                        break
+
+        if result:
+            result['found'] = True
+        else:
+            error_data = {
+                '_index': index,
+                '_type': doc_type,
+                '_id': id,
+                'found': False
+            }
+            self.raiseNotFound([error_data], index)
+
+        return result
+
+
+    @query_params(
+        "_source",
+        "_source_exclude",
+        "_source_excludes",
+        "_source_include",
+        "_source_includes",
+        "parent",
+        "preference",
+        "realtime",
+        "refresh",
+        "routing",
+        "stored_fields",
+        "version",
+        "version_type",)
+    @MockEsCommon.Decor.operation_mock(WesDefs.OP_DOC_EXIST)
+    def exists(self, index, id, doc_type="_doc", params=None):
+        """
+        Returns a boolean indicating whether or not given document exists in Elasticsearch.
+        `<http://www.elastic.co/guide/en/elasticsearch/reference/current/docs-get.html>`_
+
+        :arg index: The name of the index
+        :arg id: The document ID
+        :arg _source: True or false to return the _source field or not, or a
+            list of fields to return
+        :arg _source_exclude: A list of fields to exclude from the returned
+            _source field
+        :arg _source_include: A list of fields to extract and return from the
+            _source field
+        :arg parent: The ID of the parent document
+        :arg preference: Specify the node or shard the operation should be
+            performed on (default: random)
+        :arg realtime: Specify whether to perform the operation in realtime or
+            search mode
+        :arg refresh: Refresh the shard containing the document before
+            performing the operation
+        :arg routing: Specific routing value
+        :arg stored_fields: A comma-separated list of stored fields to return in
+            the response
+        :arg version: Explicit version number for concurrency control
+        :arg version_type: Specific version type, valid choices are: 'internal',
+            'external', 'external_gte', 'force'
+        """
+        for param in (index, id):
+            if param in SKIP_IN_PATH:
+                raise ValueError("Empty value passed for a required argument.")
+
+        result = False
+        ind_dict = MockEsCommon.get_dict(self)
+        if index in ind_dict:
+            docs = MockEsCommon.get_idx_docs(self, index)
+            if id in docs and docs[id]['_type'] == doc_type:
+                result = True
+        return result
+
 
     # @query_params(
     #     "if_seq_no",
