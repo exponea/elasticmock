@@ -33,7 +33,7 @@ ExecCode = namedtuple('ExecCode', 'status data fnc_params')
 
 class WesCommon():
 
-    ES_VERSION_RUNNING = WesDefs.ES_VERSION_5_6_5
+    ES_VERSION_RUNNING = WesDefs.ES_VERSION_DEFAULT
 
     def _dump_exeption(self, oper, rc: ExecCode, is_l1, log_fnc, key_str='???'):
         # ImproperlyConfigured(Exception)

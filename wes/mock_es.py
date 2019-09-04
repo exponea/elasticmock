@@ -234,10 +234,12 @@ class MockEsQuery:
 class MockEsCommon:
 
     def __init__(self):
+        self.ES_VERSION_RUNNING = WesDefs.ES_VERSION_DEFAULT
         self.documents_dict = {}
         self.scrolls = {}
 
-    def raiseNotFound(self, e_list, idx):
+    @staticmethod
+    def raiseNotFound(e_list, idx):
         error_data = {'error': {'root_cause': e_list,
                                 'type': 'index_not_found_exception',
                                 'reason': 'no such index',
@@ -249,7 +251,8 @@ class MockEsCommon:
         e_error = e_info
         raise NotFoundError(404, e_info, e_error)
 
-    def raiseRequestError(self, e_list, idx):
+    @staticmethod
+    def raiseRequestError(e_list, idx):
         error_data = {'error': {'root_cause': e_list,
                                 'type': 'index_already_exists_exception',
                                 'reason': '???',
@@ -385,7 +388,7 @@ class MockEsIndicesClient:
         settings = body.get('settings', {}) if body else {}
 
         if searchable_indexes[0] in self.parent.documents_dict:
-            self.parent.raiseRequestError(['???'], searchable_indexes[0])
+            MockEsCommon.raiseRequestError(['???'], searchable_indexes[0])
         else:
             self.parent.documents_dict[searchable_indexes[0]] = {
                 'docs': {},
@@ -486,7 +489,7 @@ class MockEsIndicesClient:
             if len(err_list) == 0:
                 return {'acknowledged': True}
             else:
-                self.parent.raiseNotFound(err_list, first_idx)
+                MockEsCommon.raiseNotFound(err_list, first_idx)
 
     # @query_params(
     #     "allow_no_indices",
@@ -588,8 +591,13 @@ class MockEsIndicesClient:
             type name (default: depends on Elasticsearch version).
         :arg master_timeout: Specify timeout for connection to master
         """
+        # TODO check later
         # if index in SKIP_IN_PATH:
-        #     raise ValueError("Empty value passed for a required argument 'index'.")
+        #      raise ValueError("Empty value passed for a required argument 'index'.")
+
+        if self.parent.ES_VERSION_RUNNING == WesDefs.ES_VERSION_5_6_5:
+            if doc_type and ('include_type_name' in params):
+                MockEsCommon.raiseRequestError([f"illegal_argument_exception - request [/{index}/_mapping/{doc_type}] contains unrecognized parameter [include_type_name]"], index)
 
         searchable_indexes = MockEsCommon.normalize_index_to_list(self, index)
 
@@ -829,7 +837,7 @@ class MockEs(MockEsCommon):
                 '_id': id,
                 'found': False
             }
-            self.raiseNotFound([error_data], index)
+            MockEsCommon.raiseNotFound([error_data], index)
 
         return result
 

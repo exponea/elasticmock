@@ -2,6 +2,7 @@ class WesDefs():
     # Elasticsearch version
     ES_VERSION_7_3_0 = '7.3.0'
     ES_VERSION_5_6_5 = '5.6.5'
+    ES_VERSION_DEFAULT = ES_VERSION_5_6_5
 
     def es_version_mismatch(self):
         raise ValueError(f"ES_VERSION_RUNNING is unknown - {self.ES_VERSION_RUNNING}")
