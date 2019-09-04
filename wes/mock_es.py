@@ -39,48 +39,48 @@ class MockEsQuery:
 
     def __init__(self, operation, body):
         self.q_oper = operation
-        self._q_match_rules = []
-        self._q_size = None
-        self._q_from = None
-        self._q_query = None
-        self._q_query_name = None
+        self.q_match_rules = []
+        self.q_size = None
+        self.q_from = None
+        self.q_query = None
+        self.q_query_name = None
 
         self.parser(body)
 
     def parser(self, body):
 
         if body:
-            self._q_size = body.get('size', None)
-            self._q_from = body.get('from', None)
-            self._q_query = body.get('query', None)
+            self.q_size = body.get('size', None)
+            self.q_from = body.get('from', None)
+            self.q_query = body.get('query', None)
 
-            if not self._q_query:
+            if not self.q_query:
                 raise ValueError("'query' missing in body")
 
-            self._q_query_name = list(self._q_query.keys())
+            self.q_query_name = list(self.q_query.keys())
 
-            if len(self._q_query_name) != 1:
-                raise ValueError(f"body contains more queries {self._q_query_name}")
+            if len(self.q_query_name) != 1:
+                raise ValueError(f"body contains more queries {self.q_query_name}")
 
-            name = self._q_query_name[0]
-            self._q_query_name = name
-            q_data = (name, self._q_query[name])
+            name = self.q_query_name[0]
+            self.q_query_name = name
+            q_data = (name, self.q_query[name])
 
         else:
-            self._q_query_name = "match_all"
-            q_data = ("match_all", "")
+            self.q_query_name = "match_all"
+            q_data = ("match_all", {})
 
-        self._q_match_rules.append(q_data)
+        self.q_match_rules.append(q_data)
 
         print("MSE PARSER --- body  ", body)
-        Log.err2(f"{self.q_oper} Q_NAME: {self._q_query_name} Q_RULES: {self._q_match_rules}")
+        Log.err2(f"{self.q_oper} Q_NAME: {self.q_query_name} Q_RULES: {self.q_match_rules}")
 
 
-    def q_exec(self, doc):
+    def q_exec_on_doc(self, doc):
         q_match_results = []
-        print("MSE DBG ---", self._q_match_rules)
-        for q_data in self._q_match_rules:
-            print("MSE DBG ---", q_data)
+        # print("MSE DBG ---", self.q_match_rules)
+        for q_data in self.q_match_rules:
+            # print("MSE DBG ---", q_data)
             fnc_name, data_to_match = q_data
             fnc = self.q_mapper(fnc_name)
             q_match_results.append(fnc(self, data_to_match, doc))
@@ -990,7 +990,7 @@ class MockEs(MockEsCommon):
             searchable_indexes = MockEsCommon.get_dict(self).keys()
 
         matches = []
-        q = MockEsQuery(WesDefs.OP_DOC_SEARCH, body)
+        query = MockEsQuery(WesDefs.OP_DOC_SEARCH, body)
 
         print("MSE --->>", searchable_indexes)
         for search_idx in searchable_indexes:
@@ -998,13 +998,12 @@ class MockEs(MockEsCommon):
             #print("MSE --->>", str(docs))
             for doc_id in docs:
                 doc = docs[doc_id]
-                print("MSE --->>", str(doc))
-                if q.q_exec(doc):
+                #print("MSE --->>", str(doc))
+                if query.q_exec_on_doc(doc):
                     print("MSE --->> MATCH ", str(doc))
                     matches.append(doc)
                 else:
-                    pass # use query
-                    print("MSE --->> PASS ", str(doc))
+                    print("MSE --->> MISS ", str(doc))
 
         result = {
             'hits': {
@@ -1022,7 +1021,13 @@ class MockEs(MockEsCommon):
         }
 
         hits = []
-        for match in matches:
+        for counter, match in enumerate(matches):
+            # print(counter, " --- BEFORE: size", query.q_size, " from ", query.q_from,  match)
+            if query.q_size and len(hits) >= query.q_size:
+                break
+            if query.q_from and counter < query.q_from:
+                continue
+            # print(counter, " --- AFTER  ", match)
             match['_score'] = 1.0
             hits.append(match)
 

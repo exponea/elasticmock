@@ -160,6 +160,7 @@ class TestWes(TestWesHelper):
         body = {"from": 0, "size": 2,
                 "query": {"match_all": {}}}
         rc = self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))
+        self.assertEqual(2, len(self.wes.doc_search_result_hits_sources(rc)))
         self.assertEqual(2, len(rc.data['hits']['hits']))
 
         ######################################################################################################################
