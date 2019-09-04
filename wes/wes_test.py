@@ -163,7 +163,7 @@ class TestWes(TestWesHelper):
         self.assertEqual(2, len(self.wes.doc_search_result_hits_sources(rc)))
 
         ######################################################################################################################
-        # MSE_NOTES: #5 QUERY(match) MATCH(subSentence+wholeWord) CASE(inSensitive)
+        # MSE_NOTES: #5 QUERY(match) MATCH(subSentence+wholeWord) CASE(in-sensitive)
         ######################################################################################################################
         body = {"from": 0, "size": 10,
                 #"query": {"match": {}} EXCEPTION:  400 - parsing_exception - No text specified for text query
@@ -187,11 +187,16 @@ class TestWes(TestWesHelper):
         self.assertEqual(2, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
 
         ######################################################################################################################
-        # MSE_NOTES: #7 QUERY(term) MATCH(exact) CASE(in-sensitive)
+        # MSE_NOTES: #7 QUERY(term) MATCH(exact BUT lookup is stored with striped WHITESPACES) CASE(in-sensitive)
         ######################################################################################################################
         body = {"from": 0, "size": 10,
                 "query": {"term": {"country": "slovakia"}}}
         self.assertEqual(2, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
+
+        body = {"from": 0, "size": 10,
+                "query": {"term": {"country": "slovakia "}}}  # MSE_NOTES: MATCH(exact BUT lookup is stored with striped WHITESPACES)
+        self.assertEqual(0, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
+
 
         body = {"from": 0, "size": 10,
                 "query": {"term": {"sentence": "slovakia is"}}}

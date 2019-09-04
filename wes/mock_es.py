@@ -20,6 +20,7 @@ from elasticsearch.helpers.errors import BulkIndexError
 from elasticsearch.helpers.errors import ScanError
 from elasticsearch.helpers.actions import expand_action
 
+import re
 import json
 import sys
 PY3 = sys.version_info[0] == 3
@@ -110,10 +111,39 @@ class MockEsQuery:
         return True
 
     def q_match_phrase(self, data_to_match, doc):
-        raise ValueError("not implemented q_match_phrase")
+
+        for feature in data_to_match.keys():
+            if feature[0] == '_':
+                val_in_doc = doc[feature]
+            else:
+                val_in_doc = doc['_source'][feature]
+
+            val_in_doc = val_in_doc.lower()
+            val_in_query = data_to_match[feature].lower()
+
+            # MSE_NOTE: 'in 'does not work for WHOLE WORDS
+            # 'if val_in_query not in val_in_doc:'
+            if re.search(r"\b{}\b".format(val_in_query), val_in_doc, re.IGNORECASE) is None:
+                return False
+
+        return True
 
     def q_term(self, data_to_match, doc):
-        raise ValueError("not implemented q_term")
+
+        for feature in data_to_match.keys():
+            if feature[0] == '_':
+                val_in_doc = doc[feature]
+            else:
+                val_in_doc = doc['_source'][feature]
+
+            # MSE_NOTES: MATCH(exact BUT lookup is stored with striped WHITESPACES)
+            val_in_doc = val_in_doc.lower().strip()
+            val_in_query = data_to_match[feature].lower()
+
+            if not val_in_doc == val_in_query:
+                return False
+
+        return True
 
     def q_bool(self, data_to_match, doc):
         raise ValueError("not implemented q_bool")
