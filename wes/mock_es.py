@@ -40,11 +40,12 @@ class MockEsQuery:
 
     def __init__(self, operation, body):
         self.q_oper = operation
-        self.q_match_rules = []
+        self.q_query_rules = None
         self.q_size = None
         self.q_from = None
         self.q_query = None
         self.q_query_name = None
+        self.q_level = 0
 
         self.parser(body)
 
@@ -63,60 +64,61 @@ class MockEsQuery:
             if len(self.q_query_name) != 1:
                 raise ValueError(f"body contains more queries {self.q_query_name}")
 
-            name = self.q_query_name[0]
-            self.q_query_name = name
-            q_data = (name, self.q_query[name])
+            self.q_query_name = self.q_query_name[0]
+            self.q_query_rules = self.q_query[self.q_query_name]
 
         else:
             self.q_query_name = "match_all"
-            q_data = ("match_all", {})
+            self.q_query_rules = {}
 
-        self.q_match_rules.append(q_data)
+        Log.log(f"{self.q_oper} Q_NAME: {self.q_query_name} - Q_RULES: {self.q_query_rules}")
 
-        print("MSE PARSER --- body  ", body)
-        Log.err2(f"{self.q_oper} Q_NAME: {self.q_query_name} Q_RULES: {self.q_match_rules}")
+    def get_indentation_string(self):
+        return f"{self.q_oper} {'--'*self.q_level}>"
 
 
-    def q_exec_on_doc(self, doc):
-        q_match_results = []
-        # print("MSE DBG ---", self.q_match_rules)
-        for q_data in self.q_match_rules:
-            # print("MSE DBG ---", q_data)
-            fnc_name, data_to_match = q_data
-            fnc = self.q_mapper(fnc_name)
-            q_match_results.append(fnc(self, data_to_match, doc))
+    def q_exec_on_doc(self, prefix, db_idx, db_doc, fnc_name, data_to_match) -> bool:
+        self.q_level += 1
+        q_xxx_fnc = self.q_mapper(fnc_name)
+        rc = q_xxx_fnc(self, prefix, db_idx, db_doc, data_to_match)
+        if self.q_level == 1:
+            Log.log(f"{self.get_indentation_string()} {'MATCH' if rc else 'MISS '}  >>> idx:{db_idx} dos:{str(db_doc)}")
+        self.q_level -= 1
+        return rc
 
-        if len(q_match_results) != 1:
-            raise ValueError("more rules not supported now")
+    def q_match_all(self, prefix, db_idx, db_doc, data_to_match) -> bool:
+        rc = True
+        if not prefix:
+            Log.log(f"{self.get_indentation_string()} Q_NAME: match - RC-[{rc}]")
+        return rc
 
-        return q_match_results[0]
+    def q_match(self, prefix, db_idx, db_doc, data_to_match) -> bool:
 
-    def q_match_all(self, data_to_match, doc):
-        return True
-
-    def q_match(self, data_to_match, doc):
-
+        rc = True
         for feature in data_to_match.keys():
             if feature[0] == '_':
-                val_in_doc = doc[feature]
+                val_in_doc = db_doc[feature]
             else:
-                val_in_doc = doc['_source'][feature]
+                val_in_doc = db_doc['_source'][feature]
 
             val_in_query = data_to_match[feature].lower()
 
             res = (val_in_query == word.lower() for word in val_in_doc.split())
             if True not in res:
-                return False
+                rc = False
 
-        return True
+        if not prefix:
+            Log.log(f"{self.get_indentation_string()} Q_NAME: match - RC-[{rc}]")
+        return rc
 
-    def q_match_phrase(self, data_to_match, doc):
+    def q_match_phrase(self, prefix, db_idx, db_doc, data_to_match) -> bool:
 
+        rc = True
         for feature in data_to_match.keys():
             if feature[0] == '_':
-                val_in_doc = doc[feature]
+                val_in_doc = db_doc[feature]
             else:
-                val_in_doc = doc['_source'][feature]
+                val_in_doc = db_doc['_source'][feature]
 
             val_in_doc = val_in_doc.lower()
             val_in_query = data_to_match[feature].lower()
@@ -124,29 +126,94 @@ class MockEsQuery:
             # MSE_NOTE: 'in 'does not work for WHOLE WORDS
             # 'if val_in_query not in val_in_doc:'
             if re.search(r"\b{}\b".format(val_in_query), val_in_doc, re.IGNORECASE) is None:
-                return False
+                rc = False
+                break
 
-        return True
+        if not prefix:
+            Log.log(f"{self.get_indentation_string()} Q_NAME: match_phrase - RC-[{rc}]")
+        return rc
 
-    def q_term(self, data_to_match, doc):
+    def q_term(self, prefix, db_idx, db_doc, data_to_match) -> bool:
 
+        rc = True
         for feature in data_to_match.keys():
             if feature[0] == '_':
-                val_in_doc = doc[feature]
+                val_in_doc = db_doc[feature]
             else:
-                val_in_doc = doc['_source'][feature]
+                val_in_doc = db_doc['_source'][feature]
 
             # MSE_NOTES: MATCH(exact BUT lookup is stored with striped WHITESPACES)
             val_in_doc = val_in_doc.lower().strip()
             val_in_query = data_to_match[feature].lower()
 
             if not val_in_doc == val_in_query:
-                return False
+                rc = False
+                break
 
-        return True
+        if not prefix:
+            Log.log(f"{self.get_indentation_string()} Q_NAME: term - RC-[{rc}]")
 
-    def q_bool(self, data_to_match, doc):
-        raise ValueError("not implemented q_bool")
+        return rc
+
+    def q_regexp(self, prefix, db_idx, db_doc, data_to_match) -> bool:
+
+        rc = True
+        for feature in data_to_match.keys():
+            if feature[0] == '_':
+                val_in_doc = db_doc[feature]
+            else:
+                val_in_doc = db_doc['_source'][feature]
+
+            val_in_query = data_to_match[feature]
+
+            if re.search(val_in_query, val_in_doc) is None:
+                rc = False
+                break
+
+        if not prefix:
+            Log.log(f"{self.get_indentation_string()} Q_NAME: regexp - RC-[{rc}]")
+
+        return rc
+
+    def q_bool_helper(self, rules: tuple, data_to_match, db_idx, db_doc) -> bool:
+
+        rules_name, rules_continue_fnc = rules
+        rules_dict = data_to_match.get(rules_name, None)
+        rc = None
+        if rules_dict:
+            rc = True
+            for fnc_name in rules_dict.keys():
+                data_to_match2 = rules_dict[fnc_name]
+                rc_partial = self.q_exec_on_doc(rules_name, db_idx, db_doc, fnc_name, data_to_match2)
+                keep_going = rules_continue_fnc(rc_partial)
+                Log.log(f"{self.get_indentation_string()} Q_NAME: bool[{rules_name:8}] RC[{keep_going}]")
+                if keep_going:
+                    pass
+                else:
+                    rc = False
+                    break
+        return rc
+
+
+    def q_bool(self, prefix, db_idx, db_doc, data_to_match):
+
+        rc_must     = self.q_bool_helper(('must'    , lambda rc: rc), data_to_match, db_idx, db_doc)
+        rc_filter   = self.q_bool_helper(('filter'  , lambda rc: rc), data_to_match, db_idx, db_doc)
+        rc_must_not = self.q_bool_helper(('must_not', lambda rc: rc is False), data_to_match, db_idx, db_doc)
+        rc_should   = self.q_bool_helper(('should'  , lambda rc: rc), data_to_match, db_idx, db_doc)
+
+        res = f"{self.get_indentation_string()} Q_NAME: bool[rc_must({rc_must}) rc_filter({rc_filter}) rc_must_not({rc_must_not}) rc_should({rc_should})]"
+
+        if rc_must_not is False:
+            Log.log(f"{res} CASE(1)")
+            return False
+
+        if rc_must or rc_filter or rc_should:
+            Log.log(f"{res} CASE(2)")
+            return True
+
+        Log.log(f"{res} CASE(3)")
+        return False
 
     def q_mapper(self, query: str):
         q_mapper = {
@@ -154,9 +221,14 @@ class MockEsQuery:
             "match":        MockEsQuery.q_match,
             "match_phrase": MockEsQuery.q_match_phrase,
             "term":         MockEsQuery.q_term,
+            "regexp":       MockEsQuery.q_regexp,
             "bool":         MockEsQuery.q_bool,
         }
-        return q_mapper[query]
+
+        rc = q_mapper.get(query, None)
+        if not rc:
+            raise ValueError(f"not implemented {query}")
+        return rc
 
 
 class MockEsCommon:
@@ -1035,18 +1107,12 @@ class MockEs(MockEsCommon):
         matches = []
         query = MockEsQuery(WesDefs.OP_DOC_SEARCH, body)
 
-        print("MSE --->>", searchable_indexes)
         for search_idx in searchable_indexes:
             docs = MockEsCommon.get_idx_docs(self, search_idx)
-            #print("MSE --->>", str(docs))
             for doc_id in docs:
                 doc = docs[doc_id]
-                #print("MSE --->>", str(doc))
-                if query.q_exec_on_doc(doc):
-                    print("MSE --->> MATCH ", str(doc))
+                if query.q_exec_on_doc(None, search_idx, doc, query.q_query_name, query.q_query_rules):
                     matches.append(doc)
-                else:
-                    print("MSE --->> MISS ", str(doc))
 
         result = {
             'hits': {

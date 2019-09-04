@@ -214,24 +214,41 @@ class TestWes(TestWesHelper):
 
         # 1 QUERY(match) MATCH(subSentence+wholeWord) CASE(in-sensitive)
         q1 = {"match": {"sentence": "slovakia"}}
-        self.assertEqual(4, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body={"query": q1}))))
+        rc = self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body={"query": q1}))
+        self.assertEqual(4, self.wes.doc_search_result_hits_nb(rc))
+        documents = self.wes.doc_search_result_hits_sources(rc)
+        for doc in documents:
+            self.assertTrue(int(doc['_id']) in [1, 3, 4, 5])  # except doc _id==2
+
         # 2 QUERY(match) MATCH(subSentence+wholeWord) CASE(in-sensitive)
         q2 = {"match": {"sentence": "small"}}                                                   # MSE_NOTES:
-        self.assertEqual(2, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body={"query": q2}))))
+        rc = self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body={"query": q2}))
+        self.assertEqual(2, self.wes.doc_search_result_hits_nb(rc))
+        documents = self.wes.doc_search_result_hits_sources(rc)
+        for doc in documents:
+            self.assertTrue(int(doc['_id']) in [4, 5])
 
-        Log.notice("--------------------------------------------------------------------------------------")
         ######################################################################################################################
         # MSE_NOTES: #3 QUERY(bool) MATCH(must, must_not, should) CASE(in-sensitive)
         #   - must, must_not, should(improving relevance score, if none 'must' presents at least 1 'should' be present)
         ######################################################################################################################
         body = {"query": {"bool": {"must_not": q2, "should": q1}}}
-        self.assertEqual(2, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
+        rc = self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))
+        self.assertEqual(2, self.wes.doc_search_result_hits_nb(rc))
+        documents = self.wes.doc_search_result_hits_sources(rc)
+        for doc in documents:
+            self.assertTrue(int(doc['_id']) in [1, 3])
 
         ######################################################################################################################
-        # MSE_NOTES: #4 QUERY(regexp) MATCH(regexp) CASE(in-sensitive)
+        # MSE_NOTES: #4 QUERY(regexp) MATCH(regexp) CASE()
         ######################################################################################################################
-        q3 = {"regexp": {"sentence": ".*"}}
-        self.assertEqual(5, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body={"query": q3}))))
+        q3 = {"regexp": {"sentence": "sma.*"}}
+        rc = self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body={"query": q3}))
+        self.assertEqual(2, self.wes.doc_search_result_hits_nb(rc))
+        documents = self.wes.doc_search_result_hits_sources(rc)
+        for doc in documents:
+            self.assertTrue(int(doc['_id']) in [4, 5])
+
 
     def test_mappings_get(self):
         # MSE_NOTES: mapping is process of defining how documents looks like (which fields contains, field types, how is filed indexed)
