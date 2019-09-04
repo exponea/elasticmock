@@ -94,7 +94,20 @@ class MockEsQuery:
         return True
 
     def q_match(self, data_to_match, doc):
-        raise ValueError("not implemented q_match")
+
+        for feature in data_to_match.keys():
+            if feature[0] == '_':
+                val_in_doc = doc[feature]
+            else:
+                val_in_doc = doc['_source'][feature]
+
+            val_in_query = data_to_match[feature].lower()
+
+            res = (val_in_query == word.lower() for word in val_in_doc.split())
+            if True not in res:
+                return False
+
+        return True
 
     def q_match_phrase(self, data_to_match, doc):
         raise ValueError("not implemented q_match_phrase")

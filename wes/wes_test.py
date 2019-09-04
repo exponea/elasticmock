@@ -144,7 +144,7 @@ class TestWes(TestWesHelper):
         # QUERY(all)
         ###########################################################
         # MSE_NOTES: #1 search ALL in DB
-        self.assertEqual(WesDefs.RC_OK, self.wes.doc_search_result(self.wes.doc_search()).status)
+        self.assertEqual(5, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search())))
         # MSE_NOTES: #2 search ALL in specific INDICE
         self.assertEqual(5, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search(index=ind_str))))
         # MSE_NOTES: #3 equivalent to #2
@@ -157,11 +157,10 @@ class TestWes(TestWesHelper):
         #               - 'size' - specify RANGE/MAXIMUM from 'hintLIST' <'from', 'from'+'size')
         #               E.G. "size": 0 == returns just COUNT
         ######################################################################################################################
-        body = {"from": 0, "size": 2,
+        body = {"from": 1, "size": 2,
                 "query": {"match_all": {}}}
         rc = self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))
         self.assertEqual(2, len(self.wes.doc_search_result_hits_sources(rc)))
-        self.assertEqual(2, len(rc.data['hits']['hits']))
 
         ######################################################################################################################
         # MSE_NOTES: #5 QUERY(match) MATCH(subSentence+wholeWord) CASE(inSensitive)
@@ -644,7 +643,9 @@ if __name__ == '__main__':
         # suite.addTest(TestWesReal("test_documents_basic"))
         # suite.addTest(TestWesMock("test_documents_basic"))
         # suite.addTest(TestWesReal("test_query_basic"))
+        # suite.addTest(TestWesMock("test_query_basic"))
         # suite.addTest(TestWesReal("test_complex_queries"))
+        # suite.addTest(TestWesMock("test_complex_queries"))
         # suite.addTest(TestWesReal("test_mappings_get"))
         # suite.addTest(TestWesReal("test_mappings_get_put"))
         # suite.addTest(TestWesReal("test_aggregations"))
