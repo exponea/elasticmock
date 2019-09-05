@@ -132,6 +132,30 @@ class TestWes(TestWesHelper):
         else:
             WesDefs.es_version_mismatch(self.ES_VERSION_RUNNING)
 
+    def test_documents_basic_unique_id(self):
+
+        global ind_str
+        global ind_str_doc_type
+        self.indice_cleanup_all(self.wes)
+
+        self.indice_create_exists(self.wes, ind_str)
+        self.documents_create(self.wes, ind_str, ind_str_doc_type)
+        self.assertEqual(5, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search())))
+
+        Log.notice("--------------------------------------------------------------------------------------")
+        # MSE_NOTE: CREATED: IDX(SAME) DOC_TYPE(NEW) 'id' uniques is only on INDICE_DOC_TYPE level
+        doc5 = {"city": "Bratislava4", "country": "SLOVAKIA5", "sentence": "The small COUNTRy is slovakia MSE_DOC_TYPE"}
+        self.assertEqual("created", self.wes.doc_addup_result(self.wes.doc_addup(ind_str, doc5, doc_type="MSE_DOC_TYPE", id=5)).data['result'])
+        self.force_reindex(self.wes)
+        self.assertEqual(6, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search())))
+
+        Log.notice("--------------------------------------------------------------------------------------")
+        # MSE_NOTE: CREATED: IDX(NEW) DOC_TYPE()  it seems that 'id' uniques is only on INDICE_DOC_TYPE level
+        doc6 = {"city": "Bratislava4", "country": "SLOVAKIA5", "sentence": "The small COUNTRy is slovakia mse_index MSE_DOC_TYPE"}
+        self.assertEqual("created", self.wes.doc_addup_result(self.wes.doc_addup('mse_index', doc6, doc_type="MSE_DOC_TYPE", id=5)).data['result'])
+        self.force_reindex(self.wes)
+        self.assertEqual(7, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search())))
+
 
     def test_query_basic(self):
 
@@ -674,6 +698,8 @@ if __name__ == '__main__':
         # suite.addTest(TestWesMock("test_indice_basic"))
         # suite.addTest(TestWesReal("test_documents_basic"))
         # suite.addTest(TestWesMock("test_documents_basic"))
+        # suite.addTest(TestWesReal("test_documents_basic_unique_id"))
+        # suite.addTest(TestWesMock("test_documents_basic_unique_id"))
         # suite.addTest(TestWesReal("test_query_basic"))
         # suite.addTest(TestWesMock("test_query_basic"))
         # suite.addTest(TestWesReal("test_complex_queries"))
