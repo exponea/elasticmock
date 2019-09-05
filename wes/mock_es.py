@@ -242,20 +242,25 @@ class MockEsMeta:
         # db = {
         #     'INDEX_1': {
         #         MockEsMeta.K_IDX_DOCS: {
-        #             'id_doc11': doc11,
-        #             'id_doc12': doc12,
-        #             'id_doc13': doc13,
+        #             'id_doc11': ['doc_type_11',],
+        #             'id_doc12': ['doc_type_11', 'doc_type_13'],
+        #             'id_doc13': ['doc_type_11',],
         #         },
         #         MockEsMeta.K_IDX_DT: {
         #             'doc_type_11': {
-        #                     MockEsMeta.K_DT_DOCS: { 'id_doc11': 'id_doc11', 'id_doc12': 'id_doc12' },
+        #                     MockEsMeta.K_DT_DOCS: { 'id_doc11': doc11, 'id_doc12': doc12_a },
         #                     MockEsMeta.K_DT_MAPS = 'doc_type_11_mappings',
         #                     MockEsMeta.K_DT_SETS = 'doc_type_11_settings',
         #             },
         #             'doc_type_12': {
-        #                     MockEsMeta.K_DT_DOCS: {'id_doc13': 'id_doc13'},
+        #                     MockEsMeta.K_DT_DOCS: {'id_doc13': doc13},
         #                     MockEsMeta.K_DT_MAPS = 'doc_type_12_mappings',
         #                     MockEsMeta.K_DT_SETS = 'doc_type_12_settings',
+        #             }
+        #             'doc_type_13': {
+        #                     MockEsMeta.K_DT_DOCS: {'id_doc13': doc13, 'id_doc12': doc12_b},
+        #                     MockEsMeta.K_DT_MAPS = 'doc_type_13_mappings',
+        #                     MockEsMeta.K_DT_SETS = 'doc_type_13_settings',
         #             }
         #         }
         #     }
@@ -270,32 +275,38 @@ class MockEsMeta:
 
     @staticmethod
     def meta_set_idx_mappings(obj, idx, mappings):
-        MockEsCommon.meta_get_dict(obj)[idx]['mappings'] = mappings
+        MockEsCommon.meta_get_db(obj)[idx]['mappings'] = mappings
 
     @staticmethod
     def meta_set_idx_settings(obj, idx, settings):
-        MockEsCommon.meta_get_dict(obj)[idx]['settings'] = settings
+        MockEsCommon.meta_get_db(obj)[idx]['settings'] = settings
 
     @staticmethod
     def meta_get_idx_mappings(obj, idx):
-        return MockEsCommon.meta_get_dict(obj)[idx]['mappings']
+        return MockEsCommon.meta_get_db(obj)[idx]['mappings']
 
     @staticmethod
     def meta_get_idx_settings(obj, idx):
-        return MockEsCommon.meta_get_dict(obj)[idx]['settings']
+        return MockEsCommon.meta_get_db(obj)[idx]['settings']
 
+    # L1
     @staticmethod
     def meta_get_idx_docs(obj, idx):
-        return MockEsCommon.meta_get_dict(obj)[idx][MockEsMeta.K_IDX_DOCS]
+        return MockEsCommon.meta_get_db(obj)[idx][MockEsMeta.K_IDX_DOCS]
+
+    # L0
+    @staticmethod
+    def meta_get_db_indexes(obj):
+        return MockEsCommon.meta_get_db(obj).keys()
+
+    @staticmethod
+    def meta_get_db(obj):
+        parent = MockEsCommon.get_parent(obj)
+        return parent.documents_dict
 
     @staticmethod
     def get_parent(obj):
         return obj.parent if hasattr(obj, 'parent') else obj
-
-    @staticmethod
-    def meta_get_dict(obj):
-        parent = MockEsCommon.get_parent(obj)
-        return parent.documents_dict
 
 
 class MockEsCommon(MockEsMeta):
@@ -345,7 +356,7 @@ class MockEsCommon(MockEsMeta):
 
     @staticmethod
     def dump_dict(oper, obj):
-        dict_to_print = MockEsCommon.meta_get_dict(obj)
+        dict_to_print = MockEsCommon.meta_get_db(obj)
         dict_print = ''
         for index in dict_to_print.keys():
 
@@ -393,7 +404,7 @@ class MockEsCommon(MockEsMeta):
 
     @staticmethod
     def normalize_index_to_list(obj, index):
-        _dict = MockEsCommon.meta_get_dict(obj)
+        _dict = MockEsCommon.meta_get_db(obj)
         # Ensure to have a list of index
         if index is None:
             searchable_indexes = _dict.keys()
@@ -407,7 +418,7 @@ class MockEsCommon(MockEsMeta):
 
         # # Check index(es) exists
         # for searchable_index in searchable_indexes:
-        #     if searchable_index not in MockEsCommon.meta_get_dict(self):
+        #     if searchable_index not in MockEsCommon.meta_get_db(self):
         #         raise NotFoundError(404, 'IndexMissingException[[{0}] missing]'.format(searchable_index))
 
         return searchable_indexes
@@ -491,10 +502,10 @@ class MockEsIndicesClient:
         mappings = body.get('mappings', {}) if body else {}
         settings = body.get('settings', {}) if body else {}
 
-        if searchable_indexes[0] in MockEsCommon.meta_get_dict(self):
+        if searchable_indexes[0] in MockEsCommon.meta_get_db(self):
             MockEsCommon.raiseRequestError(['???'], 'index_already_exists_exception', searchable_indexes[0])
         else:
-            MockEsCommon.meta_get_dict(self)[searchable_indexes[0]] = {
+            MockEsCommon.meta_get_db(self)[searchable_indexes[0]] = {
                 MockEsMeta.K_IDX_DOCS: {},
                 'mappings': mappings,
                 'settings': settings,
@@ -537,7 +548,7 @@ class MockEsIndicesClient:
         if len(searchable_indexes) > 1:
             raise ValueError("'index' contains more indexes - it cannot be list for now")
 
-        return searchable_indexes[0] in MockEsCommon.meta_get_dict(self)
+        return searchable_indexes[0] in MockEsCommon.meta_get_db(self)
 
 
     @query_params(
@@ -571,13 +582,13 @@ class MockEsIndicesClient:
         searchable_indexes = MockEsCommon.normalize_index_to_list(self, index)
 
         if MockEsCommon.apply_all_indicies(WesDefs.OP_IND_DELETE, searchable_indexes):
-            MockEsCommon.meta_get_dict(self).clear()
+            MockEsCommon.meta_get_db(self).clear()
             return {'acknowledged': True}
         else:
             err_list = []
             first_idx = None
             for idx in searchable_indexes:
-                g_dict = MockEsCommon.meta_get_dict(self)
+                g_dict = MockEsCommon.meta_get_db(self)
                 if idx in g_dict:
                     del g_dict[idx]
                 else:
@@ -713,7 +724,7 @@ class MockEsIndicesClient:
         for_all = MockEsCommon.apply_all_indicies(WesDefs.OP_IND_GET_MAP, searchable_indexes)
 
         ret_dict = {}
-        for idx in MockEsCommon.meta_get_dict(self).keys():
+        for idx in MockEsCommon.meta_get_db_indexes(self):
             if for_all or idx in searchable_indexes:
                 ret_dict[idx] = {
                     'mappings': MockEsCommon.meta_get_idx_mappings(self, idx),
@@ -768,7 +779,7 @@ class MockEsIndicesClient:
 
         searchable_indexes = MockEsCommon.normalize_index_to_list(self, index)
         if MockEsCommon.apply_all_indicies(WesDefs.OP_IND_PUT_MAP, searchable_indexes):
-            searchable_indexes = MockEsCommon.meta_get_dict(self).keys()
+            searchable_indexes = MockEsCommon.meta_get_db_indexes(self)
 
         for idx in searchable_indexes:
             if MockEsCommon.check_running_version(self, WesDefs.ES_VERSION_5_6_5):
@@ -866,7 +877,7 @@ class MockEs(MockEsCommon):
     @MockEsCommon.Decor.operation_mock(WesDefs.OP_DOC_ADD_UP)
     def index(self, index, body, doc_type="_doc", id=None, params=None):
 
-        if index not in MockEsCommon.meta_get_dict(self):
+        if index not in MockEsCommon.meta_get_db(self):
             self.indices.create(index,
                                 body=MockEsCommon.mappings_settings_build_from_doc_body_data(body),
                                 params=params)
@@ -1052,7 +1063,7 @@ class MockEs(MockEsCommon):
                 raise ValueError("Empty value passed for a required argument.")
 
         result = False
-        ind_dict = MockEsCommon.meta_get_dict(self)
+        ind_dict = MockEsCommon.meta_get_db(self)
         if index in ind_dict:
             docs = MockEsCommon.meta_get_idx_docs(self, index)
             if id in docs and docs[id]['_type'] == doc_type:
@@ -1273,7 +1284,7 @@ class MockEs(MockEsCommon):
         searchable_indexes = MockEsCommon.normalize_index_to_list(self, index)
 
         if MockEsCommon.apply_all_indicies(WesDefs.OP_DOC_SEARCH, searchable_indexes):
-            searchable_indexes = MockEsCommon.meta_get_dict(self).keys()
+            searchable_indexes = MockEsCommon.meta_get_db_indexes(self)
 
         matches = []
         query = MockEsQuery(WesDefs.OP_DOC_SEARCH, body)
