@@ -1,4 +1,4 @@
-from common import WesDefs
+from common import WesDefs, TestCommon
 from wes import Wes, ExecCode
 from log import Log
 import unittest
@@ -21,7 +21,7 @@ from zipfile import ZipFile
 from pathlib import Path
 import json
 
-class TestWesJsonHelper(unittest.TestCase):
+class TestWesJsonHelper(TestCommon):
 
     def setUp(self):
         self.wes = Wes()
@@ -313,32 +313,6 @@ class TestWesJsonHelper(unittest.TestCase):
         elif rc_wes.status == WesDefs.RC_EXCE:
             # TODO peete pass exception status number - for T[1.json] L[ 11] there is result(None)
             self.assertEqual(rc_result.status, rc_wes.status)
-
-    def cmp_dict_with_skipp_keys(self, rc: dict, wes: dict, skip_keys: tuple, dbg: bool = False):
-
-        if dbg:
-            Log.log(" -------")
-            Log.log(str(rc))
-            Log.log(str(wes))
-            Log.log(" -------")
-
-        rc_keys = rc.keys()
-        wes_keys = wes.keys()
-        self.assertEqual(rc_keys, wes_keys)
-
-        for k in rc_keys:
-            rc_sub = rc[k]
-            wes_sub = wes[k]
-            if isinstance(rc_sub, dict) and isinstance(wes_sub, dict):
-                self.cmp_dict_with_skipp_keys(rc_sub, wes_sub, skip_keys, dbg)
-            else:
-                res = k + '\n' + str(rc_sub) + '\n' + str(wes_sub)
-                if k in skip_keys:
-                    Log.warn(res)
-                else:
-                    if dbg:
-                        Log.log(res)
-                    self.assertEqual(rc_sub, wes_sub)
 
     def helper_run_unpacked_test(self, wes: Wes, test_name: str, line: int, result, accessor, method, *args, **kwargs):
 

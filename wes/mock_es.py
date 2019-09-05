@@ -20,6 +20,7 @@ from elasticsearch.helpers.errors import BulkIndexError
 from elasticsearch.helpers.errors import ScanError
 from elasticsearch.helpers.actions import expand_action
 
+import datetime
 import re
 import json
 import sys
@@ -31,7 +32,6 @@ from elasticsearch.client.utils import SKIP_IN_PATH
 from elasticmock.utilities import get_random_id, get_random_scroll_id
 
 from common import WesDefs
-
 from log import Log
 
 __all__ = ["MockEs"]
@@ -252,9 +252,9 @@ class MockEsCommon:
         raise NotFoundError(404, e_info, e_error)
 
     @staticmethod
-    def raiseRequestError(e_list, idx):
+    def raiseRequestError(e_list, type, idx):
         error_data = {'error': {'root_cause': e_list,
-                                'type': 'index_already_exists_exception',
+                                'type': type,
                                 'reason': '???',
                                 'resource.type': 'index_or_alias',
                                 'resource.id': idx,
@@ -270,7 +270,7 @@ class MockEsCommon:
         def operation_mock(oper):
             def wrapper_mk(fnc):
                 def wrapper(self, *args, **kwargs):
-                        Log.notice3(f"{oper} is mock")
+                        Log.log(f"{oper} is mock")
                         rc = fnc(self, *args, **kwargs)
                         MockEsCommon.dump_dict(oper, self)
                         return rc
@@ -282,18 +282,31 @@ class MockEsCommon:
         dict_to_print = MockEsCommon.get_dict(obj)
         dict_print = ''
         for index in dict_to_print.keys():
-            dict_print += '\n' + str(index)
+
+            dict_print += '\n' + str(index) + ' IND SETTS: '
+            setts = MockEsCommon.get_idx_settings(obj, index)
+            for s in setts:
+                dict_print += '\n' + str(setts[s])
+
+            dict_print += '\n' + str(index) + ' IND MAPS: '
+            idx_maps = MockEsCommon.get_idx_mappings(obj, index)
+            for idx_map in idx_maps:
+                fields = idx_maps[idx_map]
+                for field in fields:
+                    dict_print += '\n' + '{:>12}: '.format(str(field)) + str(fields[field])
+
+            dict_print += '\n' + str(index) + ' IND DOCS: '
             docs = MockEsCommon.get_idx_docs(obj, index)
             for id in docs:
                 dict_print += '\n' + str(docs[id])
 
-        Log.log(f"{oper} is mock {dict_print}")
+        Log.notice(f"{oper} is mock {dict_print}")
 
     @staticmethod
     def apply_all_indicies(operation, indices: list):
         if operation == WesDefs.OP_IND_GET_MAP:
             return True if len(indices) == 0 else False
-        elif operation == WesDefs.OP_IND_DELETE:
+        elif operation == WesDefs.OP_IND_DELETE or operation == WesDefs.OP_IND_PUT_MAP:
             all_ind_values = ['_all', '*']
             for ind in indices:
                 if ind in all_ind_values:
@@ -308,6 +321,9 @@ class MockEsCommon:
         else:
             raise ValueError(f"{operation} no handling provided")
 
+    @staticmethod
+    def check_running_version(obj, version) -> bool:
+        return  MockEsCommon.get_parent(obj).ES_VERSION_RUNNING == version
 
     @staticmethod
     def normalize_index_to_list(obj, index):
@@ -331,21 +347,77 @@ class MockEsCommon:
         return searchable_indexes
 
     @staticmethod
+    def mappings_properties_from_doc_body(doc_body) -> dict:
+        mapping_dict = {
+            'str': {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}},
+            'int': {'type': 'long'},
+            'float': {'type': 'float'},
+            'datetime': {'type': 'date', 'format': 'yyyy,MM,dd,hh,mm,ss'}
+        }
+
+        properties = {}
+        for field in doc_body:
+            data = doc_body[field]
+            # print('MAPPINGS -->', field, type(data), doc_body[field])
+            if isinstance(data, int):
+                properties[field] = mapping_dict['int']
+            elif isinstance(data, float):
+                properties[field] = mapping_dict['float']
+            elif isinstance(data, str):
+                properties[field] = mapping_dict['str']
+            elif isinstance(data, datetime.datetime):
+                properties[field] = mapping_dict['datetime']
+            else:
+                raise ValueError(f"{type(data)} is not handled")
+
+        #print('MAPPINGS -->', properties)
+
+        return {"properties": properties}
+
+    @staticmethod
+    def mappings_settings_build_from_doc_body_data(doc_body) -> dict:
+        create_body = {
+            'mappings': MockEsCommon.mappings_properties_from_doc_body(doc_body),
+            'settings': {}
+        }
+
+        Log.log(f"MAPS_SETS --> {create_body}")
+        return create_body
+
+    @staticmethod
+    def set_idx_mappings_settings(obj, idx, mappings_settings):
+        MockEsCommon.set_idx_mappings(obj, idx, mappings_settings['mappings'])
+        MockEsCommon.set_idx_settings(obj, idx, mappings_settings['settings'])
+
+    @staticmethod
+    def set_idx_mappings(obj, idx, mappings):
+        MockEsCommon.get_dict(obj)[idx]['mappings'] = mappings
+
+    @staticmethod
+    def set_idx_settings(obj, idx, settings):
+        MockEsCommon.get_dict(obj)[idx]['settings'] = settings
+
+    @staticmethod
     def get_idx_mappings(obj, idx):
-        return MockEsCommon.get_dict(obj).get('mappings', {})
+        return MockEsCommon.get_dict(obj)[idx]['mappings']
 
     @staticmethod
     def get_idx_settings(obj, idx):
-        return MockEsCommon.get_dict(obj).get('settings', {})
+        return MockEsCommon.get_dict(obj)[idx]['settings']
 
     @staticmethod
     def get_idx_docs(obj, idx):
         return MockEsCommon.get_dict(obj)[idx]['docs']
 
     @staticmethod
+    def get_parent(obj):
+        return obj.parent if hasattr(obj, 'parent') else obj
+
+    @staticmethod
     def get_dict(obj):
-        parent_dict = obj.parent.documents_dict if hasattr(obj, 'parent') else obj.documents_dict
-        return parent_dict
+        parent = MockEsCommon.get_parent(obj)
+        return parent.documents_dict
+
 
 class MockEsIndicesClient:
 
@@ -388,7 +460,7 @@ class MockEsIndicesClient:
         settings = body.get('settings', {}) if body else {}
 
         if searchable_indexes[0] in self.parent.documents_dict:
-            MockEsCommon.raiseRequestError(['???'], searchable_indexes[0])
+            MockEsCommon.raiseRequestError(['???'], 'index_already_exists_exception', searchable_indexes[0])
         else:
             self.parent.documents_dict[searchable_indexes[0]] = {
                 'docs': {},
@@ -595,9 +667,13 @@ class MockEsIndicesClient:
         # if index in SKIP_IN_PATH:
         #      raise ValueError("Empty value passed for a required argument 'index'.")
 
-        if self.parent.ES_VERSION_RUNNING == WesDefs.ES_VERSION_5_6_5:
+        if MockEsCommon.check_running_version(self, WesDefs.ES_VERSION_5_6_5):
             if doc_type and ('include_type_name' in params):
-                MockEsCommon.raiseRequestError([f"illegal_argument_exception - request [/{index}/_mapping/{doc_type}] contains unrecognized parameter [include_type_name]"], index)
+                MockEsCommon.raiseRequestError([f"illegal_argument_exception - request [/{index}/_mapping/{doc_type}] contains unrecognized parameter [include_type_name]"],
+                                               "illegal_argument_exception",
+                                               index)
+        else:
+            WesDefs.es_version_mismatch(MockEsCommon.get_parent(self).ES_VERSION_RUNNING)
 
         searchable_indexes = MockEsCommon.normalize_index_to_list(self, index)
 
@@ -612,21 +688,69 @@ class MockEsIndicesClient:
                 }
 
         return ret_dict
-    #
-    # @query_params(
-    #     "allow_no_indices",
-    #     "expand_wildcards",
-    #     "ignore_unavailable",
-    #     "master_timeout",
-    #     "timeout",
-    #     "request_timeout",
-    #     "include_type_name",)
-    # @MockEsCommon.Decor.operation_mock(WesDefs.OP_IND_PUT_MAP)
-    # def ind_put_mapping(self, body, doc_type=None, index=None, params=None):
-    #     # TODO petee 'index' is important - shouldn't be mandatory???
-    #     # TODO petee 'doc_type' is important - shouldn't be mandatory???
-    #     return self.es.indices.put_mapping(body, index=index, doc_type=doc_type, params=params)
-    #
+
+    @query_params(
+        "allow_no_indices",
+        "expand_wildcards",
+        "ignore_unavailable",
+        "master_timeout",
+        "timeout",
+        "request_timeout",
+        "include_type_name",)
+    @MockEsCommon.Decor.operation_mock(WesDefs.OP_IND_PUT_MAP)
+    def put_mapping(self, body, doc_type=None, index=None, params=None):
+        """
+        Register specific mapping definition for a specific type.
+        `<http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-put-mapping.html>`_
+
+        :arg doc_type: The name of the document type
+        :arg body: The mapping definition
+        :arg index: A comma-separated list of index names the mapping should be
+            added to (supports wildcards); use `_all` or omit to add the mapping
+            on all indices.
+        :arg allow_no_indices: Whether to ignore if a wildcard indices
+            expression resolves into no concrete indices. (This includes `_all`
+            string or when no indices have been specified)
+        :arg expand_wildcards: Whether to expand wildcard expression to concrete
+            indices that are open, closed or both., default 'open', valid
+            choices are: 'open', 'closed', 'none', 'all'
+        :arg ignore_unavailable: Whether specified concrete indices should be
+            ignored when unavailable (missing or closed)
+        :arg master_timeout: Specify timeout for connection to master
+        :arg timeout: Explicit operation timeout
+        :arg request_timeout: Explicit operation timeout (For pre 7.x ES Clusters)
+        :arg include_type_name: Specify whether requests and responses should include a
+            type name (default: depends on Elasticsearch version).
+        """
+        for param in (body,):
+            if param in SKIP_IN_PATH:
+                raise ValueError("Empty value passed for a required argument.")
+
+        if MockEsCommon.check_running_version(self, WesDefs.ES_VERSION_5_6_5):
+            if doc_type and ('include_type_name' in params):
+                MockEsCommon.raiseRequestError([f"illegal_argument_exception - request [/{index}/_mapping/{doc_type}] contains unrecognized parameter [include_type_name]"],
+                                               "illegal_argument_exception", index)
+        else:
+            WesDefs.es_version_mismatch(MockEsCommon.get_parent(self).ES_VERSION_RUNNING)
+
+        searchable_indexes = MockEsCommon.normalize_index_to_list(self, index)
+        if MockEsCommon.apply_all_indicies(WesDefs.OP_IND_PUT_MAP, searchable_indexes):
+            searchable_indexes = MockEsCommon.get_dict(self).keys()
+
+        for idx in searchable_indexes:
+            if MockEsCommon.check_running_version(self, WesDefs.ES_VERSION_5_6_5):
+                if MockEsCommon.get_idx_docs(self, idx):
+                    # TODO should be improved
+                    # 400 - {'error': {'root_cause': [{'type': 'illegal_argument_exception', 'reason': 'unknown setting [index.properties.city.fields.keyword.ignore_above] please check that any required plugins are installed, or check the breaking changes documentation for removed settings'}], 'type': 'illegal_argument_exception', 'reason': 'unknown setting [index.properties.city.fields.keyword.ignore_above] please check that any required plugins are installed, or check the breaking changes documentation for removed settings'}, 'status': 400} - illegal_argument_exception
+                    # OP_IND_PUT_MAP KEY[???] - 400 - illegal_argument_exception - Types cannot be provided in put mapping requests, unless the include_type_name parameter is set to true.
+                    MockEsCommon.raiseRequestError(['INTERNAL COMMON  can\'t change mapping and setting'], 'illegal_argument_exception', idx)
+                else:
+                    MockEsCommon.set_idx_mappings(self, idx, body)
+            else:
+                WesDefs.es_version_mismatch(MockEsCommon.get_parent(self).ES_VERSION_RUNNING)
+
+        return {'acknowledged': True}
+
     # @query_params(
     #     "create",
     #     "flat_settings",
@@ -708,12 +832,18 @@ class MockEs(MockEsCommon):
         "wait_for_active_shards",)
     @MockEsCommon.Decor.operation_mock(WesDefs.OP_DOC_ADD_UP)
     def index(self, index, body, doc_type="_doc", id=None, params=None):
-        # TODO petee 'id' is important for get - shouldn't be mandatory???
-        # TODO petee 'doc_type' is important for get - shouldn't be mandatory???
+
         if index not in self.documents_dict:
             self.indices.create(index,
-                                # body=body, TODO can be mappings settings included???
+                                body=MockEsCommon.mappings_settings_build_from_doc_body_data(body),
                                 params=params)
+        else:
+            # change only if empty
+            if len(MockEsCommon.get_idx_docs(self, index)) == 0 and \
+               len(MockEsCommon.get_idx_mappings(self, index)) == 0:
+                MockEsCommon.set_idx_mappings_settings(self, index, MockEsCommon.mappings_settings_build_from_doc_body_data(body))
+
+            # TODO settings ???
 
         docs = MockEsCommon.get_idx_docs(self, index)
         doc_found = docs.get(id, None)

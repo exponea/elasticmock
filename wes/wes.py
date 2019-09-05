@@ -311,7 +311,8 @@ class Wes(WesCommon):
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             rec = ''
             for rc_index in rcv.data.keys():
-                rec += '\n' + f"IND[{rc_index}]"
+                prefix = f"IND[{rc_index}]"
+                rec += '\n' + prefix
 
                 # mappings not exist
                 mappings = rcv.data[rc_index].get('mappings', None)
@@ -336,13 +337,7 @@ class Wes(WesCommon):
                         for maps in mappings:
                             rec += '\n' + str(maps) + '\n'
                             for map in mappings[maps]:
-                                rec += '-> ' + str(map) + '\n'
-                                is_dict = mappings[maps][map]
-                                if isinstance(is_dict, list) or isinstance(is_dict, dict):
-                                    for item in is_dict:
-                                        rec += '---> ' + str(item) + '\n'
-                                else:
-                                    rec += '---> ' + str(is_dict) + '\n'
+                                rec += '-> ' + '{:>12}: '.format(map) + str(mappings[maps][map]) + '\n'
                     else:
                         WesDefs.es_version_mismatch(self.ES_VERSION_RUNNING)
 
@@ -369,6 +364,7 @@ class Wes(WesCommon):
 
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             return f"MAPPING: <-> {str(rcv.data)}"
+
         return self._operation_result(WesDefs.OP_IND_PUT_MAP, key_str, rc, fmt_fnc_ok)
 
     @query_params(

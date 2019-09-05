@@ -1,6 +1,10 @@
+
 from wes import Wes, ExecCode
 from log import Log
+from common import TestCommon, WesDefs
+
 import unittest
+import json
 from datetime import datetime
 
 from elasticsearch.exceptions import ImproperlyConfigured
@@ -21,9 +25,7 @@ ind_str2 = "first_ind2"
 ind_str_doc_type = "first_ind1_docT"
 ind_str_doc_type = "first_ind2_docT"
 
-from common import WesDefs
-
-class TestWesHelper(unittest.TestCase):
+class TestWesHelper(TestCommon):
 
     def indice_cleanup_all(self, wes):
         self.assertEqual(WesDefs.RC_OK, wes.ind_delete_result(wes.ind_delete("_all")).status)
@@ -314,10 +316,10 @@ class TestWes(TestWesHelper):
         self.indice_create_exists(self.wes, ind_str)
         self.indice_create_exists(self.wes, ind_str2)
 
-        doc1 = {"city": "Bratislava1", "country": "slovakia ", "sentence": "The slovakia is a country", "datetime" : "2019,01,02,03,12,00"}
+        doc1 = {"city": "Bratislava1", "country": "slovakia ", "sentence": "The slovakia is a country", "datetime" : "2019,01,02,03,12,00", "number_a": 1, "number_b": 1.1}
         self.wes.doc_addup_result(self.wes.doc_addup(ind_str, doc1, doc_type=ind_str_doc_type, id=1))
         self.wes.ind_get_mapping_result(self.wes.ind_get_mapping())
-        Log.notice("--------------------------------------------------------------------------------------")
+
         # {'first_ind1': {'mappings':
         map_new = {
             'properties': {'city': {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}},
@@ -327,15 +329,19 @@ class TestWes(TestWesHelper):
                            # MSE_NOTES: #1 CHANGE TYPE+FORMAT
                            'datetime': {'type': 'date',
                                         'format': "yyyy,MM,dd,hh,mm,ss" },
+                           'number_a': {'type': 'long'},
+                           'number_b': {'type': 'float'},
                            'sentence': {'type': 'text',
                                         'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}}}
           }
-         # }, 'first_ind2': {'mappings': {}}}
+        # }, 'first_ind2': {'mappings': {}}}
 
+        # MSE_NOTES: #2 u can't change mapping if docs present in IND !!!
         if self.wes.ES_VERSION_RUNNING == WesDefs.ES_VERSION_7_3_0:
             # OP_IND_PUT_MAP 405 - {'error': 'Incorrect HTTP method for uri [/_mapping] and method [PUT], allowed: [GET]', 'status': 405}
             self.assertEqual(405, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new)).data.status_code)
         elif self.wes.ES_VERSION_RUNNING == WesDefs.ES_VERSION_5_6_5:
+            # 400 - {'error': {'root_cause': [{'type': 'illegal_argument_exception', 'reason': 'unknown setting [index.properties.city.fields.keyword.ignore_above] please check that any required plugins are installed, or check the breaking changes documentation for removed settings'}], 'type': 'illegal_argument_exception', 'reason': 'unknown setting [index.properties.city.fields.keyword.ignore_above] please check that any required plugins are installed, or check the breaking changes documentation for removed settings'}, 'status': 400} - illegal_argument_exception
             self.assertEqual(400, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new)).data.status_code)
         else:
             self.wes.es_version_mismatch(self.ES_VERSION_RUNNING)
@@ -350,24 +356,28 @@ class TestWes(TestWesHelper):
 
         if self.wes.ES_VERSION_RUNNING == WesDefs.ES_VERSION_7_3_0:
             # MSE_NOTES: #3 u should specified IND + DOC_TYPE !!!
-            self.assertEqual(WesDefs.RC_OK, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str, include_type_name=True)).status)
+            self.assertEqual(True, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str, include_type_name=True)).data.get('acknowledged'))
         elif self.wes.ES_VERSION_RUNNING == WesDefs.ES_VERSION_5_6_5:
             # TODO python lib API 400 - illegal_argument_exception - request [/first_ind1/_mapping/first_ind2_docT] contains unrecognized parameter: [include_type_name]
             self.assertEqual(WesDefs.RC_EXCE, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str, include_type_name=True)).status)
-            self.assertEqual(WesDefs.RC_OK, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str)).status)
+            self.assertEqual(True, self.wes.ind_put_mapping_result(self.wes.ind_put_mapping(map_new, doc_type=ind_str_doc_type, index=ind_str)).data.get('acknowledged'))
         else:
             self.wes.es_version_mismatch(self.ES_VERSION_RUNNING)
 
-        Log.notice("--------------------------------------------------------------------------------------")
         # MSE_NOTES: #4 type was changed :)
         # IND[first_ind1]
         # city: {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}}
         # country: {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}}
         # datetime: {'type': 'date', 'format': 'yyyy,MM,dd,hh,mm,ss'}
+        # number_a: {'type': 'long'}
+        # number_b: {'type': 'float'}
         # sentence: {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}}
         #
         # IND[first_ind2]: Missing mappings
-        self.assertEqual(2, len(self.wes.ind_get_mapping_result(self.wes.ind_get_mapping()).data.keys()))
+        rc = self.wes.ind_get_mapping_result(self.wes.ind_get_mapping())
+        self.assertEqual(2, len(rc.data.keys()))
+        Log.err2("--------------------------------------------------------------------------------------")
+
 
     def test_aggregations(self):
         # MSE_NOTES: Date Histogram Aggregations,
@@ -669,7 +679,9 @@ if __name__ == '__main__':
         # suite.addTest(TestWesReal("test_complex_queries"))
         # suite.addTest(TestWesMock("test_complex_queries"))
         # suite.addTest(TestWesReal("test_mappings_get"))
+        # suite.addTest(TestWesMock("test_mappings_get"))
         # suite.addTest(TestWesReal("test_mappings_get_put"))
+        # suite.addTest(TestWesMock("test_mappings_get_put"))
         # suite.addTest(TestWesReal("test_aggregations"))
         # suite.addTest(TestWesReal("test_bulk"))
         # suite.addTest(TestWesReal("test_scan"))

@@ -1,3 +1,38 @@
+import unittest
+
+from log import Log
+
+__all__ = ["TestCommon", "WesDefs"]
+
+class TestCommon(unittest.TestCase):
+
+    def cmp_dict_with_skipp_keys(self, rc: dict, wes: dict, skip_keys: tuple, dbg: bool = False):
+
+        if dbg:
+            Log.log(" -------")
+            Log.log(str(rc))
+            Log.log(str(wes))
+            Log.log(" -------")
+
+        rc_keys = rc.keys()
+        wes_keys = wes.keys()
+        self.assertEqual(rc_keys, wes_keys)
+
+        for k in rc_keys:
+            rc_sub = rc[k]
+            wes_sub = wes[k]
+            if isinstance(rc_sub, dict) and isinstance(wes_sub, dict):
+                self.cmp_dict_with_skipp_keys(rc_sub, wes_sub, skip_keys, dbg)
+            else:
+                res = k + '\n' + str(rc_sub) + '\n' + str(wes_sub)
+                if k in skip_keys:
+                    Log.warn(res)
+                else:
+                    if dbg:
+                        Log.log(res)
+                    self.assertEqual(rc_sub, wes_sub)
+
+
 class WesDefs():
     # Elasticsearch version
     ES_VERSION_7_3_0 = '7.3.0'
