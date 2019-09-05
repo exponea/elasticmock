@@ -299,12 +299,23 @@ class MockEsMeta:
     def meta_db_get_indexes(obj):
         return MockEsCommon.meta_db_get(obj).keys()
 
+    def meta_db_has_idx(obj, idx) -> bool:
+        db = MockEsCommon.meta_db_get(obj)
+        return True if idx in db else False
+
     def meta_db_set_idx(obj, idx, mappings, settings):
          MockEsCommon.meta_db_get(obj)[idx] = {
              MockEsMeta.K_IDX_DOCS: {},
              'mappings': mappings,
              'settings': settings,
          }
+
+    def meta_db_del_idx(obj, idx) -> bool:
+        if MockEsCommon.meta_db_has_idx(obj, idx):
+            del MockEsCommon.meta_db_get(obj)[idx]
+            return True
+        else:
+            return False
 
     @staticmethod
     def meta_db_clear(obj):
@@ -554,7 +565,7 @@ class MockEsIndicesClient:
         if len(searchable_indexes) > 1:
             raise ValueError("'index' contains more indexes - it cannot be list for now")
 
-        return searchable_indexes[0] in MockEsCommon.meta_db_get(self)
+        return searchable_indexes[0] in MockEsCommon.meta_db_get_indexes(self)
 
 
     @query_params(
@@ -594,10 +605,7 @@ class MockEsIndicesClient:
             err_list = []
             first_idx = None
             for idx in searchable_indexes:
-                g_dict = MockEsCommon.meta_db_get(self)
-                if idx in g_dict:
-                    del g_dict[idx]
-                else:
+                if not MockEsCommon.meta_db_del_idx(self, idx):
                     if first_idx is None:
                         first_idx = idx
                     e = {'type': 'index_not_found_exception',
