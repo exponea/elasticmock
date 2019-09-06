@@ -45,7 +45,7 @@ class MockDb:
     @staticmethod
     def _check_lookup_chain(check_if_has, obj, keys):
 
-        dbg_lookup_chain = True
+        dbg_lookup_chain = False
 
         def lookup_failed(k, d):
             if dbg_lookup_chain:
@@ -68,6 +68,7 @@ class MockDb:
             else:
                 return lookup_failed(k, d)
 
+    ############################################################################
     ############################################################################
     @staticmethod
     def db_dtype_field_doc_key_has(obj, idx, dtype, doc_id):
@@ -97,7 +98,28 @@ class MockDb:
 
     ############################################################################
     ############################################################################
-    ############################################################################
+    @staticmethod
+    def db_api_docs_all(obj, idx=None, dtype=None) -> list:
+        doc_all = []
+        db_dict = MockDb.db_idx_dict(obj)
+
+        for db_idx in db_dict:
+            if idx is not None and db_idx != idx:
+                continue  # just skip
+
+            if MockDb.db_idx_field_dtype_dict_has(obj, db_idx):
+                d = MockDb.db_idx_field_dtype_dict_get(obj, db_idx)
+                for db_dtype in d.keys():
+                    if dtype is not None and dtype != db_dtype:
+                        continue  # just skip
+
+                    if MockDb.db_dtype_field_doc_dict_has(obj, db_idx, db_dtype):
+                        d_docs = MockDb.db_dtype_field_doc_dict_get(obj, db_idx, db_dtype)
+                        for doc_id in d_docs.keys():
+                            doc_all.append([db_idx, db_dtype, doc_id, d_docs[doc_id]])
+        return doc_all
+
+    #############################################################
     @staticmethod
     def db_idx_field_dtype_key_has(obj, idx, dtype_key):
         return MockDb._check_lookup_chain(True, obj, [idx, MockDb.K_IDX_DTYPE_D, dtype_key])
@@ -229,3 +251,6 @@ class MockDb:
             db_print += '\n' + str(index) + ' IND: ' + str(db[index])
 
         Log.log(f"{oper} is mock {db_print}")
+
+    ############################################################################
+    ############################################################################

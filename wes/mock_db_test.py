@@ -231,6 +231,19 @@ class TestMockDb(TestMockDbHelper):
         check_val = DB[test_idx_1][MockDb.K_IDX_DTYPE_D][doc_type_11][MockDb.K_DT_SET]
         self.assertEqual(check_val, MockDb.db_dtype_field_sets_get(self.db, test_idx_1, doc_type_11))
 
+    def test_db_api(self):
+        MockDb.db_db_clear(self.db)
+        self.db.documents_dict = self.get_init_db()
+        docs_all = MockDb.db_api_docs_all(self.db)
+        self.assertEqual(5, len(docs_all))
+        for idx_dtype_did_doc in docs_all:
+            Log.log(f" ---> {str(idx_dtype_did_doc)}")
+
+        self.assertEqual(5, len(MockDb.db_api_docs_all(self.db, test_idx_1)))
+        self.assertEqual(0, len(MockDb.db_api_docs_all(self.db, test_idx_bad)))
+        self.assertEqual(2, len(MockDb.db_api_docs_all(self.db, test_idx_1, doc_type_11)))
+        self.assertEqual(1, len(MockDb.db_api_docs_all(self.db, test_idx_1, doc_type_12)))
+        self.assertEqual(0, len(MockDb.db_api_docs_all(self.db, test_idx_1, doc_type_bad)))
 
 
 if __name__ == '__main__':
@@ -242,5 +255,7 @@ if __name__ == '__main__':
         # suite.addTest(TestMockDb("test_db_basic"))
         # suite.addTest(TestMockDb("test_db_dumps"))
         # suite.addTest(TestMockDb("test_db_init_data"))
+        suite.addTest(TestMockDb("test_db_api"))
+
         runner = unittest.TextTestRunner()
         runner.run(suite)
