@@ -42,7 +42,7 @@ test_idx_3_doc_type = "doc_type_index3"
 
 class TestMockDbHelper(TestCommon):
 
-    def get_db(self):
+    def get_init_db(self):
 
         idx_mapping_data = { 'mappings data key': 'mappings data value' }
         idx_setting_data = { 'settings data key': 'settings data value' }
@@ -51,7 +51,7 @@ class TestMockDbHelper(TestCommon):
                 'INDEX_1': {
                     MockDb.K_IDX_MAP: idx_mapping_data,
                     MockDb.K_IDX_SET: idx_setting_data,
-                    MockDb.K_IDX_DOC_ID2TYPES_D: {
+                    MockDb.K_IDX_DOCID2TYPES_D: {
                         id_doc11: [doc_type_11, ],
                         id_doc12: [doc_type_11, doc_type_13],
                         id_doc13: [doc_type_11, ],
@@ -76,6 +76,8 @@ class TestMockDbHelper(TestCommon):
                 }
         }
 
+        return db
+
 class TestMockDb(TestMockDbHelper):
 
     def setUp(self):
@@ -96,26 +98,26 @@ class TestMockDb(TestMockDbHelper):
         self.assertEqual(False, MockDb.meta_db_has_idx(self.db, test_idx_1))
         self.assertEqual(None, MockDb.meta_db_get_idx(self.db, test_idx_1))
         # L1 - has
-        self.assertEqual(False, MockDb.meta_idx_has_type(self.db, test_idx_1, test_idx_1_doc_type))
+        self.assertEqual(False, MockDb.meta_idx_has_type_dict_key(self.db, test_idx_1, test_idx_1_doc_type))
         self.assertEqual(False, MockDb.meta_idx_has_type_dict(self.db, test_idx_1))
-        self.assertEqual(False, MockDb.meta_idx_has_doc_id2types(self.db, test_idx_1, id_doc12))
-        self.assertEqual(False, MockDb.meta_idx_has_doc_id2types_dict(self.db, test_idx_1))
+        self.assertEqual(False, MockDb.meta_idx_has_docid2types_dict_key(self.db, test_idx_1, id_doc12))
+        self.assertEqual(False, MockDb.meta_idx_has_docid2types_dict(self.db, test_idx_1))
         self.assertEqual(False, MockDb.meta_idx_has_mappings(self.db, test_idx_1))
         self.assertEqual(False, MockDb.meta_idx_has_settings(self.db, test_idx_1))
         # L1 - get
-        self.assertEqual(None, MockDb.meta_idx_get_type(self.db, test_idx_1, test_idx_1_doc_type))
+        self.assertEqual(None, MockDb.meta_idx_get_type_dict_key(self.db, test_idx_1, test_idx_1_doc_type))
         self.assertEqual(None, MockDb.meta_idx_get_type_dict(self.db, test_idx_1))
-        self.assertEqual(None, MockDb.meta_idx_get_doc_id2types(self.db, test_idx_1, id_doc12))
-        self.assertEqual(None, MockDb.meta_idx_get_doc_id2types_dict(self.db, test_idx_1))
+        self.assertEqual(None, MockDb.meta_idx_get_docid2types_dict_key(self.db, test_idx_1, id_doc12))
+        self.assertEqual(None, MockDb.meta_idx_get_docid2types_dict(self.db, test_idx_1))
         self.assertEqual(None, MockDb.meta_idx_get_mappings(self.db, test_idx_1))
         self.assertEqual(None, MockDb.meta_idx_get_settings(self.db, test_idx_1))
         # L2 - type - has
-        self.assertEqual(False, MockDb.meta_type_has_doc(self.db, test_idx_1, doc_type_11, id_doc12))
+        self.assertEqual(False, MockDb.meta_type_has_doc_dict_key(self.db, test_idx_1, doc_type_11, id_doc12))
         self.assertEqual(False, MockDb.meta_type_has_doc_dict(self.db, test_idx_1, doc_type_11))
         self.assertEqual(False, MockDb.meta_type_has_maps(self.db, test_idx_1, doc_type_11))
         self.assertEqual(False, MockDb.meta_type_has_sets(self.db, test_idx_1, doc_type_11))
         # L2 - type - get
-        self.assertEqual(None, MockDb.meta_type_get_doc(self.db, test_idx_1, doc_type_11, id_doc12))
+        self.assertEqual(None, MockDb.meta_type_get_doc_dict_key(self.db, test_idx_1, doc_type_11, id_doc12))
         self.assertEqual(None, MockDb.meta_type_get_doc_dict(self.db, test_idx_1, doc_type_11))
         self.assertEqual(None, MockDb.meta_type_get_maps(self.db, test_idx_1, doc_type_11))
         self.assertEqual(None, MockDb.meta_type_get_sets(self.db, test_idx_1, doc_type_11))
@@ -124,8 +126,9 @@ class TestMockDb(TestMockDbHelper):
 
         MockDb.meta_db_clear(self.db)
 
+        # add 3 indexes
         MockDb.meta_db_set_idx(self.db, test_idx_1, None, None)
-        MockDb.meta_db_set_idx(self.db, test_idx_2, None, None)
+        MockDb.meta_db_set_idx(self.db, test_idx_2, None, doc_type_13_settings)
         MockDb.meta_db_set_idx(self.db, test_idx_3, None, None)
 
         MockDb.meta_dump_db_per_idx("OP_TEST", self.db)
@@ -135,12 +138,28 @@ class TestMockDb(TestMockDbHelper):
         self.assertEqual(True, MockDb.meta_db_has_idx(self.db, test_idx_3))
         self.assertEqual(False, MockDb.meta_db_has_idx(self.db, test_idx_bad))
 
+        # delete 2. indexes
+        self.assertEqual(True, MockDb.meta_db_del_idx(self.db, test_idx_3))
 
-        # MockDb.meta_db_set_idx(self.db, test_idx_1, None, None)
-        # MockDb.meta_db_set_idx(self.db, test_idx_2, None, None)
-        # MockDb.meta_db_set_idx(self.db, test_idx_3, None, None)
-        # MockDb.meta_dump_db_per_idx("OP_TEST", self.db)
+        MockDb.meta_dump_db_per_idx("OP_TEST", self.db)
+        self.assertEqual(True, MockDb.meta_db_has_idx(self.db, test_idx_1))
+        self.assertEqual(True, MockDb.meta_db_has_idx(self.db, test_idx_2))
+        self.assertEqual(False, MockDb.meta_db_has_idx(self.db, test_idx_3))
+        self.assertEqual(False, MockDb.meta_db_has_idx(self.db, test_idx_bad))
 
+        # delete 2. indexes again
+        self.assertEqual(False, MockDb.meta_db_del_idx(self.db, test_idx_3))
+
+        self.assertEqual(doc_type_13_settings, MockDb.meta_idx_get_settings(self.db, test_idx_2))
+
+
+    def test_db_dumps(self):
+        MockDb.meta_db_clear(self.db)
+        self.db.documents_dict = self.get_init_db()
+
+        Log.notice('--')
+        MockDb.meta_dump_db_per_idx("OP_TEST", self.db)
+        MockDb.meta_dump_db("OP_TEST", self.db)
 
 if __name__ == '__main__':
     if False:
@@ -149,5 +168,7 @@ if __name__ == '__main__':
         suite = unittest.TestSuite()
         suite.addTest(TestMockDb("test_db_empty"))
         suite.addTest(TestMockDb("test_db_basic"))
+        suite.addTest(TestMockDb("test_db_dumps"))
+
         runner = unittest.TextTestRunner()
         runner.run(suite)
