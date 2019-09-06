@@ -50,51 +50,51 @@ class MockDb:
     ############################################################################
     # L2 - MockDb.K_IDX_DTYPE_D
     @staticmethod
-    def _meta_type_has_XXX(obj, idx, type, key):
-        if MockDb.meta_idx_has_type_dict(obj, idx) :
-            return key in MockDb.meta_idx_get_type_dict(obj, idx, type)
+    def _meta_idx_type_has_XXX(obj, idx, dtype, type_level_key):
+        if MockDb.meta_idx_has_type_dict_key(obj, idx, dtype):
+            return type_level_key in MockDb.meta_idx_get_type_dict_key(obj, idx, dtype)
         else:
             return False
 
     @staticmethod
-    def _meta_type_get_XXX(obj, idx, type, key):
-        if MockDb._meta_type_has_XXX(obj, idx, type, key):
-            return MockDb.meta_idx_get_type(obj, idx, type)[key]
+    def _meta_idx_type_get_XXX(obj, idx, dtype, type_level_key):
+        if MockDb._meta_idx_type_has_XXX(obj, idx, dtype, type_level_key):
+            return MockDb.meta_idx_get_type_dict_key(obj, idx, dtype)[type_level_key]
         else:
             return None
     ############################################################################
     @staticmethod
-    def meta_type_has_doc_dict_key(obj, idx, type, doc_id) -> bool:
-        if MockDb.meta_type_has_doc_dict(obj, idx, type):
-            return doc_id in MockDb.meta_type_get_doc_dict(obj, idx, type)
+    def meta_idx_type_has_doc_dict_key(obj, idx, dtype, doc_id) -> bool:
+        if MockDb.meta_idx_type_has_doc_dict(obj, idx, dtype):
+            return doc_id in MockDb.meta_idx_type_get_doc_dict(obj, idx, dtype)
         else:
             return False
     @staticmethod
-    def meta_type_has_doc_dict(obj, idx, type):
-        return MockDb._meta_type_has_XXX(obj, idx, type, MockDb.K_DT_DOC_D)
+    def meta_idx_type_has_doc_dict(obj, idx, dtype):
+        return MockDb._meta_idx_type_has_XXX(obj, idx, dtype, MockDb.K_DT_DOC_D)
     @staticmethod
-    def meta_type_has_maps(obj, idx, type):
-        return MockDb._meta_type_has_XXX(obj, idx, type, MockDb.K_DT_MAP)
+    def meta_idx_type_has_maps(obj, idx, dtype):
+        return MockDb._meta_idx_type_has_XXX(obj, idx, dtype, MockDb.K_DT_MAP)
     @staticmethod
-    def meta_type_has_sets(obj, idx, type):
-        return MockDb._meta_type_has_XXX(obj, idx, type, MockDb.K_DT_SET)
+    def meta_idx_type_has_sets(obj, idx, dtype):
+        return MockDb._meta_idx_type_has_XXX(obj, idx, dtype, MockDb.K_DT_SET)
     ############################################################################
     @staticmethod
-    def meta_type_get_doc_dict_key(obj, idx, type, doc_id) -> bool:
-        if MockDb.meta_type_has_doc_dict(obj, idx, type):
-            return MockDb.meta_type_get_doc_dict(obj, idx, type)[doc_id]
+    def meta_idx_type_get_doc_dict_key(obj, idx, dtype, doc_id) -> bool:
+        if MockDb.meta_idx_type_has_doc_dict_key(obj, idx, dtype, doc_id):
+            return MockDb.meta_idx_type_get_doc_dict(obj, idx, dtype)[doc_id]
         else:
             return None
 
     @staticmethod
-    def meta_type_get_doc_dict(obj, idx, type):
-        return MockDb._meta_type_get_XXX(obj, idx, type, MockDb.K_DT_DOC_D)
+    def meta_idx_type_get_doc_dict(obj, idx, dtype):
+        return MockDb._meta_idx_type_get_XXX(obj, idx, dtype, MockDb.K_DT_DOC_D)
     @staticmethod
-    def meta_type_get_maps(obj, idx, type):
-        return MockDb._meta_type_get_XXX(obj, idx, type, MockDb.K_DT_MAP)
+    def meta_idx_type_get_maps(obj, idx, dtype):
+        return MockDb._meta_idx_type_get_XXX(obj, idx, dtype, MockDb.K_DT_MAP)
     @staticmethod
-    def meta_type_get_sets(obj, idx, type):
-        return MockDb._meta_type_get_XXX(obj, idx, type, MockDb.K_DT_SET)
+    def meta_idx_type_get_sets(obj, idx, dtype):
+        return MockDb._meta_idx_type_get_XXX(obj, idx, dtype, MockDb.K_DT_SET)
 
     ############################################################################
     ############################################################################
@@ -241,21 +241,15 @@ class MockDb:
                     dict_print += '\n'
                     dict_print += f"{str(index_docid2types)} - {str(docid2types_dict[index_docid2types])}"
 
-            type_dict = MockDb.meta_idx_get_type_dict(obj, index)
-            if type_dict:
-                for index_type in type_dict:
+            index_types_dict = MockDb.meta_idx_get_type_dict(obj, index)
+            if index_types_dict:
+                for index_type in index_types_dict:
                     type_level = f"IND[{str(index)}] TYPE[{str(index_type)}]"
                     print(type_level)
                     dict_print += '\n'
                     dict_print += type_level
-                    
-                    # type_doc_dict = MockDb.meta_type_get_doc_dict(obj, index, index_type)
-                    # if type_doc_dict:
-                    #     dict_print += '\n'
-                    #     for doc_id in type_doc_dict:
-                    #         dict_print += '\n'
-                    #         dict_print += f"{str(doc_id)} {str(type_doc_dict[doc_id])}]"
-
+                    dict_print += '\n'
+                    dict_print += str(index_types_dict[index_type])
 
         Log.notice(f"{oper} is mock {dict_print}")
 

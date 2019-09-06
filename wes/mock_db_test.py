@@ -112,15 +112,15 @@ class TestMockDb(TestMockDbHelper):
         self.assertEqual(None, MockDb.meta_idx_get_mappings(self.db, test_idx_1))
         self.assertEqual(None, MockDb.meta_idx_get_settings(self.db, test_idx_1))
         # L2 - type - has
-        self.assertEqual(False, MockDb.meta_type_has_doc_dict_key(self.db, test_idx_1, doc_type_11, id_doc12))
-        self.assertEqual(False, MockDb.meta_type_has_doc_dict(self.db, test_idx_1, doc_type_11))
-        self.assertEqual(False, MockDb.meta_type_has_maps(self.db, test_idx_1, doc_type_11))
-        self.assertEqual(False, MockDb.meta_type_has_sets(self.db, test_idx_1, doc_type_11))
+        self.assertEqual(False, MockDb.meta_idx_type_has_doc_dict_key(self.db, test_idx_1, doc_type_11, id_doc12))
+        self.assertEqual(False, MockDb.meta_idx_type_has_doc_dict(self.db, test_idx_1, doc_type_11))
+        self.assertEqual(False, MockDb.meta_idx_type_has_maps(self.db, test_idx_1, doc_type_11))
+        self.assertEqual(False, MockDb.meta_idx_type_has_sets(self.db, test_idx_1, doc_type_11))
         # L2 - type - get
-        self.assertEqual(None, MockDb.meta_type_get_doc_dict_key(self.db, test_idx_1, doc_type_11, id_doc12))
-        self.assertEqual(None, MockDb.meta_type_get_doc_dict(self.db, test_idx_1, doc_type_11))
-        self.assertEqual(None, MockDb.meta_type_get_maps(self.db, test_idx_1, doc_type_11))
-        self.assertEqual(None, MockDb.meta_type_get_sets(self.db, test_idx_1, doc_type_11))
+        self.assertEqual(None, MockDb.meta_idx_type_get_doc_dict_key(self.db, test_idx_1, doc_type_11, id_doc12))
+        self.assertEqual(None, MockDb.meta_idx_type_get_doc_dict(self.db, test_idx_1, doc_type_11))
+        self.assertEqual(None, MockDb.meta_idx_type_get_maps(self.db, test_idx_1, doc_type_11))
+        self.assertEqual(None, MockDb.meta_idx_type_get_sets(self.db, test_idx_1, doc_type_11))
 
     def test_db_basic(self):
 
