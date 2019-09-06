@@ -36,350 +36,10 @@ from log import Log
 
 __all__ = ["MockEs"]
 
-class MockEsQuery:
+from mock_db import MockDb
+from mock_query import MockEsQuery
 
-    def __init__(self, operation, body):
-        self.q_oper = operation
-        self.q_query_rules = None
-        self.q_size = None
-        self.q_from = None
-        self.q_query = None
-        self.q_query_name = None
-        self.q_level = 0
-
-        self.parser(body)
-
-    def parser(self, body):
-
-        if body:
-            self.q_size = body.get('size', None)
-            self.q_from = body.get('from', None)
-            self.q_query = body.get('query', None)
-
-            if not self.q_query:
-                raise ValueError("'query' missing in body")
-
-            self.q_query_name = list(self.q_query.keys())
-
-            if len(self.q_query_name) != 1:
-                raise ValueError(f"body contains more queries {self.q_query_name}")
-
-            self.q_query_name = self.q_query_name[0]
-            self.q_query_rules = self.q_query[self.q_query_name]
-
-        else:
-            self.q_query_name = "match_all"
-            self.q_query_rules = {}
-
-        Log.log(f"{self.q_oper} Q_NAME: {self.q_query_name} - Q_RULES: {self.q_query_rules}")
-
-    def get_indentation_string(self):
-        return f"{self.q_oper} {'--'*self.q_level}>"
-
-
-    def q_exec_on_doc(self, prefix, db_idx, db_doc, fnc_name, data_to_match) -> bool:
-        self.q_level += 1
-        q_xxx_fnc = self.q_mapper(fnc_name)
-        rc = q_xxx_fnc(self, prefix, db_idx, db_doc, data_to_match)
-        if self.q_level == 1:
-            Log.log(f"{self.get_indentation_string()} {'MATCH' if rc else 'MISS '}  >>> idx:{db_idx} dos:{str(db_doc)}")
-        self.q_level -= 1
-        return rc
-
-    def q_match_all(self, prefix, db_idx, db_doc, data_to_match) -> bool:
-        rc = True
-        if not prefix:
-            Log.log(f"{self.get_indentation_string()} Q_NAME: match - RC-[{rc}]")
-        return rc
-
-    def q_match(self, prefix, db_idx, db_doc, data_to_match) -> bool:
-
-        rc = True
-        for feature in data_to_match.keys():
-            if feature[0] == '_':
-                val_in_doc = db_doc[feature]
-            else:
-                val_in_doc = db_doc['_source'][feature]
-
-            val_in_query = data_to_match[feature].lower()
-
-            res = (val_in_query == word.lower() for word in val_in_doc.split())
-            if True not in res:
-                rc = False
-
-        if not prefix:
-            Log.log(f"{self.get_indentation_string()} Q_NAME: match - RC-[{rc}]")
-        return rc
-
-    def q_match_phrase(self, prefix, db_idx, db_doc, data_to_match) -> bool:
-
-        rc = True
-        for feature in data_to_match.keys():
-            if feature[0] == '_':
-                val_in_doc = db_doc[feature]
-            else:
-                val_in_doc = db_doc['_source'][feature]
-
-            val_in_doc = val_in_doc.lower()
-            val_in_query = data_to_match[feature].lower()
-
-            # MSE_NOTE: 'in 'does not work for WHOLE WORDS
-            # 'if val_in_query not in val_in_doc:'
-            if re.search(r"\b{}\b".format(val_in_query), val_in_doc, re.IGNORECASE) is None:
-                rc = False
-                break
-
-        if not prefix:
-            Log.log(f"{self.get_indentation_string()} Q_NAME: match_phrase - RC-[{rc}]")
-        return rc
-
-    def q_term(self, prefix, db_idx, db_doc, data_to_match) -> bool:
-
-        rc = True
-        for feature in data_to_match.keys():
-            if feature[0] == '_':
-                val_in_doc = db_doc[feature]
-            else:
-                val_in_doc = db_doc['_source'][feature]
-
-            # MSE_NOTES: MATCH(exact BUT lookup is stored with striped WHITESPACES)
-            val_in_doc = val_in_doc.lower().strip()
-            val_in_query = data_to_match[feature].lower()
-
-            if not val_in_doc == val_in_query:
-                rc = False
-                break
-
-        if not prefix:
-            Log.log(f"{self.get_indentation_string()} Q_NAME: term - RC-[{rc}]")
-
-        return rc
-
-    def q_regexp(self, prefix, db_idx, db_doc, data_to_match) -> bool:
-
-        rc = True
-        for feature in data_to_match.keys():
-            if feature[0] == '_':
-                val_in_doc = db_doc[feature]
-            else:
-                val_in_doc = db_doc['_source'][feature]
-
-            val_in_query = data_to_match[feature]
-
-            if re.search(val_in_query, val_in_doc) is None:
-                rc = False
-                break
-
-        if not prefix:
-            Log.log(f"{self.get_indentation_string()} Q_NAME: regexp - RC-[{rc}]")
-
-        return rc
-
-    def q_bool_helper(self, rules: tuple, data_to_match, db_idx, db_doc) -> bool:
-
-        rules_name, rules_continue_fnc = rules
-        rules_dict = data_to_match.get(rules_name, None)
-        rc = None
-        if rules_dict:
-            rc = True
-            for fnc_name in rules_dict.keys():
-                data_to_match2 = rules_dict[fnc_name]
-                rc_partial = self.q_exec_on_doc(rules_name, db_idx, db_doc, fnc_name, data_to_match2)
-                keep_going = rules_continue_fnc(rc_partial)
-                Log.log(f"{self.get_indentation_string()} Q_NAME: bool[{rules_name:8}] RC[{keep_going}]")
-                if keep_going:
-                    pass
-                else:
-                    rc = False
-                    break
-        return rc
-
-
-    def q_bool(self, prefix, db_idx, db_doc, data_to_match):
-
-        rc_must     = self.q_bool_helper(('must'    , lambda rc: rc), data_to_match, db_idx, db_doc)
-        rc_filter   = self.q_bool_helper(('filter'  , lambda rc: rc), data_to_match, db_idx, db_doc)
-        rc_must_not = self.q_bool_helper(('must_not', lambda rc: rc is False), data_to_match, db_idx, db_doc)
-        rc_should   = self.q_bool_helper(('should'  , lambda rc: rc), data_to_match, db_idx, db_doc)
-
-        res = f"{self.get_indentation_string()} Q_NAME: bool[rc_must({rc_must}) rc_filter({rc_filter}) rc_must_not({rc_must_not}) rc_should({rc_should})]"
-
-        if rc_must_not is False:
-            Log.log(f"{res} CASE(1)")
-            return False
-
-        if rc_must or rc_filter or rc_should:
-            Log.log(f"{res} CASE(2)")
-            return True
-
-        Log.log(f"{res} CASE(3)")
-        return False
-
-    def q_mapper(self, query: str):
-        q_mapper = {
-            "match_all":    MockEsQuery.q_match_all,
-            "match":        MockEsQuery.q_match,
-            "match_phrase": MockEsQuery.q_match_phrase,
-            "term":         MockEsQuery.q_term,
-            "regexp":       MockEsQuery.q_regexp,
-            "bool":         MockEsQuery.q_bool,
-        }
-
-        rc = q_mapper.get(query, None)
-        if not rc:
-            raise ValueError(f"not implemented {query}")
-        return rc
-
-class MockEsMeta:
-
-    K_IDX_DOCS = 'idx_docs'
-    K_IDX_DT   = 'idx_doc_types'
-    K_DT_DOCS  = 'dt_docs'
-    K_DT_MAPS  = 'dt_mappings'
-    K_DT_SETS  = 'dt_settings'
-
-    def __init__(self):
-        # db = {
-        #     'INDEX_1': {
-        #         MockEsMeta.K_IDX_DOCS: {
-        #             'id_doc11': ['doc_type_11',],
-        #             'id_doc12': ['doc_type_11', 'doc_type_13'],
-        #             'id_doc13': ['doc_type_11',],
-        #         },
-        #         MockEsMeta.K_IDX_DT: {
-        #             'doc_type_11': {
-        #                     MockEsMeta.K_DT_DOCS: { 'id_doc11': doc11, 'id_doc12': doc12_a },
-        #                     MockEsMeta.K_DT_MAPS = 'doc_type_11_mappings',
-        #                     MockEsMeta.K_DT_SETS = 'doc_type_11_settings',
-        #             },
-        #             'doc_type_12': {
-        #                     MockEsMeta.K_DT_DOCS: {'id_doc13': doc13},
-        #                     MockEsMeta.K_DT_MAPS = 'doc_type_12_mappings',
-        #                     MockEsMeta.K_DT_SETS = 'doc_type_12_settings',
-        #             }
-        #             'doc_type_13': {
-        #                     MockEsMeta.K_DT_DOCS: {'id_doc13': doc13, 'id_doc12': doc12_b},
-        #                     MockEsMeta.K_DT_MAPS = 'doc_type_13_mappings',
-        #                     MockEsMeta.K_DT_SETS = 'doc_type_13_settings',
-        #             }
-        #         }
-        #     }
-        # }
-        self.documents_dict = {}
-        self.scrolls = {}
-
-    @staticmethod
-    def meta_set_idx_mappings_settings(obj, idx, mappings_settings):
-        MockEsCommon.meta_set_idx_mappings(obj, idx, mappings_settings['mappings'])
-        MockEsCommon.meta_set_idx_settings(obj, idx, mappings_settings['settings'])
-
-    @staticmethod
-    def meta_set_idx_mappings(obj, idx, mappings):
-        MockEsCommon.meta_db_get(obj)[idx]['mappings'] = mappings
-
-    @staticmethod
-    def meta_set_idx_settings(obj, idx, settings):
-        MockEsCommon.meta_db_get(obj)[idx]['settings'] = settings
-
-    @staticmethod
-    def meta_db_idx_get_mappings(obj, idx):
-        return MockEsCommon.meta_db_get(obj)[idx]['mappings']
-
-    @staticmethod
-    def meta_db_idx_get_settings(obj, idx):
-        return MockEsCommon.meta_db_get(obj)[idx]['settings']
-
-
-
-    # L1
-    @staticmethod
-    def meta_db_idx_get_docs(obj, idx):
-        return MockEsCommon.meta_db_get(obj)[idx][MockEsMeta.K_IDX_DOCS]
-
-    @staticmethod
-    def meta_idx_get_type_all(obj, idx):
-        idx_data = MockEsCommon.meta_db_get_idx(obj, idx)
-        return idx_data.keys() if idx_data else None
-
-    @staticmethod
-    def _meta_idx_get_type_level_key(obj, idx, type, key):
-        type_data = MockEsCommon.meta_idx_get_type(obj, idx, type)
-        if type_data:
-            return type_data[key]
-        else:
-            return None
-    @staticmethod
-    def meta_idx_get_type_docs(obj, idx, type):
-        return MockEsCommon._meta_idx_get_type_level_key(obj, idx, type, MockEsMeta.K_DT_DOCS)
-    @staticmethod
-    def meta_idx_get_type_maps(obj, idx, type):
-        return MockEsCommon._meta_idx_get_type_level_key(obj, idx, type, MockEsMeta.K_DT_MAPS)
-    @staticmethod
-    def meta_idx_get_type_sets(obj, idx, type):
-        return MockEsCommon._meta_idx_get_type_level_key(obj, idx, type, MockEsMeta.K_DT_SETS)
-
-    @staticmethod
-    def meta_idx_get_type(obj, idx, type):
-        if MockEsCommon.meta_idx_has_type(obj, idx, type):
-            return MockEsCommon.meta_db_get_idx(obj, idx)[MockEsMeta.K_IDX_DT]
-        else:
-            return None
-
-    @staticmethod
-    def meta_idx_has_type(obj, idx, type) -> bool:
-        idx_data = MockEsCommon.meta_db_get_idx(obj, idx)
-        return True if (idx_data and MockEsMeta.K_IDX_DT in idx_data) else False
-
-    # L0
-    @staticmethod
-    def meta_db_get_idx_all(obj):
-        return MockEsCommon.meta_db_get(obj).keys()
-
-    @staticmethod
-    def meta_db_get_idx(obj, idx):
-        if MockEsCommon.meta_db_has_idx(obj, idx):
-            return MockEsCommon.meta_db_get_idx(obj, idx)
-        else:
-            return None
-
-    @staticmethod
-    def meta_db_has_idx(obj, idx) -> bool:
-        db = MockEsCommon.meta_db_get(obj)
-        return True if idx in db else False
-
-    @staticmethod
-    def meta_db_set_idx(obj, idx, mappings, settings):
-         MockEsCommon.meta_db_get(obj)[idx] = {
-             MockEsMeta.K_IDX_DOCS: {},
-             MockEsMeta.K_IDX_DT: {},
-             'mappings': mappings,
-             'settings': settings,
-         }
-
-    @staticmethod
-    def meta_db_del_idx(obj, idx) -> bool:
-        if MockEsCommon.meta_db_has_idx(obj, idx):
-            del MockEsCommon.meta_db_get(obj)[idx]
-            return True
-        else:
-            return False
-
-    @staticmethod
-    def meta_db_clear(obj):
-        MockEsCommon.meta_db_get(obj).clear()
-
-    @staticmethod
-    def meta_db_get(obj):
-        parent = MockEsCommon.get_parent(obj)
-        return parent.documents_dict
-
-    # helper
-    @staticmethod
-    def get_parent(obj):
-        return obj.parent if hasattr(obj, 'parent') else obj
-
-
-class MockEsCommon(MockEsMeta):
+class MockEsCommon(MockDb):
 
     def __init__(self):
         super().__init__()
@@ -411,7 +71,6 @@ class MockEsCommon(MockEsMeta):
         e_error = e_info
         raise RequestError(400, e_info, e_error)
 
-
     class Decor:
         @staticmethod
         def operation_mock(oper):
@@ -419,34 +78,10 @@ class MockEsCommon(MockEsMeta):
                 def wrapper(self, *args, **kwargs):
                         Log.log(f"{oper} is mock")
                         rc = fnc(self, *args, **kwargs)
-                        MockEsCommon.dump_dict(oper, self)
+                        MockEsCommon.db_db_dump(oper, self)
                         return rc
                 return wrapper
             return wrapper_mk
-
-    @staticmethod
-    def dump_dict(oper, obj):
-        dict_print = ''
-        for index in MockEsCommon.meta_db_get_idx_all(obj):
-
-            dict_print += '\n' + str(index) + ' IND SETTS: '
-            setts = MockEsCommon.meta_db_idx_get_settings(obj, index)
-            for s in setts:
-                dict_print += '\n' + str(setts[s])
-
-            dict_print += '\n' + str(index) + ' IND MAPS: '
-            idx_maps = MockEsCommon.meta_db_idx_get_mappings(obj, index)
-            for idx_map in idx_maps:
-                fields = idx_maps[idx_map]
-                for field in fields:
-                    dict_print += '\n' + '{:>12}: '.format(str(field)) + str(fields[field])
-
-            dict_print += '\n' + str(index) + ' IND DOCS: '
-            docs = MockEsCommon.meta_db_idx_get_docs(obj, index)
-            for id in docs:
-                dict_print += '\n' + str(docs[id])
-
-        Log.notice(f"{oper} is mock {dict_print}")
 
     @staticmethod
     def apply_all_indicies(operation, indices: list):
@@ -475,7 +110,7 @@ class MockEsCommon(MockEsMeta):
     def normalize_index_to_list(obj, index):
         # Ensure to have a list of index
         if index is None:
-            searchable_indexes = MockEsCommon.meta_db_get_idx_all(obj)
+            searchable_indexes = MockEsCommon.db_idx_dict(obj).keys()
         elif isinstance(index, str) or isinstance(index, unicode):
             searchable_indexes = [index]
         elif isinstance(index, list):
@@ -486,7 +121,7 @@ class MockEsCommon(MockEsMeta):
 
         # # Check index(es) exists
         # for searchable_index in searchable_indexes:
-        #     if searchable_index not in MockEsCommon.meta_db_get_idx_all(self):
+        #     if searchable_index not in MockEsCommon.db_get_idx_all(self):
         #         raise NotFoundError(404, 'IndexMissingException[[{0}] missing]'.format(searchable_index))
 
         return searchable_indexes
@@ -570,10 +205,10 @@ class MockEsIndicesClient:
         mappings = body.get('mappings', {}) if body else {}
         settings = body.get('settings', {}) if body else {}
 
-        if searchable_indexes[0] in MockEsCommon.meta_db_get_idx_all(self):
+        if MockEsCommon.db_idx_has(self, searchable_indexes[0]):
             MockEsCommon.raiseRequestError(['???'], 'index_already_exists_exception', searchable_indexes[0])
         else:
-            MockEsCommon.meta_db_set_idx(self, searchable_indexes[0], mappings, settings)
+            MockEsCommon.db_idx_set(self, searchable_indexes[0], mappings, settings)
 
         # TODO - add handling - maybe override is ok
         return {'acknowledged': 'True', 'shards_acknowledged': 'True'}
@@ -612,7 +247,7 @@ class MockEsIndicesClient:
         if len(searchable_indexes) > 1:
             raise ValueError("'index' contains more indexes - it cannot be list for now")
 
-        return searchable_indexes[0] in MockEsCommon.meta_db_get_idx_all(self)
+        return MockEsCommon.db_idx_has(self, searchable_indexes[0])
 
 
     @query_params(
@@ -646,13 +281,13 @@ class MockEsIndicesClient:
         searchable_indexes = MockEsCommon.normalize_index_to_list(self, index)
 
         if MockEsCommon.apply_all_indicies(WesDefs.OP_IND_DELETE, searchable_indexes):
-            MockEsCommon.meta_db_clear(self)
+            MockEsCommon.db_db_clear(self)
             return {'acknowledged': True}
         else:
             err_list = []
             first_idx = None
             for idx in searchable_indexes:
-                if not MockEsCommon.meta_db_del_idx(self, idx):
+                if not MockEsCommon.db_idx_del(self, idx):
                     if first_idx is None:
                         first_idx = idx
                     e = {'type': 'index_not_found_exception',
@@ -785,11 +420,11 @@ class MockEsIndicesClient:
         for_all = MockEsCommon.apply_all_indicies(WesDefs.OP_IND_GET_MAP, searchable_indexes)
 
         ret_dict = {}
-        for idx in MockEsCommon.meta_db_get_idx_all(self):
+        for idx in MockEsCommon.db_idx_dict(self):
             if for_all or idx in searchable_indexes:
                 ret_dict[idx] = {
-                    'mappings': MockEsCommon.meta_db_idx_get_mappings(self, idx),
-                    'settings': MockEsCommon.meta_db_idx_get_settings(self, idx)
+                    'mappings': MockEsCommon.db_idx_field_mappings_get(self, idx),
+                    'settings': MockEsCommon.db_idx_field_settings_get(self, idx)
                 }
 
         return ret_dict
@@ -840,11 +475,11 @@ class MockEsIndicesClient:
 
         searchable_indexes = MockEsCommon.normalize_index_to_list(self, index)
         if MockEsCommon.apply_all_indicies(WesDefs.OP_IND_PUT_MAP, searchable_indexes):
-            searchable_indexes = MockEsCommon.meta_db_get_idx_all(self)
+            searchable_indexes = MockEsCommon.db_idx_dict(self).keys()
 
         for idx in searchable_indexes:
             if MockEsCommon.check_running_version(self, WesDefs.ES_VERSION_5_6_5):
-                if MockEsCommon.meta_db_idx_get_docs(self, idx):
+                if MockEsCommon.db_idx_get_docs(self, idx):
                     # TODO should be improved
                     # 400 - {'error': {'root_cause': [{'type': 'illegal_argument_exception', 'reason': 'unknown setting [index.properties.city.fields.keyword.ignore_above] please check that any required plugins are installed, or check the breaking changes documentation for removed settings'}], 'type': 'illegal_argument_exception', 'reason': 'unknown setting [index.properties.city.fields.keyword.ignore_above] please check that any required plugins are installed, or check the breaking changes documentation for removed settings'}, 'status': 400} - illegal_argument_exception
                     # OP_IND_PUT_MAP KEY[???] - 400 - illegal_argument_exception - Types cannot be provided in put mapping requests, unless the include_type_name parameter is set to true.
@@ -938,19 +573,19 @@ class MockEs(MockEsCommon):
     @MockEsCommon.Decor.operation_mock(WesDefs.OP_DOC_ADD_UP)
     def index(self, index, body, doc_type="_doc", id=None, params=None):
 
-        if index not in MockEsCommon.meta_db_get_idx_all(self):
+        if not MockEsCommon.db_idx_has(self, index):
             self.indices.create(index,
                                 body=MockEsCommon.mappings_settings_build_from_doc_body_data(body),
                                 params=params)
         else:
             # change only if empty
-            if len(MockEsCommon.meta_db_idx_get_docs(self, index)) == 0 and \
-               len(MockEsCommon.meta_db_idx_get_mappings(self, index)) == 0:
+            if len(MockEsCommon.db_idx_dict(self, index)) == 0 and \
+               len(MockEsCommon.db_idx_get_mappings(self, index)) == 0:
                 MockEsCommon.meta_set_idx_mappings_settings(self, index, MockEsCommon.mappings_settings_build_from_doc_body_data(body))
 
             # TODO settings ???
 
-        docs = MockEsCommon.meta_db_idx_get_docs(self, index)
+        docs = MockEsCommon.db_idx_get_docs(self, index)
         doc_found = docs.get(id, None)
         if id is None:
             id = get_random_id()
@@ -958,7 +593,7 @@ class MockEs(MockEsCommon):
 
         version = doc_found['_version'] if doc_found else 1
 
-        MockEsCommon.meta_db_idx_get_docs(self, index)[id] = {
+        MockEsCommon.db_idx_get_docs(self, index)[id] = {
             '_type': doc_type,
             '_id': id,
             '_source': body,
@@ -1050,7 +685,7 @@ class MockEs(MockEsCommon):
 
         result = None
 
-        docs = MockEsCommon.meta_db_idx_get_docs(self, index)
+        docs = MockEsCommon.db_idx_get_docs(self, index)
 
         for doc_id in docs:
             doc = docs[doc_id]
@@ -1124,8 +759,8 @@ class MockEs(MockEsCommon):
                 raise ValueError("Empty value passed for a required argument.")
 
         result = False
-        if index in MockEsCommon.meta_db_get_idx_all(self):
-            docs = MockEsCommon.meta_db_idx_get_docs(self, index)
+        if index in MockEsCommon.db_idx_dict(self):
+            docs = MockEsCommon.db_idx_get_docs(self, index)
             if id in docs and docs[id]['_type'] == doc_type:
                 result = True
         return result
@@ -1344,13 +979,13 @@ class MockEs(MockEsCommon):
         searchable_indexes = MockEsCommon.normalize_index_to_list(self, index)
 
         if MockEsCommon.apply_all_indicies(WesDefs.OP_DOC_SEARCH, searchable_indexes):
-            searchable_indexes = MockEsCommon.meta_db_get_idx_all(self)
+            searchable_indexes = MockEsCommon.db_idx_dict(self).keys()
 
         matches = []
         query = MockEsQuery(WesDefs.OP_DOC_SEARCH, body)
 
         for search_idx in searchable_indexes:
-            docs = MockEsCommon.meta_db_idx_get_docs(self, search_idx)
+            docs = MockEsCommon.db_idx_get_docs(self, search_idx)
             for doc_id in docs:
                 doc = docs[doc_id]
                 if query.q_exec_on_doc(None, search_idx, doc, query.q_query_name, query.q_query_rules):
