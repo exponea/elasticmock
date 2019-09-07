@@ -29,25 +29,30 @@ doc_type_bad = 'doc_type_bad'
 
 # mappings
 doc_type_11_mappings = 'doc_type_11_mappings'
+doc_type_11_mappings_set = 'doc_type_11_mappings_SET_CHANGE'
 doc_type_12_mappings = 'doc_type_12_mappings'
 doc_type_13_mappings = 'doc_type_13_mappings'
 
+idx_1_mapping_data = {'mappings data key': 'mappings data value'}
+idx_1_mapping_data_set = {'mappings data key': 'mappings data value__SET_CHANGE'}
+idx_1_setting_data = {'settings data key': 'settings data value'}
+idx_1_setting_data_set = {'settings data key': 'settings data value__SET_CHANGE'}
+
 # settings
 doc_type_11_settings = 'doc_type_11_settings'
+doc_type_11_settings_set = 'doc_type_11_settings_SET_CHANGE'
 doc_type_12_settings = 'doc_type_12_settings'
 doc_type_13_settings = 'doc_type_13_settings'
+
 
 class TestMockDbHelper(TestCommon):
 
     def get_init_db(self):
 
-        idx_mapping_data = { 'mappings data key': 'mappings data value' }
-        idx_setting_data = { 'settings data key': 'settings data value' }
-
         db = {
                 test_idx_1: {
-                    MockDb.K_IDX_MAP: idx_mapping_data,
-                    MockDb.K_IDX_SET: idx_setting_data,
+                    MockDb.K_IDX_MAP: idx_1_mapping_data,
+                    MockDb.K_IDX_SET: idx_1_setting_data,
                     MockDb.K_IDX_DID2DTYPES_D: {
                         id_doc11: [doc_type_11, ],
                         id_doc12: [doc_type_11, doc_type_13],
@@ -111,7 +116,9 @@ class TestMockDb(TestMockDbHelper):
         self.assertEqual(None, MockDb.db_idx_field_did2dtypes_key_get(self.db, test_idx_1, id_doc12))
         self.assertEqual(None, MockDb.db_idx_field_did2dtypes_dict_get(self.db, test_idx_1))
         self.assertEqual(None, MockDb.db_idx_field_mappings_get(self.db, test_idx_1))
+        self.assertEqual(False, MockDb.db_idx_field_mappings_set(self.db, test_idx_1, idx_1_mapping_data_set))
         self.assertEqual(None, MockDb.db_idx_field_settings_get(self.db, test_idx_1))
+        self.assertEqual(False, MockDb.db_idx_field_settings_set(self.db, test_idx_1, idx_1_setting_data_set))
         # L2 - dtype - has
         self.assertEqual(False, MockDb.db_dtype_field_doc_key_has(self.db, test_idx_1, doc_type_11, id_doc12))
         self.assertEqual(False, MockDb.db_dtype_field_doc_dict_has(self.db, test_idx_1, doc_type_11))
@@ -210,8 +217,15 @@ class TestMockDb(TestMockDbHelper):
         self.assertEqual(check_val, MockDb.db_idx_field_did2dtypes_dict_get(self.db, test_idx_1))
         check_val = DB[test_idx_1][MockDb.K_IDX_MAP]
         self.assertEqual(check_val, MockDb.db_idx_field_mappings_get(self.db, test_idx_1))
+        self.assertEqual(True, MockDb.db_idx_field_mappings_set(self.db, test_idx_1, idx_1_mapping_data_set))
+        check_val = DB[test_idx_1][MockDb.K_IDX_MAP]
+        self.assertEqual(check_val, MockDb.db_idx_field_mappings_get(self.db, test_idx_1))
         check_val = DB[test_idx_1][MockDb.K_IDX_SET]
         self.assertEqual(check_val, MockDb.db_idx_field_settings_get(self.db, test_idx_1))
+        self.assertEqual(True, MockDb.db_idx_field_settings_set(self.db, test_idx_1, idx_1_setting_data_set))
+        check_val = DB[test_idx_1][MockDb.K_IDX_SET]
+        self.assertEqual(check_val, MockDb.db_idx_field_settings_get(self.db, test_idx_1))
+
         # # L2 - dtype - has
         self.assertEqual(True, MockDb.db_dtype_field_doc_key_has(self.db, test_idx_1, doc_type_11, id_doc12))
         self.assertEqual(True, MockDb.db_dtype_field_doc_dict_has(self.db, test_idx_1, doc_type_11))

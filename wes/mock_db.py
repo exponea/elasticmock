@@ -155,9 +155,22 @@ class MockDb:
     def db_idx_field_mappings_get(obj, idx):
         return MockDb._check_lookup_chain(False, obj, [idx, MockDb.K_IDX_MAP])
     @staticmethod
+    def db_idx_field_mappings_set(obj, idx, mappings) -> bool:
+        if MockDb.db_idx_field_mappings_has(obj, idx):
+            MockDb.db_idx_field_mappings_get(obj, idx).update(mappings)
+            return True
+        else:
+            return False
+    @staticmethod
     def db_idx_field_settings_get(obj, idx):
         return MockDb._check_lookup_chain(False, obj, [idx, MockDb.K_IDX_SET])
-
+    @staticmethod
+    def db_idx_field_settings_set(obj, idx, settings) -> bool:
+        if MockDb.db_idx_field_settings_has(obj, idx):
+            MockDb.db_idx_field_settings_get(obj, idx).update(settings)
+            return True
+        else:
+            return False
     @staticmethod
     def db_idx_get(obj, idx):
         return MockDb._check_lookup_chain(False, obj, [idx])
