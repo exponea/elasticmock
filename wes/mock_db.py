@@ -134,6 +134,9 @@ class MockDb:
         version = (doc_old['_version']+1) if doc_old else 1
 
         #Log.notice(' 2. --------------------------------------------------')
+        if not self.db_idx_has(idx):
+            self.db_idx_set(idx, self.mappings_settings_build_from_doc_body_data(body))
+
         if not self.db_idx_field_dtype_key_has(idx, dtype):
             if not self.db_dtype_create_default(idx, dtype):
                 raise ValueError(f"{idx} - {dtype}")
@@ -232,8 +235,10 @@ class MockDb:
     def db_idx_dict(self):
         return self.db_db_get()
 
-    def db_idx_set(self, idx, mappings, settings):
-         self.db_db_get()[idx] = self._default_idx_structure(mappings, settings)
+    def db_idx_set(self, idx, map_set_body):
+        mappings = map_set_body.get('mappings', {}) if map_set_body else {}
+        settings = map_set_body.get('settings', {}) if map_set_body else {}
+        self.db_db_get()[idx] = self._default_idx_structure(mappings, settings)
 
     def db_idx_del(self, idx) -> bool:
         if self.db_idx_has(idx):

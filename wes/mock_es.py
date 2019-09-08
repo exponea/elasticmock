@@ -145,13 +145,10 @@ class MockEsIndicesClient:
         if len(searchable_indexes) > 1:
             raise ValueError("'index' contains more indexes - it cannot be list ")
 
-        mappings = body.get('mappings', {}) if body else {}
-        settings = body.get('settings', {}) if body else {}
-
         if self.db.db_idx_has(searchable_indexes[0]):
             MockEsCommon.raiseRequestError(['???'], 'index_already_exists_exception', searchable_indexes[0])
         else:
-            self.db.db_idx_set(searchable_indexes[0], mappings, settings)
+            self.db.db_idx_set(searchable_indexes[0], body)
 
         # TODO - add handling - maybe override is ok
         return {'acknowledged': 'True', 'shards_acknowledged': 'True'}
@@ -519,16 +516,11 @@ class MockEs(MockEsCommon):
     @MockEsCommon.Decor.operation_mock(WesDefs.OP_DOC_ADD_UP)
     def index(self, index, body, doc_type="_doc", id=None, params=None):
 
-        if not self.db.db_idx_has(index):
-            self.indices.create(index,
-                                body=MockEsCommon.mappings_settings_build_from_doc_body_data(body),
-                                params=params)
-        else:
+        if self.db.db_idx_has(index):
             # change only if empty
             if len(self.db.db_api_docs_all(index)) == 0 and \
                len(self.db.db_idx_field_mappings_get(index)) == 0:
                 self.db.db_idx_field_mappings_set(index, self.db.mappings_settings_build_from_doc_body_data(body))
-
             # TODO settings ???
 
         if id is None:

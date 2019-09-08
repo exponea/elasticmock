@@ -147,9 +147,9 @@ class TestMockDb(TestMockDbHelper):
         self.db.db_db_clear()
 
         # add 3 indexes
-        self.db.db_idx_set(test_idx_1, None, None)
-        self.db.db_idx_set(test_idx_2, None, doc_type_13_settings)
-        self.db.db_idx_set(test_idx_3, None, None)
+        self.db.db_idx_set(test_idx_1, None)
+        self.db.db_idx_set(test_idx_2, {'settings': doc_type_13_settings})
+        self.db.db_idx_set(test_idx_3, None)
 
         self.db.db_db_dump_per_idx("OP_TEST")
 
@@ -257,7 +257,7 @@ class TestMockDb(TestMockDbHelper):
         check_val = DB[test_idx_1][MockDb.K_IDX_DTYPE_D][doc_type_11][MockDb.K_DT_SET]
         self.assertEqual(check_val, self.db.db_dtype_field_sets_get(test_idx_1, doc_type_11))
 
-    def db_operations_on_existing_idx__check_nb(self, nb_db, nb_list):
+    def db_operations_on_existing_idx__check_nb(self, nb_db, nb_list, idx):
         docs_all = self.db.db_api_docs_all()
 
         self.docs_dump(docs_all)
@@ -265,10 +265,10 @@ class TestMockDb(TestMockDbHelper):
         self.assertEqual(nb_db, len(docs_all))
 
         self.assertEqual(0, len(self.db.db_api_docs_all(test_idx_bad)))
-        self.assertEqual(nb_list[0], len(self.db.db_api_docs_all(test_idx_1)))
-        self.assertEqual(nb_list[1], len(self.db.db_api_docs_all(test_idx_1, doc_type_11)))
-        self.assertEqual(nb_list[2], len(self.db.db_api_docs_all(test_idx_1, doc_type_12)))
-        self.assertEqual(0, len(self.db.db_api_docs_all(test_idx_1, doc_type_bad)))
+        self.assertEqual(nb_list[0], len(self.db.db_api_docs_all(idx)))
+        self.assertEqual(nb_list[1], len(self.db.db_api_docs_all(idx, doc_type_11)))
+        self.assertEqual(nb_list[2], len(self.db.db_api_docs_all(idx, doc_type_12)))
+        self.assertEqual(0, len(self.db.db_api_docs_all(idx, doc_type_bad)))
 
 
     def test_db_operations_on_existing_idx(self):
@@ -276,10 +276,11 @@ class TestMockDb(TestMockDbHelper):
         self.db.documents_dict = self.get_init_db()
 
         # 1.
-        self.db_operations_on_existing_idx__check_nb(5, [5,  # total on idx 'test_idx_1'
+        self.db_operations_on_existing_idx__check_nb(5, [5,  # total on idx 'idx'
                                                          2,  # total on idx 'test_idx_1' , 'doc_type_11'
                                                          1   # total on idx 'test_idx_1' , 'doc_type_12'
-                                                         ])
+                                                         ],
+                                                     test_idx_1)
 
         # 2. add new doc to idx
         doc_created = self.db.db_dtype_field_doc_key_set(test_idx_1, doc_type_12, id_doc14, doc14)
@@ -289,7 +290,8 @@ class TestMockDb(TestMockDbHelper):
                                                      [6,  # total on idx 'test_idx_1'
                                                       2,  # total on idx 'test_idx_1' , 'doc_type_11'
                                                       2   # total on idx 'test_idx_1' , 'doc_type_12'
-                                                      ])
+                                                      ],
+                                                     test_idx_1)
 
         # 3. update new doc
         doc_created = self.db.db_dtype_field_doc_key_set(test_idx_1, doc_type_12, id_doc14, doc14_updated)
@@ -299,8 +301,8 @@ class TestMockDb(TestMockDbHelper):
                                                      [6,  # total on idx 'test_idx_1'
                                                       2,  # total on idx 'test_idx_1' , 'doc_type_11'
                                                       2   # total on idx 'test_idx_1' , 'doc_type_12'
-                                                      ])
-
+                                                      ],
+                                                     test_idx_1)
         # 3. delete new doc
         self.assertEqual(False, self.db.db_dtype_field_doc_key_del(test_idx_1, doc_type_12, id_doc_bad))
         self.assertEqual(True, self.db.db_dtype_field_doc_key_del(test_idx_1, doc_type_12, id_doc14))
@@ -308,7 +310,54 @@ class TestMockDb(TestMockDbHelper):
                                                      [5,  # total on idx 'test_idx_1'
                                                       2,  # total on idx 'test_idx_1' , 'doc_type_11'
                                                       1   # total on idx 'test_idx_1' , 'doc_type_12'
-                                                      ])
+                                                      ],
+                                                     test_idx_1)
+
+    def test_db_operations_on_non_existing_idx(self):
+        self.db.db_db_clear()
+        self.db.documents_dict = self.get_init_db()
+
+        ### 1. ###
+        # 1.a existing
+        self.db_operations_on_existing_idx__check_nb(5, [5,  # total on idx 'test_idx_1'
+                                                         2,  # total on idx 'test_idx_1' , 'doc_type_11'
+                                                         1   # total on idx 'test_idx_1' , 'doc_type_12'
+                                                         ],
+                                                     test_idx_1)
+
+        # 1.b non-existing
+        self.db_operations_on_existing_idx__check_nb(5, [0,  # total on idx 'test_idx_1'
+                                                         0,  # total on idx 'test_idx_1' , 'doc_type_11'
+                                                         0   # total on idx 'test_idx_1' , 'doc_type_12'
+                                                         ],
+                                                     test_idx_2)
+
+        ### 2. ###
+        # add to existing and non existing
+        doc_created = self.db.db_dtype_field_doc_key_set(test_idx_1, doc_type_12, id_doc14, doc14_updated)
+        self.assertEqual(1, doc_created['_version'])
+        self.assertEqual(doc14_updated, doc_created['_source'])
+
+        doc_created = self.db.db_dtype_field_doc_key_set(test_idx_2, doc_type_12, id_doc14, doc14_updated)
+        self.assertEqual(1, doc_created['_version'])
+        self.assertEqual(doc14_updated, doc_created['_source'])
+
+        # EXISTING - only total nb should be changed
+        self.db_operations_on_existing_idx__check_nb(7,
+                                                     [6,  # total on idx 'test_idx_1'
+                                                      2,  # total on idx 'test_idx_1' , 'doc_type_11'
+                                                      2  # total on idx 'test_idx_1' , 'doc_type_12'
+                                                      ],
+                                                     test_idx_1)
+
+        # NON-EXISTING - only total nb should be changed
+        self.db_operations_on_existing_idx__check_nb(7, [1,  # total on idx 'test_idx_1'
+                                                         0,  # total on idx 'test_idx_1' , 'doc_type_11'
+                                                         1   # total on idx 'test_idx_1' , 'doc_type_12'
+                                                         ],
+                                                     test_idx_2)
+
+
 
 
 
@@ -322,6 +371,7 @@ if __name__ == '__main__':
         # suite.addTest(TestMockDb("test_db_dumps"))
         # suite.addTest(TestMockDb("test_db_init_data"))
         # suite.addTest(TestMockDb("test_db_operations_on_existing_idx"))
+        # suite.addTest(TestMockDb("test_db_operations_on_non_existing_idx"))
 
         runner = unittest.TextTestRunner()
         runner.run(suite)
