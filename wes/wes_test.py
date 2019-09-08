@@ -106,7 +106,7 @@ class TestWes(TestWesHelper):
         self.assertEqual("updated", self.wes.doc_addup_result(self.wes.doc_addup(ind_str, doc3, doc_type=ind_str_doc_type, id=3)).data['result'])  # MSE_NOTES: 'result': 'updated' '_seq_no': 3  '_version': 2,    '_shards': {'total': 2, 'successful': 1, 'failed': 0},
 
 
-    def test_documents_basic(self):
+    def test_documents_basic_5_docs(self):
 
         global ind_str
         global ind_str_doc_type
@@ -708,8 +708,8 @@ if __name__ == '__main__':
         # suite.addTest(TestWesMock("test_indice_basic"))
         # suite.addTest(TestWesReal("test_documents_basic_single_create_update"))
         # suite.addTest(TestWesMock("test_documents_basic_single_create_update"))
-        # suite.addTest(TestWesReal("test_documents_basic"))
-        # suite.addTest(TestWesMock("test_documents_basic"))
+        # suite.addTest(TestWesReal("test_documents_basic_5_docs"))
+        # suite.addTest(TestWesMock("test_documents_basic_5_docs"))
         # suite.addTest(TestWesReal("test_documents_basic_unique_id"))
         # suite.addTest(TestWesMock("test_documents_basic_unique_id"))
         # suite.addTest(TestWesReal("test_query_basic"))

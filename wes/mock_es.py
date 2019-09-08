@@ -611,21 +611,7 @@ class MockEs(MockEsCommon):
             if param in SKIP_IN_PATH:
                 raise ValueError("Empty value passed for a required argument.")
 
-        result = None
-
-        docs = MockEsCommon.db_idx_get_docs(self, index)
-
-        for doc_id in docs:
-            doc = docs[doc_id]
-            if doc.get('_id') == id:
-                if doc_type == '_all':
-                    result = doc
-                    break
-                else:
-                    if doc.get('_type') == doc_type:
-                        result = doc
-                        break
-
+        result = self.db.db_dtype_field_doc_key_get(index, doc_type, id)
         if result:
             result['found'] = True
         else:
@@ -686,12 +672,7 @@ class MockEs(MockEsCommon):
             if param in SKIP_IN_PATH:
                 raise ValueError("Empty value passed for a required argument.")
 
-        result = False
-        if index in MockEsCommon.db_idx_dict(self):
-            docs = MockEsCommon.db_idx_get_docs(self, index)
-            if id in docs and docs[id]['_type'] == doc_type:
-                result = True
-        return result
+        return self.db.db_dtype_field_doc_key_has(index, doc_type, id)
 
 
     # @query_params(
