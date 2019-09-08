@@ -9,6 +9,7 @@ doc12_a = {'doc12_a_k': 'doc12_a_v'}
 doc12_b = {'doc12_b_k': 'doc12_b_v'}
 doc13 = {'doc13_k': 'doc13_v'}
 doc14 = {'doc14_k': 'doc14_v'}
+doc14_updated = {'doc14_k': 'doc14_v_UPDATED'}
 doc145 = {'doc15_k': 'doc15_v'}
 
 # doc id
@@ -280,13 +281,33 @@ class TestMockDb(TestMockDbHelper):
                                                          1   # total on idx 'test_idx_1' , 'doc_type_12'
                                                          ])
 
-        # 2. add to idx
+        # 2. add new doc to idx
         doc_created = self.db.db_dtype_field_doc_key_set(test_idx_1, doc_type_12, id_doc14, doc14)
         self.assertEqual(1, doc_created['_version'])
+        self.assertEqual(doc14, doc_created['_source'])
         self.db_operations_on_existing_idx__check_nb(6,
                                                      [6,  # total on idx 'test_idx_1'
                                                       2,  # total on idx 'test_idx_1' , 'doc_type_11'
                                                       2   # total on idx 'test_idx_1' , 'doc_type_12'
+                                                      ])
+
+        # 3. update new doc
+        doc_created = self.db.db_dtype_field_doc_key_set(test_idx_1, doc_type_12, id_doc14, doc14_updated)
+        self.assertEqual(2, doc_created['_version'])
+        self.assertEqual(doc14_updated, doc_created['_source'])
+        self.db_operations_on_existing_idx__check_nb(6,
+                                                     [6,  # total on idx 'test_idx_1'
+                                                      2,  # total on idx 'test_idx_1' , 'doc_type_11'
+                                                      2   # total on idx 'test_idx_1' , 'doc_type_12'
+                                                      ])
+
+        # 3. delete new doc
+        self.assertEqual(False, self.db.db_dtype_field_doc_key_del(test_idx_1, doc_type_12, id_doc_bad))
+        self.assertEqual(True, self.db.db_dtype_field_doc_key_del(test_idx_1, doc_type_12, id_doc14))
+        self.db_operations_on_existing_idx__check_nb(5,
+                                                     [5,  # total on idx 'test_idx_1'
+                                                      2,  # total on idx 'test_idx_1' , 'doc_type_11'
+                                                      1   # total on idx 'test_idx_1' , 'doc_type_12'
                                                       ])
 
 

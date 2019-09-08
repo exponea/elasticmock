@@ -120,7 +120,7 @@ class MockDb:
     def db_dtype_field_sets_get(self, idx, dtype):
         return self._check_lookup_chain(False, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_SET])
 
-    # ### SET ###
+    # ### SET/REM ###
     def db_dtype_create_default(self, idx, dtype):
         if self.db_idx_field_dtype_dict_has(idx):
             self.db_idx_field_dtype_dict_get(idx)[dtype] = self._default_dtype_structure(None, None)
@@ -149,6 +149,13 @@ class MockDb:
 
         #Log.notice(' 4. --------------------------------------------------')
         return self.db_dtype_field_doc_key_get(idx, dtype, doc_id)
+
+    def db_dtype_field_doc_key_del(self, idx, dtype, doc_id):
+        if self.db_dtype_field_doc_key_has(idx, dtype, doc_id):
+            del self.db_dtype_field_doc_dict_get(idx, dtype)[doc_id]
+            return True
+        else:
+            return False
 
     ############################################################################
     ############################################################################
