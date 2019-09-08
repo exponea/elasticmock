@@ -730,9 +730,13 @@ if __name__ == '__main__':
         # suite.addTest(TestWesMock("test_mappings_get_put"))
         # suite.addTest(TestWesReal("test_aggregations"))
         # suite.addTest(TestWesMock("test_aggregations"))
-        # suite.addTest(TestWesReal("test_bulk"))
-        # suite.addTest(TestWesReal("test_scan"))
+        #
         # suite.addTest(TestWesReal("test_count"))
+        # suite.addTest(TestWesMock("test_count"))
+        # UNFINISHED:
+        # suite.addTest(TestWesReal("test_bulk"))
+        # suite.addTest(TestWesMock("test_bulk"))
+        # suite.addTest(TestWesReal("test_scan"))
         # suite.addTest(TestWesReal("test_templates_get_put"))
 
         runner = unittest.TextTestRunner()

@@ -89,7 +89,7 @@ class MockEsCommon():
                 if ind in all_ind_values:
                     return True
             return False
-        elif operation == WesDefs.OP_DOC_SEARCH:
+        elif operation == WesDefs.OP_DOC_SEARCH or operation == WesDefs.OP_DOC_COUNT:
             all_ind_values = ['_all', '']
             for ind in indices:
                 if ind in all_ind_values:
@@ -105,6 +105,22 @@ class MockEsCommon():
     @staticmethod
     def get_parent(obj):
         return obj.parent if hasattr(obj, 'parent') else obj
+
+    def query_helper(self, query, index=None, doc_type=None, body=None, params=None):
+        if not index:
+            index = "_all"
+        searchable_indexes = self.db.normalize_index_to_list(index)
+
+        if MockEsCommon.apply_all_indicies(query.q_oper, searchable_indexes):
+            searchable_indexes = self.db.db_idx_dict().keys()
+
+        matches = []
+        docs = self.db.db_api_docs_all(searchable_indexes, doc_type)
+        for docs_idx, docs_dtype, docs_id, docs_doc in docs:
+            if query.q_exec_on_doc(None, docs_idx, docs_doc, query.q_query_name, query.q_query_rules):
+                matches.append(docs_doc)
+
+        return matches, searchable_indexes
 
 
 class MockEsIndicesClient:
@@ -883,20 +899,12 @@ class MockEs(MockEsCommon):
         if "from_" in params:
             params["from"] = params.pop("from_")
 
-        if not index:
-            index = "_all"
-        searchable_indexes = self.db.normalize_index_to_list( index)
-
-        if MockEsCommon.apply_all_indicies(WesDefs.OP_DOC_SEARCH, searchable_indexes):
-            searchable_indexes = self.db.db_idx_dict().keys()
-
-        matches = []
         query = MockEsQuery(WesDefs.OP_DOC_SEARCH, body)
-
-        docs = self.db.db_api_docs_all(searchable_indexes)
-        for docs_idx, docs_dtype, docs_id, docs_doc in docs:
-            if query.q_exec_on_doc(None, docs_idx, docs_doc, query.q_query_name, query.q_query_rules):
-                matches.append(docs_doc)
+        matches, searchable_indexes = self.query_helper(query,
+                                                        index=index,
+                                                        doc_type=None,  # search API does not have???
+                                                        body=body,
+                                                        params=params)
 
         result = {
             'hits': {
@@ -1031,24 +1039,83 @@ class MockEs(MockEsCommon):
     #                         scroll_kwargs=scroll_kwargs,
     #                         ** kwargs)
 
-    # @query_params(
-    #     "allow_no_indices",
-    #     "analyze_wildcard",
-    #     "analyzer",
-    #     "default_operator",
-    #     "df",
-    #     "expand_wildcards",
-    #     "ignore_unavailable",
-    #     "ignore_throttled",
-    #     "lenient",
-    #     "min_score",
-    #     "preference",
-    #     "q",
-    #     "routing",
-    #     "terminate_after",)
-    # @MockEsCommon.Decor.operation_mock(WesDefs.OP_DOC_COUNT)
-    # def doc_count(self, doc_type=None, index=None, body=None, params=None):
-    #     return self.es.count(doc_type=doc_type, index=index, body=body, params=params)
+    @query_params(
+        "allow_no_indices",
+        "analyze_wildcard",
+        "analyzer",
+        "default_operator",
+        "df",
+        "expand_wildcards",
+        "ignore_unavailable",
+        "ignore_throttled",
+        "lenient",
+        "min_score",
+        "preference",
+        "q",
+        "routing",
+        "terminate_after",)
+    @MockEsCommon.Decor.operation_mock(WesDefs.OP_DOC_COUNT)
+    def count(self, doc_type=None, index=None, body=None, params=None):
+        """
+        Execute a query and get the number of matches for that query.
+        `<http://www.elastic.co/guide/en/elasticsearch/reference/current/search-count.html>`_
+
+        :arg index: A list of index names or a string containing a
+            comma-separated list of index names to restrict the results to
+        :arg body: A query to restrict the results specified with the Query DSL
+            (optional)
+        :arg allow_no_indices: Whether to ignore if a wildcard indices
+            expression resolves into no concrete indices. (This includes `_all`
+            string or when no indices have been specified)
+        :arg analyze_wildcard: Specify whether wildcard and prefix queries
+            should be analyzed (default: false)
+        :arg analyzer: The analyzer to use for the query string
+        :arg default_operator: The default operator for query string query (AND
+            or OR), default 'OR', valid choices are: 'AND', 'OR'
+        :arg df: The field to use as default where no field prefix is given in
+            the query string
+        :arg expand_wildcards: Whether to expand wildcard expression to concrete
+            indices that are open, closed or both., default 'open', valid
+            choices are: 'open', 'closed', 'none', 'all'
+        :arg ignore_unavailable: Whether specified concrete indices should be
+            ignored when unavailable (missing or closed)
+        :arg ignore_throttled: Whether specified concrete, expanded or aliased
+            indices should be ignored when throttled
+        :arg lenient: Specify whether format-based query failures (such as
+            providing text to a numeric field) should be ignored
+        :arg min_score: Include only documents with a specific `_score` value in
+            the result
+        :arg preference: Specify the node or shard the operation should be
+            performed on (default: random)
+        :arg q: Query in the Lucene query string syntax
+        :arg routing: Specific routing value
+        """
+
+        if body and "from" in body:
+            MockEsCommon.raiseRequestError(['request does not support [from]'],
+                                           'request does not support [from]', index)
+
+        if body and "size" in body:
+            MockEsCommon.raiseRequestError(['request does not support [size]'],
+                                           'request does not support [size]', index)
+
+
+        query = MockEsQuery(WesDefs.OP_DOC_COUNT, body)
+        matches, searchable_indexes = self.query_helper(query,
+                                                        index=index,
+                                                        doc_type=doc_type,  # search API does not have???
+                                                        body=body,
+                                                        params=params)
+        result = {
+            'count': len(matches),
+            '_shards': {
+                'successful': 1,
+                'failed': 0,
+                'total': 1
+            }
+        }
+
+        return result
 
     # @query_params("scroll", "rest_total_hits_as_int", "scroll_id")
     # @MockEsCommon.Decor.operation_mock(WesDefs.OP_DOC_SCROLL)
