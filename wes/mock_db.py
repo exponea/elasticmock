@@ -42,8 +42,22 @@ class MockDb:
         #         }
         # }
 
-    @staticmethod
-    def _check_lookup_chain(check_if_has, obj, keys):
+    def _default_idx_structure(self, mappings, settings):
+        return {
+            MockDb.K_IDX_MAP: mappings,
+            MockDb.K_IDX_SET: settings,
+            MockDb.K_IDX_DID2DTYPES_D: {},
+            MockDb.K_IDX_DTYPE_D: {},
+        }
+
+    def _default_dtype_structure(self, dtype_mappings, dtype_settings):
+        return {
+            MockDb.K_DT_DOC_D: {},
+            MockDb.K_DT_MAP: dtype_mappings,
+            MockDb.K_DT_SET: dtype_settings,
+         }
+
+    def _check_lookup_chain(self, check_if_has, keys):
 
         dbg_lookup_chain = False
 
@@ -57,7 +71,7 @@ class MockDb:
                 Log.ok(f"IS_IN : {str(k)} - {str(d)}")
             return True if check_if_has else d[k]
 
-        d = MockDb.db_idx_dict(obj)
+        d = self.db_idx_dict()
         for k in keys:
             if k in d:
                 if k == keys[-1]:
@@ -70,180 +84,165 @@ class MockDb:
 
     ############################################################################
     ############################################################################
-    @staticmethod
-    def db_dtype_field_doc_key_has(obj, idx, dtype, doc_id):
-        return MockDb._check_lookup_chain(True, obj, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_DOC_D, doc_id])
-    @staticmethod
-    def db_dtype_field_doc_dict_has(obj, idx, dtype):
-        return MockDb._check_lookup_chain(True, obj, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_DOC_D])
-    @staticmethod
-    def db_dtype_field_maps_has(obj, idx, dtype):
-        return MockDb._check_lookup_chain(True, obj, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_MAP])
-    @staticmethod
-    def db_dtype_field_sets_has(obj, idx, dtype):
-        return MockDb._check_lookup_chain(True, obj, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_SET])
+    ### HAS ###
+    def db_dtype_field_doc_key_has(self, idx, dtype, doc_id):
+        return self._check_lookup_chain(True, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_DOC_D, doc_id])
+    def db_dtype_field_doc_dict_has(self, idx, dtype):
+        return self._check_lookup_chain(True, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_DOC_D])
+    def db_dtype_field_maps_has(self, idx, dtype):
+        return self._check_lookup_chain(True, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_MAP])
+    def db_dtype_field_sets_has(self, idx, dtype):
+        return self._check_lookup_chain(True, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_SET])
 
-    @staticmethod
-    def db_dtype_field_doc_key_get(obj, idx, dtype, doc_id):
-        return MockDb._check_lookup_chain(False, obj, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_DOC_D, doc_id])
-    @staticmethod
-    def db_dtype_field_doc_dict_get(obj, idx, dtype):
-        return MockDb._check_lookup_chain(False, obj, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_DOC_D])
-    @staticmethod
-    def db_dtype_field_maps_get(obj, idx, dtype):
-        return MockDb._check_lookup_chain(False, obj, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_MAP])
-    @staticmethod
-    def db_dtype_field_sets_get(obj, idx, dtype):
-        return MockDb._check_lookup_chain(False, obj, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_SET])
+    ### GET ###
+    def db_dtype_field_doc_key_get(self, idx, dtype, doc_id):
+        return self._check_lookup_chain(False, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_DOC_D, doc_id])
+    def db_dtype_field_doc_dict_get(self, idx, dtype):
+        return self._check_lookup_chain(False, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_DOC_D])
+    def db_dtype_field_maps_get(self, idx, dtype):
+        return self._check_lookup_chain(False, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_MAP])
+    def db_dtype_field_sets_get(self, idx, dtype):
+        return self._check_lookup_chain(False, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_SET])
+
+    # ### SET ###
+    # def db_dtype_field_doc_key_set(self, idx, dtype, doc_id, body):
+    #     doc_old = MockDb.db_dtype_field_doc_key_get(idx, dtype, doc_id)
+    #     version = doc_old['_version'] if doc_old else 1
+    #
+    #     if MockDb.db_idx_field_dtype_key_has(self, idx, dtype):
+    #         MockDb.db_idx_field_dtype_dict_get(self, idx)[dtype] = self._default_dtype_structure(None, None)
+    #
+    #
+    #     MockDb.db_dtype_field_doc_dict_get(self, idx, dtype).update({ doc_id : {
+    #         '_type': dtype,
+    #         '_id': doc_id,
+    #         '_source': body,
+    #         '_index': idx,
+    #         '_version': version,
+    #     }})
+    #     return MockDb.db_dtype_field_doc_key_get(self, idx, dtype, doc_id, body)
+
 
     ############################################################################
     ############################################################################
-    @staticmethod
-    def db_api_docs_all(obj, idx=None, dtype=None) -> list:
+    def db_api_docs_all(self, idx=None, dtype=None) -> list:
         doc_all = []
-        db_dict = MockDb.db_idx_dict(obj)
+        db_dict = self.db_idx_dict()
 
         for db_idx in db_dict:
             if idx is not None and db_idx != idx:
                 continue  # just skip
 
-            if MockDb.db_idx_field_dtype_dict_has(obj, db_idx):
-                d = MockDb.db_idx_field_dtype_dict_get(obj, db_idx)
+            if self.db_idx_field_dtype_dict_has(db_idx):
+                d = self.db_idx_field_dtype_dict_get(db_idx)
                 for db_dtype in d.keys():
                     if dtype is not None and dtype != db_dtype:
                         continue  # just skip
 
-                    if MockDb.db_dtype_field_doc_dict_has(obj, db_idx, db_dtype):
-                        d_docs = MockDb.db_dtype_field_doc_dict_get(obj, db_idx, db_dtype)
+                    if self.db_dtype_field_doc_dict_has(db_idx, db_dtype):
+                        d_docs = self.db_dtype_field_doc_dict_get(db_idx, db_dtype)
                         for doc_id in d_docs.keys():
                             doc_all.append([db_idx, db_dtype, doc_id, d_docs[doc_id]])
         return doc_all
 
     #############################################################
-    @staticmethod
-    def db_idx_field_dtype_key_has(obj, idx, dtype_key):
-        return MockDb._check_lookup_chain(True, obj, [idx, MockDb.K_IDX_DTYPE_D, dtype_key])
-    @staticmethod
-    def db_idx_field_dtype_dict_has(obj, idx):
-        return MockDb._check_lookup_chain(True, obj, [idx, MockDb.K_IDX_DTYPE_D])
-    @staticmethod
-    def db_idx_field_did2dtypes_key_has(obj, idx, doc_id):
-        return MockDb._check_lookup_chain(True, obj, [idx, MockDb.K_IDX_DID2DTYPES_D, doc_id])
-    @staticmethod
-    def db_idx_field_did2dtypes_dict_has(obj, idx):
-        return MockDb._check_lookup_chain(True, obj, [idx, MockDb.K_IDX_DID2DTYPES_D])
-    @staticmethod
-    def db_idx_field_mappings_has(obj, idx):
-        return MockDb._check_lookup_chain(True, obj, [idx, MockDb.K_IDX_MAP])
-    @staticmethod
-    def db_idx_field_settings_has(obj, idx):
-        return MockDb._check_lookup_chain(True, obj, [idx, MockDb.K_IDX_SET])
+    ### HAS ###
+    def db_idx_field_dtype_key_has(self, idx, dtype_key):
+        return self._check_lookup_chain(True, [idx, MockDb.K_IDX_DTYPE_D, dtype_key])
+    def db_idx_field_dtype_dict_has(self, idx):
+        return self._check_lookup_chain(True, [idx, MockDb.K_IDX_DTYPE_D])
+    def db_idx_field_did2dtypes_key_has(self, idx, doc_id):
+        return self._check_lookup_chain(True, [idx, MockDb.K_IDX_DID2DTYPES_D, doc_id])
+    def db_idx_field_did2dtypes_dict_has(self, idx):
+        return self._check_lookup_chain(True, [idx, MockDb.K_IDX_DID2DTYPES_D])
+    def db_idx_field_mappings_has(self, idx):
+        return self._check_lookup_chain(True, [idx, MockDb.K_IDX_MAP])
+    def db_idx_field_settings_has(self, idx):
+        return self._check_lookup_chain(True, [idx, MockDb.K_IDX_SET])
 
-    @staticmethod
-    def db_idx_field_dtype_key_get(obj, idx, dtype_key):
-        return MockDb._check_lookup_chain(False, obj, [idx, MockDb.K_IDX_DTYPE_D, dtype_key])
-    @staticmethod
-    def db_idx_field_dtype_dict_get(obj, idx):
-        return MockDb._check_lookup_chain(False, obj, [idx, MockDb.K_IDX_DTYPE_D])
-    @staticmethod
-    def db_idx_field_did2dtypes_key_get(obj, idx, doc_id):
-        return MockDb._check_lookup_chain(False, obj, [idx, MockDb.K_IDX_DID2DTYPES_D, doc_id])
-    @staticmethod
-    def db_idx_field_did2dtypes_dict_get(obj, idx):
-        return MockDb._check_lookup_chain(False, obj, [idx, MockDb.K_IDX_DID2DTYPES_D])
-    @staticmethod
-    def db_idx_field_mappings_get(obj, idx):
-        return MockDb._check_lookup_chain(False, obj, [idx, MockDb.K_IDX_MAP])
-    @staticmethod
-    def db_idx_field_mappings_set(obj, idx, mappings) -> bool:
-        if MockDb.db_idx_field_mappings_has(obj, idx):
-            MockDb.db_idx_field_mappings_get(obj, idx).update(mappings)
+    ### GET ###
+    def db_idx_field_dtype_key_get(self, idx, dtype_key):
+        return self._check_lookup_chain(False, [idx, MockDb.K_IDX_DTYPE_D, dtype_key])
+    def db_idx_field_dtype_dict_get(self, idx):
+        return self._check_lookup_chain(False, [idx, MockDb.K_IDX_DTYPE_D])
+    def db_idx_field_did2dtypes_key_get(self, idx, doc_id):
+        return self._check_lookup_chain(False, [idx, MockDb.K_IDX_DID2DTYPES_D, doc_id])
+    def db_idx_field_did2dtypes_dict_get(self, idx):
+        return self._check_lookup_chain(False, [idx, MockDb.K_IDX_DID2DTYPES_D])
+    def db_idx_field_mappings_get(self, idx):
+        return self._check_lookup_chain(False, [idx, MockDb.K_IDX_MAP])
+    def db_idx_field_settings_get(self, idx):
+        return self._check_lookup_chain(False, [idx, MockDb.K_IDX_SET])
+
+    ### SET ###
+    def db_idx_field_mappings_set(self, idx, mappings) -> bool:
+        if self.db_idx_field_mappings_has(idx):
+            self.db_idx_field_mappings_get(idx).update(mappings)
             return True
         else:
             return False
-    @staticmethod
-    def db_idx_field_settings_get(obj, idx):
-        return MockDb._check_lookup_chain(False, obj, [idx, MockDb.K_IDX_SET])
-    @staticmethod
-    def db_idx_field_settings_set(obj, idx, settings) -> bool:
-        if MockDb.db_idx_field_settings_has(obj, idx):
-            MockDb.db_idx_field_settings_get(obj, idx).update(settings)
+    def db_idx_field_settings_set(self, idx, settings) -> bool:
+        if self.db_idx_field_settings_has(idx):
+            self.db_idx_field_settings_get(idx).update(settings)
             return True
         else:
             return False
-    @staticmethod
-    def db_idx_get(obj, idx):
-        return MockDb._check_lookup_chain(False, obj, [idx])
 
-    @staticmethod
-    def db_idx_has(obj, idx) -> bool:
-        return MockDb._check_lookup_chain(True, obj, [idx])
+    def db_idx_get(self, idx):
+        return self._check_lookup_chain(False, [idx])
+
+    def db_idx_has(self, idx) -> bool:
+        return self._check_lookup_chain(True, [idx])
 
     #############################################################
-    @staticmethod
-    def db_idx_dict(obj):
-        return MockDb.db_db_get(obj)
+    def db_idx_dict(self):
+        return self.db_db_get()
 
-    @staticmethod
-    def db_idx_set(obj, idx, mappings, settings):
-         MockDb.db_db_get(obj)[idx] = {
-             MockDb.K_IDX_MAP: mappings,
-             MockDb.K_IDX_SET: settings,
-             MockDb.K_IDX_DID2DTYPES_D: {},
-             MockDb.K_IDX_DTYPE_D: {},
-         }
+    def db_idx_set(self, idx, mappings, settings):
+         self.db_db_get()[idx] = self._default_idx_structure(mappings, settings)
 
-    @staticmethod
-    def db_idx_del(obj, idx) -> bool:
-        if MockDb.db_idx_has(obj, idx):
-            del MockDb.db_db_get(obj)[idx]
+    def db_idx_del(self, idx) -> bool:
+        if self.db_idx_has(idx):
+            del self.db_db_get()[idx]
             return True
         else:
             return False
 
-    @staticmethod
-    def db_db_clear(obj):
-        MockDb.db_db_get(obj).clear()
+    def db_db_clear(self):
+        self.db_db_get().clear()
 
-    @staticmethod
-    def db_db_get(obj):
-        return MockDb.get_parent(obj).documents_dict
-
-    # helper
-    @staticmethod
-    def get_parent(obj):
-        return obj.parent if hasattr(obj, 'parent') else obj
+    def db_db_get(self):
+        return self.documents_dict
 
     ############################################################################
     ############################################################################
-    @staticmethod
-    def db_db_dump(oper, obj):
+    def db_db_dump(self, oper):
         dict_print = ''
-        for index in MockDb.db_idx_dict(obj):
+        for index in self.db_idx_dict():
             dict_print += '\n' + str(index) + ' IND'
 
-            setting = MockDb.db_idx_field_settings_get(obj, index)
+            setting = self.db_idx_field_settings_get(index)
             if setting:
                 setting_level = f"IND[{str(index)}] MAP[{str(setting)}]"
                 dict_print += '\n'
                 dict_print += setting_level
 
 
-            map = MockDb.db_idx_field_mappings_get(obj, index)
+            map = self.db_idx_field_mappings_get(index)
             if map:
                 map_level = f"IND[{str(index)}] MAP[{str(map)}]"
                 dict_print += '\n'
                 dict_print += map_level
 
 
-            docid2types_dict = MockDb.db_idx_field_did2dtypes_dict_get(obj, index)
+            docid2types_dict = self.db_idx_field_did2dtypes_dict_get(index)
             if docid2types_dict:
                 dict_print += '\n' + f"IND[{str(index)}] D2T:"
                 for index_docid2types in docid2types_dict:
                     dict_print += '\n'
                     dict_print += f"{str(index_docid2types)} - {str(docid2types_dict[index_docid2types])}"
 
-            index_types_dict = MockDb.db_idx_field_dtype_dict_get(obj, index)
+            index_types_dict = self.db_idx_field_dtype_dict_get(index)
             if index_types_dict:
                 for index_type in index_types_dict:
                     type_level = f"IND[{str(index)}] TYPE[{str(index_type)}]"
@@ -255,10 +254,9 @@ class MockDb:
 
         Log.notice(f"{oper} is mock {dict_print}")
 
-    @staticmethod
-    def db_db_dump_per_idx(oper, obj):
+    def db_db_dump_per_idx(self, oper):
         dict_print = ''
-        db = MockDb.db_db_get(obj)
+        db = self.db_db_get()
         db_print = ''
         for index in db.keys():
             db_print += '\n' + str(index) + ' IND: ' + str(db[index])

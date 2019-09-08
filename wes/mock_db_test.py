@@ -91,173 +91,173 @@ class TestMockDb(TestMockDbHelper):
 
     def test_db_empty(self):
 
-        MockDb.db_db_clear(self.db)
+        self.db.db_db_clear()
 
-        self.assertEqual(self.db, MockDb.get_parent(self.db))
-        self.assertEqual({}, MockDb.db_idx_dict(self.db))
+        self.assertEqual(self.db.documents_dict, self.db.db_db_get())
+        self.assertEqual({}, self.db.db_idx_dict())
         # check if cleanup works
         self.db.documents_dict = {'not_empty': 'not_empty'}
-        MockDb.db_db_clear(self.db)
+        self.db.db_db_clear()
         # L0
-        self.assertEqual({}, MockDb.db_idx_dict(self.db))
-        self.assertEqual(False, MockDb.db_idx_del(self.db, test_idx_1))
-        self.assertEqual(False, MockDb.db_idx_has(self.db, test_idx_1))
-        self.assertEqual(None, MockDb.db_idx_get(self.db, test_idx_1))
+        self.assertEqual({}, self.db.db_idx_dict())
+        self.assertEqual(False, self.db.db_idx_del(test_idx_1))
+        self.assertEqual(False, self.db.db_idx_has( test_idx_1))
+        self.assertEqual(None, self.db.db_idx_get( test_idx_1))
         # L1 - has
-        self.assertEqual(False, MockDb.db_idx_field_dtype_key_has(self.db, test_idx_1, doc_type_11))
-        self.assertEqual(False, MockDb.db_idx_field_dtype_dict_has(self.db, test_idx_1))
-        self.assertEqual(False, MockDb.db_idx_field_did2dtypes_key_has(self.db, test_idx_1, id_doc12))
-        self.assertEqual(False, MockDb.db_idx_field_did2dtypes_dict_has(self.db, test_idx_1))
-        self.assertEqual(False, MockDb.db_idx_field_mappings_has(self.db, test_idx_1))
-        self.assertEqual(False, MockDb.db_idx_field_settings_has(self.db, test_idx_1))
+        self.assertEqual(False, self.db.db_idx_field_dtype_key_has(test_idx_1, doc_type_11))
+        self.assertEqual(False, self.db.db_idx_field_dtype_dict_has(test_idx_1))
+        self.assertEqual(False, self.db.db_idx_field_did2dtypes_key_has(test_idx_1, id_doc12))
+        self.assertEqual(False, self.db.db_idx_field_did2dtypes_dict_has(test_idx_1))
+        self.assertEqual(False, self.db.db_idx_field_mappings_has(test_idx_1))
+        self.assertEqual(False, self.db.db_idx_field_settings_has(test_idx_1))
         # L1 - get
-        self.assertEqual(None, MockDb.db_idx_field_dtype_key_get(self.db, test_idx_1, doc_type_11))
-        self.assertEqual(None, MockDb.db_idx_field_dtype_dict_get(self.db, test_idx_1))
-        self.assertEqual(None, MockDb.db_idx_field_did2dtypes_key_get(self.db, test_idx_1, id_doc12))
-        self.assertEqual(None, MockDb.db_idx_field_did2dtypes_dict_get(self.db, test_idx_1))
-        self.assertEqual(None, MockDb.db_idx_field_mappings_get(self.db, test_idx_1))
-        self.assertEqual(False, MockDb.db_idx_field_mappings_set(self.db, test_idx_1, idx_1_mapping_data_set))
-        self.assertEqual(None, MockDb.db_idx_field_settings_get(self.db, test_idx_1))
-        self.assertEqual(False, MockDb.db_idx_field_settings_set(self.db, test_idx_1, idx_1_setting_data_set))
+        self.assertEqual(None, self.db.db_idx_field_dtype_key_get(test_idx_1, doc_type_11))
+        self.assertEqual(None, self.db.db_idx_field_dtype_dict_get(test_idx_1))
+        self.assertEqual(None, self.db.db_idx_field_did2dtypes_key_get(test_idx_1, id_doc12))
+        self.assertEqual(None, self.db.db_idx_field_did2dtypes_dict_get(test_idx_1))
+        self.assertEqual(None, self.db.db_idx_field_mappings_get(test_idx_1))
+        self.assertEqual(False, self.db.db_idx_field_mappings_set(test_idx_1, idx_1_mapping_data_set))
+        self.assertEqual(None, self.db.db_idx_field_settings_get(test_idx_1))
+        self.assertEqual(False, self.db.db_idx_field_settings_set(test_idx_1, idx_1_setting_data_set))
         # L2 - dtype - has
-        self.assertEqual(False, MockDb.db_dtype_field_doc_key_has(self.db, test_idx_1, doc_type_11, id_doc12))
-        self.assertEqual(False, MockDb.db_dtype_field_doc_dict_has(self.db, test_idx_1, doc_type_11))
-        self.assertEqual(False, MockDb.db_dtype_field_maps_has(self.db, test_idx_1, doc_type_11))
-        self.assertEqual(False, MockDb.db_dtype_field_sets_has(self.db, test_idx_1, doc_type_11))
+        self.assertEqual(False, self.db.db_dtype_field_doc_key_has(test_idx_1, doc_type_11, id_doc12))
+        self.assertEqual(False, self.db.db_dtype_field_doc_dict_has(test_idx_1, doc_type_11))
+        self.assertEqual(False, self.db.db_dtype_field_maps_has(test_idx_1, doc_type_11))
+        self.assertEqual(False, self.db.db_dtype_field_sets_has(test_idx_1, doc_type_11))
         # L2 - dtype - get
-        self.assertEqual(None, MockDb.db_dtype_field_doc_key_get(self.db, test_idx_1, doc_type_11, id_doc12))
-        self.assertEqual(None, MockDb.db_dtype_field_doc_dict_get(self.db, test_idx_1, doc_type_11))
-        self.assertEqual(None, MockDb.db_dtype_field_maps_get(self.db, test_idx_1, doc_type_11))
-        self.assertEqual(None, MockDb.db_dtype_field_sets_get(self.db, test_idx_1, doc_type_11))
+        self.assertEqual(None, self.db.db_dtype_field_doc_key_get(test_idx_1, doc_type_11, id_doc12))
+        self.assertEqual(None, self.db.db_dtype_field_doc_dict_get(test_idx_1, doc_type_11))
+        self.assertEqual(None, self.db.db_dtype_field_maps_get(test_idx_1, doc_type_11))
+        self.assertEqual(None, self.db.db_dtype_field_sets_get(test_idx_1, doc_type_11))
 
     def test_db_basic(self):
 
-        MockDb.db_db_clear(self.db)
+        self.db.db_db_clear()
 
         # add 3 indexes
-        MockDb.db_idx_set(self.db, test_idx_1, None, None)
-        MockDb.db_idx_set(self.db, test_idx_2, None, doc_type_13_settings)
-        MockDb.db_idx_set(self.db, test_idx_3, None, None)
+        self.db.db_idx_set(test_idx_1, None, None)
+        self.db.db_idx_set(test_idx_2, None, doc_type_13_settings)
+        self.db.db_idx_set(test_idx_3, None, None)
 
-        MockDb.db_db_dump_per_idx("OP_TEST", self.db)
+        self.db.db_db_dump_per_idx("OP_TEST")
 
-        self.assertEqual(True, MockDb.db_idx_has(self.db, test_idx_1))
-        self.assertEqual(True, MockDb.db_idx_has(self.db, test_idx_2))
-        self.assertEqual(True, MockDb.db_idx_has(self.db, test_idx_3))
-        self.assertEqual(False, MockDb.db_idx_has(self.db, test_idx_bad))
+        self.assertEqual(True, self.db.db_idx_has(test_idx_1))
+        self.assertEqual(True, self.db.db_idx_has(test_idx_2))
+        self.assertEqual(True, self.db.db_idx_has(test_idx_3))
+        self.assertEqual(False, self.db.db_idx_has(test_idx_bad))
 
         # delete 2. indexes
-        self.assertEqual(True, MockDb.db_idx_del(self.db, test_idx_3))
+        self.assertEqual(True, self.db.db_idx_del(test_idx_3))
 
-        MockDb.db_db_dump_per_idx("OP_TEST", self.db)
-        self.assertEqual(True, MockDb.db_idx_has(self.db, test_idx_1))
-        self.assertEqual(True, MockDb.db_idx_has(self.db, test_idx_2))
-        self.assertEqual(False, MockDb.db_idx_has(self.db, test_idx_3))
-        self.assertEqual(False, MockDb.db_idx_has(self.db, test_idx_bad))
+        self.db.db_db_dump_per_idx("OP_TEST")
+        self.assertEqual(True, self.db.db_idx_has(test_idx_1))
+        self.assertEqual(True, self.db.db_idx_has(test_idx_2))
+        self.assertEqual(False, self.db.db_idx_has(test_idx_3))
+        self.assertEqual(False, self.db.db_idx_has(test_idx_bad))
 
         # delete 2. indexes again
-        self.assertEqual(False, MockDb.db_idx_del(self.db, test_idx_3))
+        self.assertEqual(False, self.db.db_idx_del(test_idx_3))
 
-        self.assertEqual(doc_type_13_settings, MockDb.db_idx_field_settings_get(self.db, test_idx_2))
+        self.assertEqual(doc_type_13_settings, self.db.db_idx_field_settings_get(test_idx_2))
 
 
     def test_db_dumps(self):
-        MockDb.db_db_clear(self.db)
+        self.db.db_db_clear()
         self.db.documents_dict = self.get_init_db()
 
         Log.notice('--')
-        MockDb.db_db_dump_per_idx("OP_TEST", self.db)
-        MockDb.db_db_dump("OP_TEST", self.db)
+        self.db.db_db_dump_per_idx("OP_TEST")
+        self.db.db_db_dump("OP_TEST")
 
     def test_db_init_data(self):
-        MockDb.db_db_clear(self.db)
+        self.db.db_db_clear()
         self.db.documents_dict = self.get_init_db()
 
         Log.notice('--')
-        MockDb.db_db_dump_per_idx("OP_TEST", self.db)
-        MockDb.db_db_dump("OP_TEST", self.db)
+        self.db.db_db_dump_per_idx("OP_TEST")
+        self.db.db_db_dump("OP_TEST")
 
         DB = self.get_init_db()
 
         # L0
-        self.assertEqual(DB, MockDb.db_idx_dict(self.db))
-        self.assertEqual(True, MockDb.db_idx_has(self.db, test_idx_1))
-        self.assertEqual(True, MockDb.db_idx_del(self.db, test_idx_1))
-        self.assertEqual(False, MockDb.db_idx_has(self.db, test_idx_1))
-        self.assertEqual(None, MockDb.db_idx_get(self.db, test_idx_1))
+        self.assertEqual(DB, self.db.db_idx_dict())
+        self.assertEqual(True, self.db.db_idx_has(test_idx_1))
+        self.assertEqual(True, self.db.db_idx_del(test_idx_1))
+        self.assertEqual(False, self.db.db_idx_has(test_idx_1))
+        self.assertEqual(None, self.db.db_idx_get(test_idx_1))
 
         self.db.documents_dict = self.get_init_db()
-        MockDb.db_db_dump_per_idx("OP_TEST", self.db)
+        self.db.db_db_dump_per_idx("OP_TEST")
 
         # L1 - has
-        self.assertEqual(True, MockDb.db_idx_has(self.db, test_idx_1))
-        self.assertEqual(False, MockDb.db_idx_has(self.db, test_idx_bad))
+        self.assertEqual(True, self.db.db_idx_has(test_idx_1))
+        self.assertEqual(False, self.db.db_idx_has(test_idx_bad))
 
-        self.assertEqual(True, MockDb.db_idx_field_dtype_key_has(self.db, test_idx_1, doc_type_11))
-        self.assertEqual(False, MockDb.db_idx_field_dtype_key_has(self.db, test_idx_1, doc_type_bad))
+        self.assertEqual(True, self.db.db_idx_field_dtype_key_has(test_idx_1, doc_type_11))
+        self.assertEqual(False, self.db.db_idx_field_dtype_key_has(test_idx_1, doc_type_bad))
 
-        self.assertEqual(True, MockDb.db_idx_field_dtype_dict_has(self.db, test_idx_1))
-        self.assertEqual(True, MockDb.db_idx_field_did2dtypes_key_has(self.db, test_idx_1, id_doc12))
-        self.assertEqual(False, MockDb.db_idx_field_did2dtypes_key_has(self.db, test_idx_1, doc_type_bad))
-        self.assertEqual(True, MockDb.db_idx_field_did2dtypes_dict_has(self.db, test_idx_1))
-        self.assertEqual(True, MockDb.db_idx_field_mappings_has(self.db, test_idx_1))
-        self.assertEqual(True, MockDb.db_idx_field_settings_has(self.db, test_idx_1))
+        self.assertEqual(True, self.db.db_idx_field_dtype_dict_has(test_idx_1))
+        self.assertEqual(True, self.db.db_idx_field_did2dtypes_key_has(test_idx_1, id_doc12))
+        self.assertEqual(False, self.db.db_idx_field_did2dtypes_key_has(test_idx_1, doc_type_bad))
+        self.assertEqual(True, self.db.db_idx_field_did2dtypes_dict_has(test_idx_1))
+        self.assertEqual(True, self.db.db_idx_field_mappings_has(test_idx_1))
+        self.assertEqual(True, self.db.db_idx_field_settings_has(test_idx_1))
         # L1 - get
-        check_val = DB[test_idx_1][MockDb.K_IDX_DTYPE_D][doc_type_11]
-        self.assertEqual(check_val, MockDb.db_idx_field_dtype_key_get(self.db, test_idx_1, doc_type_11))
-        self.assertEqual(None, MockDb.db_idx_field_dtype_key_get(self.db, test_idx_1, doc_type_bad))
+        check_val = DB[test_idx_1][self.db.K_IDX_DTYPE_D][doc_type_11]
+        self.assertEqual(check_val, self.db.db_idx_field_dtype_key_get(test_idx_1, doc_type_11))
+        self.assertEqual(None, self.db.db_idx_field_dtype_key_get(test_idx_1, doc_type_bad))
 
-        check_val = DB[test_idx_1][MockDb.K_IDX_DTYPE_D]
-        self.assertEqual(check_val, MockDb.db_idx_field_dtype_dict_get(self.db, test_idx_1))
-        self.assertEqual(None, MockDb.db_idx_field_dtype_dict_get(self.db, doc_type_bad))
+        check_val = DB[test_idx_1][self.db.K_IDX_DTYPE_D]
+        self.assertEqual(check_val, self.db.db_idx_field_dtype_dict_get(test_idx_1))
+        self.assertEqual(None, self.db.db_idx_field_dtype_dict_get(doc_type_bad))
 
-        check_val = DB[test_idx_1][MockDb.K_IDX_DID2DTYPES_D][id_doc12]
-        self.assertEqual(check_val, MockDb.db_idx_field_did2dtypes_key_get(self.db, test_idx_1, id_doc12))
-        check_val = DB[test_idx_1][MockDb.K_IDX_DID2DTYPES_D]
-        self.assertEqual(check_val, MockDb.db_idx_field_did2dtypes_dict_get(self.db, test_idx_1))
-        check_val = DB[test_idx_1][MockDb.K_IDX_MAP]
-        self.assertEqual(check_val, MockDb.db_idx_field_mappings_get(self.db, test_idx_1))
-        self.assertEqual(True, MockDb.db_idx_field_mappings_set(self.db, test_idx_1, idx_1_mapping_data_set))
-        check_val = DB[test_idx_1][MockDb.K_IDX_MAP]
-        self.assertEqual(check_val, MockDb.db_idx_field_mappings_get(self.db, test_idx_1))
-        check_val = DB[test_idx_1][MockDb.K_IDX_SET]
-        self.assertEqual(check_val, MockDb.db_idx_field_settings_get(self.db, test_idx_1))
-        self.assertEqual(True, MockDb.db_idx_field_settings_set(self.db, test_idx_1, idx_1_setting_data_set))
-        check_val = DB[test_idx_1][MockDb.K_IDX_SET]
-        self.assertEqual(check_val, MockDb.db_idx_field_settings_get(self.db, test_idx_1))
+        check_val = DB[test_idx_1][self.db.K_IDX_DID2DTYPES_D][id_doc12]
+        self.assertEqual(check_val, self.db.db_idx_field_did2dtypes_key_get(test_idx_1, id_doc12))
+        check_val = DB[test_idx_1][self.db.K_IDX_DID2DTYPES_D]
+        self.assertEqual(check_val, self.db.db_idx_field_did2dtypes_dict_get(test_idx_1))
+        check_val = DB[test_idx_1][self.db.K_IDX_MAP]
+        self.assertEqual(check_val, self.db.db_idx_field_mappings_get(test_idx_1))
+        self.assertEqual(True, self.db.db_idx_field_mappings_set(test_idx_1, idx_1_mapping_data_set))
+        check_val = DB[test_idx_1][self.db.K_IDX_MAP]
+        self.assertEqual(check_val, self.db.db_idx_field_mappings_get(test_idx_1))
+        check_val = DB[test_idx_1][self.db.K_IDX_SET]
+        self.assertEqual(check_val, self.db.db_idx_field_settings_get(test_idx_1))
+        self.assertEqual(True, self.db.db_idx_field_settings_set(test_idx_1, idx_1_setting_data_set))
+        check_val = DB[test_idx_1][self.db.K_IDX_SET]
+        self.assertEqual(check_val, self.db.db_idx_field_settings_get(test_idx_1))
 
         # # L2 - dtype - has
-        self.assertEqual(True, MockDb.db_dtype_field_doc_key_has(self.db, test_idx_1, doc_type_11, id_doc12))
-        self.assertEqual(True, MockDb.db_dtype_field_doc_dict_has(self.db, test_idx_1, doc_type_11))
-        self.assertEqual(True, MockDb.db_dtype_field_maps_has(self.db, test_idx_1, doc_type_11))
-        self.assertEqual(True, MockDb.db_dtype_field_sets_has(self.db, test_idx_1, doc_type_11))
+        self.assertEqual(True, self.db.db_dtype_field_doc_key_has(test_idx_1, doc_type_11, id_doc12))
+        self.assertEqual(True, self.db.db_dtype_field_doc_dict_has(test_idx_1, doc_type_11))
+        self.assertEqual(True, self.db.db_dtype_field_maps_has(test_idx_1, doc_type_11))
+        self.assertEqual(True, self.db.db_dtype_field_sets_has(test_idx_1, doc_type_11))
         # L2 - dtype - get
         Log.notice2('----------------------------')
         check_val = DB[test_idx_1][MockDb.K_IDX_DTYPE_D][doc_type_11][MockDb.K_DT_DOC_D][id_doc12]
-        self.assertEqual(check_val, MockDb.db_dtype_field_doc_key_get(self.db, test_idx_1, doc_type_11, id_doc12))
-        self.assertEqual(None, MockDb.db_dtype_field_doc_key_get(self.db, test_idx_1, doc_type_11, id_doc_bad))
+        self.assertEqual(check_val, self.db.db_dtype_field_doc_key_get(test_idx_1, doc_type_11, id_doc12))
+        self.assertEqual(None, self.db.db_dtype_field_doc_key_get(test_idx_1, doc_type_11, id_doc_bad))
         check_val = DB[test_idx_1][MockDb.K_IDX_DTYPE_D][doc_type_11][MockDb.K_DT_DOC_D]
-        self.assertEqual(check_val, MockDb.db_dtype_field_doc_dict_get(self.db, test_idx_1, doc_type_11))
-        self.assertEqual(None, MockDb.db_dtype_field_doc_dict_get(self.db, test_idx_1, id_doc_bad))
+        self.assertEqual(check_val, self.db.db_dtype_field_doc_dict_get(test_idx_1, doc_type_11))
+        self.assertEqual(None, self.db.db_dtype_field_doc_dict_get(test_idx_1, id_doc_bad))
 
         check_val = DB[test_idx_1][MockDb.K_IDX_DTYPE_D][doc_type_11][MockDb.K_DT_MAP]
-        self.assertEqual(check_val, MockDb.db_dtype_field_maps_get(self.db, test_idx_1, doc_type_11))
+        self.assertEqual(check_val, self.db.db_dtype_field_maps_get(test_idx_1, doc_type_11))
         check_val = DB[test_idx_1][MockDb.K_IDX_DTYPE_D][doc_type_11][MockDb.K_DT_SET]
-        self.assertEqual(check_val, MockDb.db_dtype_field_sets_get(self.db, test_idx_1, doc_type_11))
+        self.assertEqual(check_val, self.db.db_dtype_field_sets_get(test_idx_1, doc_type_11))
 
     def test_db_api(self):
-        MockDb.db_db_clear(self.db)
+        self.db.db_db_clear()
         self.db.documents_dict = self.get_init_db()
-        docs_all = MockDb.db_api_docs_all(self.db)
+        docs_all = self.db.db_api_docs_all()
         self.assertEqual(5, len(docs_all))
         for idx_dtype_did_doc in docs_all:
             Log.log(f" ---> {str(idx_dtype_did_doc)}")
 
-        self.assertEqual(5, len(MockDb.db_api_docs_all(self.db, test_idx_1)))
-        self.assertEqual(0, len(MockDb.db_api_docs_all(self.db, test_idx_bad)))
-        self.assertEqual(2, len(MockDb.db_api_docs_all(self.db, test_idx_1, doc_type_11)))
-        self.assertEqual(1, len(MockDb.db_api_docs_all(self.db, test_idx_1, doc_type_12)))
-        self.assertEqual(0, len(MockDb.db_api_docs_all(self.db, test_idx_1, doc_type_bad)))
+        self.assertEqual(5, len(self.db.db_api_docs_all(test_idx_1)))
+        self.assertEqual(0, len(self.db.db_api_docs_all(test_idx_bad)))
+        self.assertEqual(2, len(self.db.db_api_docs_all(test_idx_1, doc_type_11)))
+        self.assertEqual(1, len(self.db.db_api_docs_all(test_idx_1, doc_type_12)))
+        self.assertEqual(0, len(self.db.db_api_docs_all(test_idx_1, doc_type_bad)))
 
 
 if __name__ == '__main__':
@@ -269,7 +269,7 @@ if __name__ == '__main__':
         # suite.addTest(TestMockDb("test_db_basic"))
         # suite.addTest(TestMockDb("test_db_dumps"))
         # suite.addTest(TestMockDb("test_db_init_data"))
-        suite.addTest(TestMockDb("test_db_api"))
+        # suite.addTest(TestMockDb("test_db_api"))
 
         runner = unittest.TextTestRunner()
         runner.run(suite)
