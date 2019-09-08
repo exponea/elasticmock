@@ -8,11 +8,15 @@ doc11 = {'doc11_k': 'doc11_v'}
 doc12_a = {'doc12_a_k': 'doc12_a_v'}
 doc12_b = {'doc12_b_k': 'doc12_b_v'}
 doc13 = {'doc13_k': 'doc13_v'}
+doc14 = {'doc14_k': 'doc14_v'}
+doc145 = {'doc15_k': 'doc15_v'}
 
 # doc id
 id_doc11 = 'id_doc11'
 id_doc12 = 'id_doc12'
 id_doc13 = 'id_doc13'
+id_doc14 = 'id_doc14'
+id_doc15 = 'id_doc15'
 id_doc_bad = 'id_doc_bad'
 
 # indices
@@ -83,11 +87,18 @@ class TestMockDbHelper(TestCommon):
     def get_init_db_copy(self):
         return self.get_init_db().copy()
 
+    def docs_dump(self, docs_all):
+        Log.log('-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-')
+        Log.log(f" LEN: {len(docs_all)}")
+        for idx_dtype_did_doc in docs_all:
+            Log.log(f" ---> {str(idx_dtype_did_doc)}")
+        Log.log('-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-')
+
 
 class TestMockDb(TestMockDbHelper):
 
     def setUp(self):
-        self.db = MockDb()
+        self.db = MockDb(WesDefs.ES_VERSION_DEFAULT)
 
     def test_db_empty(self):
 
@@ -245,19 +256,39 @@ class TestMockDb(TestMockDbHelper):
         check_val = DB[test_idx_1][MockDb.K_IDX_DTYPE_D][doc_type_11][MockDb.K_DT_SET]
         self.assertEqual(check_val, self.db.db_dtype_field_sets_get(test_idx_1, doc_type_11))
 
-    def test_db_api(self):
+    def db_operations_on_existing_idx__check_nb(self, nb_db, nb_list):
+        docs_all = self.db.db_api_docs_all()
+
+        self.docs_dump(docs_all)
+
+        self.assertEqual(nb_db, len(docs_all))
+
+        self.assertEqual(0, len(self.db.db_api_docs_all(test_idx_bad)))
+        self.assertEqual(nb_list[0], len(self.db.db_api_docs_all(test_idx_1)))
+        self.assertEqual(nb_list[1], len(self.db.db_api_docs_all(test_idx_1, doc_type_11)))
+        self.assertEqual(nb_list[2], len(self.db.db_api_docs_all(test_idx_1, doc_type_12)))
+        self.assertEqual(0, len(self.db.db_api_docs_all(test_idx_1, doc_type_bad)))
+
+
+    def test_db_operations_on_existing_idx(self):
         self.db.db_db_clear()
         self.db.documents_dict = self.get_init_db()
-        docs_all = self.db.db_api_docs_all()
-        self.assertEqual(5, len(docs_all))
-        for idx_dtype_did_doc in docs_all:
-            Log.log(f" ---> {str(idx_dtype_did_doc)}")
 
-        self.assertEqual(5, len(self.db.db_api_docs_all(test_idx_1)))
-        self.assertEqual(0, len(self.db.db_api_docs_all(test_idx_bad)))
-        self.assertEqual(2, len(self.db.db_api_docs_all(test_idx_1, doc_type_11)))
-        self.assertEqual(1, len(self.db.db_api_docs_all(test_idx_1, doc_type_12)))
-        self.assertEqual(0, len(self.db.db_api_docs_all(test_idx_1, doc_type_bad)))
+        # 1.
+        self.db_operations_on_existing_idx__check_nb(5, [5,  # total on idx 'test_idx_1'
+                                                         2,  # total on idx 'test_idx_1' , 'doc_type_11'
+                                                         1   # total on idx 'test_idx_1' , 'doc_type_12'
+                                                         ])
+
+        # 2. add to idx
+        doc_created = self.db.db_dtype_field_doc_key_set(test_idx_1, doc_type_12, id_doc14, doc14)
+        self.assertEqual(1, doc_created['_version'])
+        self.db_operations_on_existing_idx__check_nb(6,
+                                                     [6,  # total on idx 'test_idx_1'
+                                                      2,  # total on idx 'test_idx_1' , 'doc_type_11'
+                                                      2   # total on idx 'test_idx_1' , 'doc_type_12'
+                                                      ])
+
 
 
 if __name__ == '__main__':
@@ -269,7 +300,7 @@ if __name__ == '__main__':
         # suite.addTest(TestMockDb("test_db_basic"))
         # suite.addTest(TestMockDb("test_db_dumps"))
         # suite.addTest(TestMockDb("test_db_init_data"))
-        # suite.addTest(TestMockDb("test_db_api"))
+        # suite.addTest(TestMockDb("test_db_operations_on_existing_idx"))
 
         runner = unittest.TextTestRunner()
         runner.run(suite)

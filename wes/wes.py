@@ -313,33 +313,7 @@ class Wes(WesCommon):
             for rc_index in rcv.data.keys():
                 prefix = f"IND[{rc_index}]"
                 rec += '\n' + prefix
-
-                # mappings not exist
-                mappings = rcv.data[rc_index].get('mappings', None)
-                if len(mappings) == 0:
-                    rec += " : Missing mappings" + '\n'
-                    continue
-                else:
-                    if self.ES_VERSION_RUNNING == WesDefs.ES_VERSION_7_3_0:
-                        propsCheck = mappings.get('properties', None)
-                        if propsCheck is None:
-                            # doc_type is nested
-                            nested_doc_type = list(mappings.keys())[0]
-                            rc_doc_type_str = f" : DOC[{nested_doc_type}]"
-                            rec = rec + rc_doc_type_str
-
-                            mappings = list(mappings.values())[0]  # probably one
-                        rec = rec + '\n'
-                        mappings = mappings.get('properties', None)
-                        for prop in mappings:
-                            rec = rec + str(prop) + ": " + str(mappings[prop]) + '\n'
-                    elif self.ES_VERSION_RUNNING == WesDefs.ES_VERSION_5_6_5:
-                        for maps in mappings:
-                            rec += '\n' + str(maps) + '\n'
-                            for map in mappings[maps]:
-                                rec += '-> ' + '{:>12}: '.format(map) + str(mappings[maps][map]) + '\n'
-                    else:
-                        WesDefs.es_version_mismatch(self.ES_VERSION_RUNNING)
+                rec += WesDefs.mappings_dump2str(rcv.data[rc_index].get('mappings', None), self)
 
             return f"{key_str} MAPPING: {rec}"
 

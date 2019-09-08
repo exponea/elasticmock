@@ -94,6 +94,17 @@ class TestWes(TestWesHelper):
         self.assertEqual(False, self.wes.ind_exist_result(self.wes.ind_exist(ind_str)).data)
         self.assertTrue(isinstance(self.wes.ind_delete_result(self.wes.ind_delete(ind_str)).data, NotFoundError))
 
+    def test_documents_basic_single_create_update(self):
+
+        global ind_str
+        global ind_str_doc_type
+        self.indice_cleanup_all(self.wes)
+        self.indice_create_exists(self.wes, ind_str)
+
+        doc3 = {"city": "Bratislava3", "country": "SLOVAKIA",  "sentence": "The slovakia is a country"}
+        self.assertEqual("created", self.wes.doc_addup_result(self.wes.doc_addup(ind_str, doc3, doc_type=ind_str_doc_type, id=3)).data['result'])  # MSE_NOTES: 'result': 'created' '_seq_no': 2  '_version': 1,    '_shards': {'total': 2, 'successful': 1, 'failed': 0},
+        self.assertEqual("updated", self.wes.doc_addup_result(self.wes.doc_addup(ind_str, doc3, doc_type=ind_str_doc_type, id=3)).data['result'])  # MSE_NOTES: 'result': 'updated' '_seq_no': 3  '_version': 2,    '_shards': {'total': 2, 'successful': 1, 'failed': 0},
+
 
     def test_documents_basic(self):
 
@@ -400,7 +411,6 @@ class TestWes(TestWesHelper):
         # IND[first_ind2]: Missing mappings
         rc = self.wes.ind_get_mapping_result(self.wes.ind_get_mapping())
         self.assertEqual(2, len(rc.data.keys()))
-        Log.err2("--------------------------------------------------------------------------------------")
 
 
     def test_aggregations(self):
@@ -696,6 +706,8 @@ if __name__ == '__main__':
         # suite.addTest(TestWesMock("test_general"))
         # suite.addTest(TestWesReal("test_indice_basic"))
         # suite.addTest(TestWesMock("test_indice_basic"))
+        # suite.addTest(TestWesReal("test_documents_basic_single_create_update"))
+        # suite.addTest(TestWesMock("test_documents_basic_single_create_update"))
         # suite.addTest(TestWesReal("test_documents_basic"))
         # suite.addTest(TestWesMock("test_documents_basic"))
         # suite.addTest(TestWesReal("test_documents_basic_unique_id"))

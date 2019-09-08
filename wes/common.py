@@ -80,3 +80,21 @@ class WesDefs():
     RC_EXCE    = "RC_EXCE"
     RC_NOK     = "RC_NOK"
     RC_OK      = "RC_OK"
+
+    @staticmethod
+    def mappings_dump2str(mappings_data, obj_with_running, prefix=''):
+        mappings = mappings_data.get('mappings', None)
+        rec = ''
+        if mappings is None or len(mappings) == 0:
+            # mappings not exist
+            rec += prefix + " - Missing mappings"
+        else:
+            if obj_with_running.ES_VERSION_RUNNING == WesDefs.ES_VERSION_5_6_5:
+                for maps in mappings:
+                    rec += '\n' + prefix + str(maps) + '\n'
+                    for int_map in mappings[maps]:
+                        rec += '-> ' + '{:>12}: '.format(int_map) + str(mappings[maps][int_map]) + '\n'
+            else:
+                WesDefs.es_version_mismatch(obj_with_running.ES_VERSION_RUNNING)
+
+        return rec

@@ -20,13 +20,10 @@ from elasticsearch.helpers.errors import BulkIndexError
 from elasticsearch.helpers.errors import ScanError
 from elasticsearch.helpers.actions import expand_action
 
-import datetime
+
 import re
 import json
-import sys
-PY3 = sys.version_info[0] == 3
-if PY3:
-    unicode = str
+
 
 from elasticsearch.client.utils import SKIP_IN_PATH
 from elasticmock.utilities import get_random_id, get_random_scroll_id
@@ -39,11 +36,10 @@ __all__ = ["MockEs"]
 from mock_db import MockDb
 from mock_query import MockEsQuery
 
-class MockEsCommon(MockDb):
+class MockEsCommon():
 
-    def __init__(self):
-        super().__init__()
-        self.ES_VERSION_RUNNING = WesDefs.ES_VERSION_DEFAULT
+    def __init__(self, version):
+        self.ES_VERSION_RUNNING = version
 
     @staticmethod
     def raiseNotFound(e_list, idx):
@@ -78,7 +74,7 @@ class MockEsCommon(MockDb):
                 def wrapper(self, *args, **kwargs):
                         Log.log(f"{oper} is mock")
                         rc = fnc(self, *args, **kwargs)
-                        MockEsCommon.db_db_dump(oper, self)
+                        self.db.db_db_dump(oper)
                         return rc
                 return wrapper
             return wrapper_mk
@@ -104,71 +100,18 @@ class MockEsCommon(MockDb):
 
     @staticmethod
     def check_running_version(obj, version) -> bool:
-        return  MockEsCommon.get_parent(obj).ES_VERSION_RUNNING == version
+        return MockEsCommon.get_parent(obj).ES_VERSION_RUNNING == version
 
     @staticmethod
-    def normalize_index_to_list(obj, index):
-        # Ensure to have a list of index
-        if index is None:
-            searchable_indexes = MockEsCommon.db_idx_dict(obj).keys()
-        elif isinstance(index, str) or isinstance(index, unicode):
-            searchable_indexes = [index]
-        elif isinstance(index, list):
-            searchable_indexes = index
-        else:
-            # Is it the correct exception to use ?
-            raise ValueError("Invalid param 'index'")
-
-        # # Check index(es) exists
-        # for searchable_index in searchable_indexes:
-        #     if searchable_index not in MockEsCommon.db_get_idx_all(self):
-        #         raise NotFoundError(404, 'IndexMissingException[[{0}] missing]'.format(searchable_index))
-
-        return searchable_indexes
-
-    @staticmethod
-    def mappings_properties_from_doc_body(doc_body) -> dict:
-        mapping_dict = {
-            'str': {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}},
-            'int': {'type': 'long'},
-            'float': {'type': 'float'},
-            'datetime': {'type': 'date', 'format': 'yyyy,MM,dd,hh,mm,ss'}
-        }
-
-        properties = {}
-        for field in doc_body:
-            data = doc_body[field]
-            # print('MAPPINGS -->', field, type(data), doc_body[field])
-            if isinstance(data, int):
-                properties[field] = mapping_dict['int']
-            elif isinstance(data, float):
-                properties[field] = mapping_dict['float']
-            elif isinstance(data, str):
-                properties[field] = mapping_dict['str']
-            elif isinstance(data, datetime.datetime):
-                properties[field] = mapping_dict['datetime']
-            else:
-                raise ValueError(f"{type(data)} is not handled")
-
-        #print('MAPPINGS -->', properties)
-
-        return {"properties": properties}
-
-    @staticmethod
-    def mappings_settings_build_from_doc_body_data(doc_body) -> dict:
-        create_body = {
-            'mappings': MockEsCommon.mappings_properties_from_doc_body(doc_body),
-            'settings': {}
-        }
-
-        Log.log(f"MAPS_SETS --> {create_body}")
-        return create_body
+    def get_parent(obj):
+        return obj.parent if hasattr(obj, 'parent') else obj
 
 
 class MockEsIndicesClient:
 
     def __init__(self, parent):
         self.parent = parent
+        self.db     = parent.db
 
     #####################
     # indice operations
@@ -197,7 +140,7 @@ class MockEsIndicesClient:
         if index in SKIP_IN_PATH:
             raise ValueError("Empty value passed for a required argument 'index'.")
 
-        searchable_indexes = MockEsCommon.normalize_index_to_list(self, index)
+        searchable_indexes = self.db.normalize_index_to_list(index)
 
         if len(searchable_indexes) > 1:
             raise ValueError("'index' contains more indexes - it cannot be list ")
@@ -205,10 +148,10 @@ class MockEsIndicesClient:
         mappings = body.get('mappings', {}) if body else {}
         settings = body.get('settings', {}) if body else {}
 
-        if MockEsCommon.db_idx_has(self, searchable_indexes[0]):
+        if self.db.db_idx_has(searchable_indexes[0]):
             MockEsCommon.raiseRequestError(['???'], 'index_already_exists_exception', searchable_indexes[0])
         else:
-            MockEsCommon.db_idx_set(self, searchable_indexes[0], mappings, settings)
+            self.db.db_idx_set(searchable_indexes[0], mappings, settings)
 
         # TODO - add handling - maybe override is ok
         return {'acknowledged': 'True', 'shards_acknowledged': 'True'}
@@ -242,12 +185,12 @@ class MockEsIndicesClient:
         if index in SKIP_IN_PATH:
             raise ValueError("Empty value passed for a required argument 'index'.")
 
-        searchable_indexes = MockEsCommon.normalize_index_to_list(self, index)
+        searchable_indexes = self.db.normalize_index_to_list( index)
 
         if len(searchable_indexes) > 1:
             raise ValueError("'index' contains more indexes - it cannot be list for now")
 
-        return MockEsCommon.db_idx_has(self, searchable_indexes[0])
+        return self.db.db_idx_has(searchable_indexes[0])
 
 
     @query_params(
@@ -278,16 +221,16 @@ class MockEsIndicesClient:
         if index in SKIP_IN_PATH:
             raise ValueError("Empty value passed for a required argument 'index'.")
 
-        searchable_indexes = MockEsCommon.normalize_index_to_list(self, index)
+        searchable_indexes = self.db.normalize_index_to_list( index)
 
         if MockEsCommon.apply_all_indicies(WesDefs.OP_IND_DELETE, searchable_indexes):
-            MockEsCommon.db_db_clear(self)
+            self.db.db_db_clear()
             return {'acknowledged': True}
         else:
             err_list = []
             first_idx = None
             for idx in searchable_indexes:
-                if not MockEsCommon.db_idx_del(self, idx):
+                if not self.db.db_idx_del(idx):
                     if first_idx is None:
                         first_idx = idx
                     e = {'type': 'index_not_found_exception',
@@ -415,16 +358,16 @@ class MockEsIndicesClient:
         else:
             WesDefs.es_version_mismatch(MockEsCommon.get_parent(self).ES_VERSION_RUNNING)
 
-        searchable_indexes = MockEsCommon.normalize_index_to_list(self, index)
+        searchable_indexes = self.db.normalize_index_to_list( index)
 
         for_all = MockEsCommon.apply_all_indicies(WesDefs.OP_IND_GET_MAP, searchable_indexes)
 
         ret_dict = {}
-        for idx in MockEsCommon.db_idx_dict(self):
+        for idx in self.db.db_idx_dict().keys():
             if for_all or idx in searchable_indexes:
                 ret_dict[idx] = {
-                    'mappings': MockEsCommon.db_idx_field_mappings_get(self, idx),
-                    'settings': MockEsCommon.db_idx_field_settings_get(self, idx)
+                    'mappings': self.db.db_idx_field_mappings_get(idx),
+                    'settings': self.db.db_idx_field_settings_get(idx)
                 }
 
         return ret_dict
@@ -473,7 +416,7 @@ class MockEsIndicesClient:
         else:
             WesDefs.es_version_mismatch(MockEsCommon.get_parent(self).ES_VERSION_RUNNING)
 
-        searchable_indexes = MockEsCommon.normalize_index_to_list(self, index)
+        searchable_indexes = self.db.normalize_index_to_list( index)
         if MockEsCommon.apply_all_indicies(WesDefs.OP_IND_PUT_MAP, searchable_indexes):
             searchable_indexes = MockEsCommon.db_idx_dict(self).keys()
 
@@ -524,7 +467,10 @@ class MockEsIndicesClient:
 class MockEs(MockEsCommon):
 
     def __init__(self):
-        super().__init__()
+        super().__init__(WesDefs.ES_VERSION_DEFAULT)
+        self.db = MockDb(self.ES_VERSION_RUNNING)
+
+        # es specific objects
         self.indices = MockEsIndicesClient(self)
 
     #####################
@@ -573,41 +519,31 @@ class MockEs(MockEsCommon):
     @MockEsCommon.Decor.operation_mock(WesDefs.OP_DOC_ADD_UP)
     def index(self, index, body, doc_type="_doc", id=None, params=None):
 
-        if not MockEsCommon.db_idx_has(self, index):
+        if not self.db.db_idx_has(index):
             self.indices.create(index,
                                 body=MockEsCommon.mappings_settings_build_from_doc_body_data(body),
                                 params=params)
         else:
             # change only if empty
-            if len(MockEsCommon.db_idx_dict(self, index)) == 0 and \
-               len(MockEsCommon.db_idx_get_mappings(self, index)) == 0:
-                MockEsCommon.meta_set_idx_mappings_settings(self, index, MockEsCommon.mappings_settings_build_from_doc_body_data(body))
+            if len(self.db.db_api_docs_all(index)) == 0 and \
+               len(self.db.db_idx_field_mappings_get(index)) == 0:
+                self.db.db_idx_field_mappings_set(index, self.db.mappings_settings_build_from_doc_body_data(body))
 
             # TODO settings ???
 
-        docs = MockEsCommon.db_idx_get_docs(self, index)
-        doc_found = docs.get(id, None)
         if id is None:
             id = get_random_id()
 
+        doc = self.db.db_dtype_field_doc_key_set(index, doc_type, id, body)
 
-        version = doc_found['_version'] if doc_found else 1
-
-        MockEsCommon.db_idx_get_docs(self, index)[id] = {
-            '_type': doc_type,
-            '_id': id,
-            '_source': body,
-            '_index': index,
-            '_version': version,
-        }
-
+        version = doc['_version']
         return {
-            '_type': doc_type,
-            '_id': id,
-            'created':  False if doc_found else True,
+            '_type': doc['_type'],
+            '_id': doc['_id'],
+            'created':  True if version == 1 else False,
             '_version': version,
-            '_index': index,
-            'result': 'updated' if doc_found else 'created',
+            '_index': doc['_index'],
+            'result': 'created' if version == 1 else 'updated',
             '_shards': {'total': 2, 'successful': 1, 'failed': 0}  # keep hardcoded
         }
 
@@ -976,7 +912,7 @@ class MockEs(MockEsCommon):
 
         if not index:
             index = "_all"
-        searchable_indexes = MockEsCommon.normalize_index_to_list(self, index)
+        searchable_indexes = self.db.normalize_index_to_list( index)
 
         if MockEsCommon.apply_all_indicies(WesDefs.OP_DOC_SEARCH, searchable_indexes):
             searchable_indexes = MockEsCommon.db_idx_dict(self).keys()
