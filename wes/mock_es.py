@@ -415,17 +415,17 @@ class MockEsIndicesClient:
 
         searchable_indexes = self.db.normalize_index_to_list( index)
         if MockEsCommon.apply_all_indicies(WesDefs.OP_IND_PUT_MAP, searchable_indexes):
-            searchable_indexes = MockEsCommon.db_idx_dict(self).keys()
+            searchable_indexes = self.db.db_idx_dict().keys()
 
         for idx in searchable_indexes:
             if MockEsCommon.check_running_version(self, WesDefs.ES_VERSION_5_6_5):
-                if MockEsCommon.db_idx_get_docs(self, idx):
-                    # TODO should be improved
+                # TODO should be improved - test works but ...
+                if self.db.db_api_docs_all_is_not_empty([idx], doc_type):
                     # 400 - {'error': {'root_cause': [{'type': 'illegal_argument_exception', 'reason': 'unknown setting [index.properties.city.fields.keyword.ignore_above] please check that any required plugins are installed, or check the breaking changes documentation for removed settings'}], 'type': 'illegal_argument_exception', 'reason': 'unknown setting [index.properties.city.fields.keyword.ignore_above] please check that any required plugins are installed, or check the breaking changes documentation for removed settings'}, 'status': 400} - illegal_argument_exception
                     # OP_IND_PUT_MAP KEY[???] - 400 - illegal_argument_exception - Types cannot be provided in put mapping requests, unless the include_type_name parameter is set to true.
                     MockEsCommon.raiseRequestError(['INTERNAL COMMON  can\'t change mapping and setting'], 'illegal_argument_exception', idx)
                 else:
-                    MockEsCommon.meta_set_idx_mappings(self, idx, body)
+                    self.db.db_idx_field_mappings_set(idx, body)
             else:
                 WesDefs.es_version_mismatch(MockEsCommon.get_parent(self).ES_VERSION_RUNNING)
 
@@ -888,17 +888,15 @@ class MockEs(MockEsCommon):
         searchable_indexes = self.db.normalize_index_to_list( index)
 
         if MockEsCommon.apply_all_indicies(WesDefs.OP_DOC_SEARCH, searchable_indexes):
-            searchable_indexes = MockEsCommon.db_idx_dict(self).keys()
+            searchable_indexes = self.db.db_idx_dict().keys()
 
         matches = []
         query = MockEsQuery(WesDefs.OP_DOC_SEARCH, body)
 
-        for search_idx in searchable_indexes:
-            docs = MockEsCommon.db_idx_get_docs(self, search_idx)
-            for doc_id in docs:
-                doc = docs[doc_id]
-                if query.q_exec_on_doc(None, search_idx, doc, query.q_query_name, query.q_query_rules):
-                    matches.append(doc)
+        docs = self.db.db_api_docs_all(searchable_indexes)
+        for docs_idx, docs_dtype, docs_id, docs_doc in docs:
+            if query.q_exec_on_doc(None, docs_idx, docs_doc, query.q_query_name, query.q_query_rules):
+                matches.append(docs_doc)
 
         result = {
             'hits': {

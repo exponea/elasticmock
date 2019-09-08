@@ -162,12 +162,12 @@ class MockDb:
 
     ############################################################################
     ############################################################################
-    def db_api_docs_all(self, idx=None, dtype=None) -> list:
+    def db_api_docs_all(self, indexes: list = None, dtype=None, not_empty: bool = False) -> list:
         doc_all = []
         db_dict = self.db_idx_dict()
 
         for db_idx in db_dict:
-            if idx is not None and db_idx != idx:
+            if indexes is not None and (not (db_idx in indexes)):
                 continue  # just skip
 
             if self.db_idx_field_dtype_dict_has(db_idx):
@@ -180,7 +180,13 @@ class MockDb:
                         d_docs = self.db_dtype_field_doc_dict_get(db_idx, db_dtype)
                         for doc_id in d_docs.keys():
                             doc_all.append([db_idx, db_dtype, doc_id, d_docs[doc_id]])
+                            if not_empty:
+                                # exit ASAP
+                                return doc_all
         return doc_all
+
+    def db_api_docs_all_is_not_empty(self, indexes: list = None, dtype=None) -> bool:
+        return True if len(self.db_api_docs_all(indexes, dtype, not_empty=True)) else False
 
     #############################################################
     ### HAS ###
@@ -284,7 +290,6 @@ class MockDb:
             if index_types_dict:
                 for index_type in index_types_dict:
                     type_level = f"{idx_level} TYPE[{str(index_type)}]"
-                    print(type_level)
                     dict_print += '\n'
                     dict_print += type_level
                     dict_print += '\n'

@@ -313,6 +313,9 @@ class TestMockDb(TestMockDbHelper):
                                                       ],
                                                      test_idx_1)
 
+        self.assertTrue(self.db.db_api_docs_all_is_not_empty([test_idx_1], doc_type_12))
+        self.assertFalse(self.db.db_api_docs_all_is_not_empty([test_idx_1], doc_type_bad))
+
     def test_db_operations_on_non_existing_idx(self):
         self.db.db_db_clear()
         self.db.documents_dict = self.get_init_db()
