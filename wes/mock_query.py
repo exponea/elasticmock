@@ -16,6 +16,7 @@ class MockEsQuery:
         self.q_query_rules = None
         self.q_size = None
         self.q_from = None
+        self.q_aggs = None
         self.q_query = None
         self.q_query_name = None
         self.q_level = 0
@@ -27,6 +28,7 @@ class MockEsQuery:
         if body:
             self.q_size = body.get('size', None)
             self.q_from = body.get('from', None)
+            self.q_aggs = body.get('aggs', None)
             self.q_query = body.get('query', None)
 
             if not self.q_query:

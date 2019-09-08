@@ -925,13 +925,13 @@ class MockEs(MockEsCommon):
             hits.append(match)
 
         # build aggregations
-        if body is not None and 'aggs' in body:
+        if query.q_aggs:
             aggregations = {}
 
             for aggregation, definition in body['aggs'].items():
                 aggregations[aggregation] = {
-                    "doc_count_error_upper_bound": 0,
-                    "sum_other_doc_count": 0,
+                    # "doc_count_error_upper_bound": 0,
+                    # "sum_other_doc_count": 0,
                     "buckets": []
                 }
 
