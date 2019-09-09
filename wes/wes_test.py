@@ -521,7 +521,7 @@ class TestWes(TestWesHelper):
         else:
             self.assertEqual(2, len(rc.data['aggregations']['country']['buckets']))
 
-    def test_bulk(self):
+    def bulk_operation_helper(self, bulk_type):
         # MSE_NOTES: for 'bulk' and 'scan' API IMPORT 'from elasticsearch import helpers'
 
         global ind_str
@@ -542,7 +542,11 @@ class TestWes(TestWesHelper):
             }
             for j in range(0, 5)
         ]
-        self.assertEqual(WesDefs.RC_OK, self.wes.doc_bulk_result(self.wes.doc_bulk(actions)).status)
+
+        if bulk_type == 'bulk':
+            self.assertEqual(WesDefs.RC_OK, self.wes.doc_bulk_result(self.wes.doc_bulk(actions)).status)
+        else:
+            self.assertEqual(WesDefs.RC_OK, self.wes.doc_bulk_streaming_result(self.wes.doc_bulk_streaming(actions)).status)
         self.force_reindex(self.wes)
 
         body = {"query": {"match_all": {}}}
@@ -564,7 +568,12 @@ class TestWes(TestWesHelper):
             }
             for j in range(3, 5)
         ]
-        self.assertEqual(WesDefs.RC_OK, self.wes.doc_bulk_result(self.wes.doc_bulk(actions)).status)
+
+        if bulk_type == 'bulk':
+            self.assertEqual(WesDefs.RC_OK, self.wes.doc_bulk_result(self.wes.doc_bulk(actions)).status)
+        else:
+            self.assertEqual(WesDefs.RC_OK,self.wes.doc_bulk_streaming_result(self.wes.doc_bulk_streaming(actions)).status)
+
         self.force_reindex(self.wes)
 
         body = {"query": {"match_all": {}}}
@@ -586,12 +595,20 @@ class TestWes(TestWesHelper):
             }
             for j in range(1, 4)
         ]
-        self.assertEqual(WesDefs.RC_NOK, self.wes.doc_bulk_result(self.wes.doc_bulk(actions)).status)
+        if bulk_type == 'bulk':
+            self.assertEqual(WesDefs.RC_NOK, self.wes.doc_bulk_result(self.wes.doc_bulk(actions)).status)
+        else:
+            self.assertEqual(WesDefs.RC_NOK, self.wes.doc_bulk_streaming_result(self.wes.doc_bulk_streaming(actions)).status)
         self.force_reindex(self.wes)
 
         # FINAL 0,1,2,3
         self.assertEqual(4, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
 
+    def test_bulk(self):
+        self.bulk_operation_helper('bulk')
+
+    def test_bulk_streaming(self):
+        self.bulk_operation_helper('bulk_streaming')
 
     def test_scan(self):
         # MSE_NOTES: for 'bulk' and 'scan' API IMPORT 'from elasticsearch import helpers'
@@ -736,6 +753,8 @@ if __name__ == '__main__':
         # UNFINISHED:
         # suite.addTest(TestWesReal("test_bulk"))
         # suite.addTest(TestWesMock("test_bulk"))
+        # suite.addTest(TestWesReal("test_bulk_streaming"))
+        # suite.addTest(TestWesMock("test_bulk_streaming"))
         # suite.addTest(TestWesReal("test_scan"))
         # suite.addTest(TestWesReal("test_templates_get_put"))
 

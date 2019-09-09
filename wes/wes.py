@@ -744,11 +744,17 @@ class Wes(WesCommon):
         # - and either list of errors or number of errors if ``stats_only`` is set to ``True``.
         # Note: that by default we raise a ``BulkIndexError`` when we encounter an error so
         #  options like ``stats_only`` only apply when ``raise_on_error`` is set to ``False``.
-        return helpers.bulk(self.es, actions, raise_on_error=False, stats_only=stats_only, *args, **kwargs)
+        fnc2exec = None
+        if isinstance(self.es, MockEs):
+            # MSE_NOTES: decision to not make 'helpers' nesting e.g. 'es.helpers.bulk'
+            fnc2exec = self.es.bulk
+        else:
+            fnc2exec = helpers.bulk
+        return fnc2exec(self.es, actions, raise_on_error=False, stats_only=stats_only, *args, **kwargs)
 
     def doc_bulk_result(self, rc: ExecCode) -> ExecCode:
         #key_str = f"KEY{rc.fnc_params[0]}"
-        key_str = f"BULK STREAMING_RESULT"
+        key_str = f"BULK RESULT"
 
         fmt_fnc_ok = None
         fmt_fnc_nok = None
@@ -758,7 +764,7 @@ class Wes(WesCommon):
             err_list = [str(item) for item in rc.data[1]]
             nb_err = len(err_list)
             nb_total = nb_ok + nb_err
-            ret_str_hdr = f"TOTAL[{nb_total}] <-> SUCCESS[{nb_ok}] <-> FAILED[{nb_err}]"
+            ret_str_hdr = f"{key_str}  TOTAL[{nb_total}] <-> SUCCESS[{nb_ok}] <-> FAILED[{nb_err}]"
             ret_str_ftr = '\n' if nb_err else ''
             ret_str_ftr += '\n'.join(err_list) if nb_err else ''
 
@@ -815,19 +821,45 @@ class Wes(WesCommon):
             # !!! can't iterate again  !!!
             # repack to 'list'
             data = []
-            for item in rc.data:
-                data.append(item)
+            status = WesDefs.RC_OK
 
-            rc = ExecCode(rc.status, data, rc.fnc_params)
+            dbg_bulk_int = False
+
+            while True:
+                try:
+                    item = next(rc.data)
+                    if dbg_bulk_int:
+                        Log.log(f'BULK_INT cont ... {str(item)}')
+                    data.append(item)
+                except StopIteration as e:
+                    if dbg_bulk_int:
+                        Log.err(f'BULK_INT break {str(type(e))} === {str(e)}')
+                    break
+                except BulkIndexError as e:
+                    if dbg_bulk_int:
+                        Log.warn(f'BULK cont ... {str(type(e))} === {str(e)}')
+                    status = WesDefs.RC_NOK
+                    data.append((False, e))
+
+            rc = ExecCode(status, data, rc.fnc_params)
 
             def fmt_fnc(rcv: ExecCode) -> str:
                 res = ''
+                nb_total = 0
+                nb_ok = 0
+                nb_err = 0
                 for item in rcv.data:
+                    nb_total += 1
+                    if item[0]:
+                        nb_ok += 1
+                    else:
+                        nb_err += 1
                     res += '\n' + str(item)
 
-                return f"{key_str} OK/NOK ??? ... {res}"  # TODO
+                ret_str_hdr = f"TOTAL[{nb_total}] <-> SUCCESS[{nb_ok}] <-> FAILED[{nb_err}]"
+                return f"{ret_str_hdr} {res}"
 
-        return self._operation_result(WesDefs.OP_DOC_BULK_STR, key_str, rc, fmt_fnc)
+        return self._operation_result(WesDefs.OP_DOC_BULK_STR, key_str, rc, fmt_fnc, fmt_fnc)
 
     @WesCommon.Decor.operation_exec(WesDefs.OP_DOC_SCAN)
     def doc_scan(self,
