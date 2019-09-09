@@ -571,7 +571,7 @@ class Wes(WesCommon):
         key_str = f"KEY{rc.fnc_params[0]}"
 
         def fmt_fnc_ok(rcv: ExecCode) -> str:
-            return f"{key_str} {rcv.data}"
+            return f"KEY[{rcv.data['_index']} <-> {rcv.data['_type']} <-> {rcv.data['_id']}] {rcv.data['result']} {rcv.data['_shards']}"
 
         return self._operation_result(WesDefs.OP_DOC_DEL, key_str, rc, fmt_fnc_ok)
 

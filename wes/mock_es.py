@@ -42,7 +42,7 @@ class MockEsCommon():
         self.ES_VERSION_RUNNING = version
 
     @staticmethod
-    def raiseNotFound(e_list, idx):
+    def raiseNotFoundIdx(e_list, idx):
         error_data = {'error': {'root_cause': e_list,
                                 'type': 'index_not_found_exception',
                                 'reason': 'no such index',
@@ -53,6 +53,11 @@ class MockEsCommon():
         e_info = json.dumps(error_data)
         e_error = e_info
         raise NotFoundError(404, e_info, e_error)
+
+    @staticmethod
+    def raiseNotFoundDoc(e_dict):
+        error_data = {'error': {'root_cause': e_dict}}
+        raise NotFoundError(404, e_dict, json.dumps(e_dict))
 
     @staticmethod
     def raiseRequestError(e_list, type, idx):
@@ -257,7 +262,7 @@ class MockEsIndicesClient:
             if len(err_list) == 0:
                 return {'acknowledged': True}
             else:
-                MockEsCommon.raiseNotFound(err_list, first_idx)
+                MockEsCommon.raiseNotFoundIdx(err_list, first_idx)
 
     # @query_params(
     #     "allow_no_indices",
@@ -637,7 +642,7 @@ class MockEs(MockEsCommon):
                 '_id': id,
                 'found': False
             }
-            MockEsCommon.raiseNotFound([error_data], index)
+            MockEsCommon.raiseNotFoundDoc(error_data)
 
         return result
 
@@ -690,22 +695,65 @@ class MockEs(MockEsCommon):
 
         return self.db.db_dtype_field_doc_key_has(index, doc_type, id)
 
+    @query_params(
+        "if_seq_no",
+        "if_primary_term",
+        "parent",
+        "refresh",
+        "routing",
+        "timeout",
+        "version",
+        "version_type",
+        "wait_for_active_shards",)
+    @MockEsCommon.Decor.operation_mock(WesDefs.OP_DOC_DEL)
+    def delete(self, index, id, doc_type="_doc", params=None):
+        """
+        Delete a typed JSON document from a specific index based on its id.
+        `<http://www.elastic.co/guide/en/elasticsearch/reference/current/docs-delete.html>`_
 
-    # @query_params(
-    #     "if_seq_no",
-    #     "if_primary_term",
-    #     "parent",
-    #     "refresh",
-    #     "routing",
-    #     "timeout",
-    #     "version",
-    #     "version_type",
-    #     "wait_for_active_shards",)
-    # @MockEsCommon.Decor.operation_mock(WesDefs.OP_DOC_DEL)
-    # def doc_delete(self, index, id, doc_type="_doc", params=None):
-    #     # TODO petee 'doc_type' is important for get - shouldn't be mandatory???
-    #     return self.es.delete(index, id, doc_type=doc_type, params=params)
-    #
+        :arg index: The name of the index
+        :arg id: The document ID
+        :arg if_primary_term: only perform the delete operation if the last
+            operation that has changed the document has the specified primary
+            term
+        :arg if_seq_no: only perform the delete operation if the last operation
+            that has changed the document has the specified sequence number
+        :arg parent: ID of parent document
+        :arg refresh: If `true` then refresh the effected shards to make this
+            operation visible to search, if `wait_for` then wait for a refresh
+            to make this operation visible to search, if `false` (the default)
+            then do nothing with refreshes., valid choices are: 'true', 'false',
+            'wait_for'
+        :arg routing: Specific routing value
+        :arg timeout: Explicit operation timeout
+        :arg version: Explicit version number for concurrency control
+        :arg version_type: Specific version type, valid choices are: 'internal',
+            'external', 'external_gte', 'force'
+        :arg wait_for_active_shards: Sets the number of shard copies that must
+            be active before proceeding with the delete operation. Defaults to
+            1, meaning the primary shard only. Set to `all` for all shard
+            copies, otherwise set to any non-negative value less than or equal
+            to the total number of copies for the shard (number of replicas + 1)
+        """
+        for param in (index, id):
+            if param in SKIP_IN_PATH:
+                raise ValueError("Empty value passed for a required argument.")
+
+        doc = self.db.db_dtype_field_doc_key_get(index, doc_type, id)
+        result = {'found': True if doc else False,
+                  '_index': doc['_index'] if doc else index,
+                  '_type': doc['_type'] if doc else doc_type,
+                  '_id': doc['_id'] if doc else id
+                  }
+        if doc:
+            result['_version'] = doc['_version']
+            result['result']   =  'deleted'
+            result['_shards']  = {'total': 2, 'successful': 1, 'failed': 0}
+            self.db.db_dtype_field_doc_key_del(index, doc_type, id)
+            return result
+        else:
+            MockEsCommon.raiseNotFoundDoc(result)
+
     #
     # #####################
     # # batch operations
