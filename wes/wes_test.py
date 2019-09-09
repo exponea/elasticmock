@@ -105,9 +105,34 @@ class TestWes(TestWesHelper):
         self.assertEqual("created", self.wes.doc_addup_result(self.wes.doc_addup(ind_str, doc3, doc_type=ind_str_doc_type, id=3)).data['result'])  # MSE_NOTES: 'result': 'created' '_seq_no': 2  '_version': 1,    '_shards': {'total': 2, 'successful': 1, 'failed': 0},
         self.assertEqual("updated", self.wes.doc_addup_result(self.wes.doc_addup(ind_str, doc3, doc_type=ind_str_doc_type, id=3)).data['result'])  # MSE_NOTES: 'result': 'updated' '_seq_no': 3  '_version': 2,    '_shards': {'total': 2, 'successful': 1, 'failed': 0},
 
-        self.assertEqual(WesDefs.RC_OK, self.wes.doc_get_result(self.wes.doc_get(ind_str, 3, doc_type=ind_str_doc_type)).status)
-        self.assertEqual("deleted", self.wes.doc_delete_result(self.wes.doc_delete(ind_str, 3, doc_type=ind_str_doc_type)).data['result'])
+        # doc update - exception
+        doc3_update_wrong = {"city": "Bratislava3_CHANGED"}
+        self.assertTrue(isinstance(self.wes.doc_update_result(self.wes.doc_update(ind_str, 3, doc_type=ind_str_doc_type, body=doc3_update_wrong)).data, RequestError))
 
+        # doc update - ok
+        Log.notice('oioi')
+        rc = self.wes.doc_get_result(self.wes.doc_get(ind_str, 3, doc_type=ind_str_doc_type))
+        self.assertEqual(WesDefs.RC_OK, rc.status)
+        self.assertEqual(doc3["city"], rc.data['_source']["city"])
+
+        doc3_update_ok = {'doc': {"city": "Bratislava3_CHANGED"}}
+        self.assertEqual("updated", self.wes.doc_update_result(self.wes.doc_update(ind_str, 3, doc_type=ind_str_doc_type, body=doc3_update_ok)).data['result'])
+
+        rc = self.wes.doc_get_result(self.wes.doc_get(ind_str, 3, doc_type=ind_str_doc_type))
+        self.assertEqual(WesDefs.RC_OK, rc.status)
+        self.assertNotEqual(doc3["city"], rc.data['_source']["city"])
+        self.assertEqual(doc3_update_ok['doc']["city"], rc.data['_source']["city"])
+
+        # doc update - noop detected
+        doc3_update_ok_noop = {'doc': {}}
+        self.assertEqual("noop", self.wes.doc_update_result(self.wes.doc_update(ind_str, 3, doc_type=ind_str_doc_type, body=doc3_update_ok_noop)).data['result'])
+
+        # doc update - non-exist
+        doc4_update_missing_doc = {'doc': {}}
+        self.assertTrue(isinstance(self.wes.doc_update_result(self.wes.doc_update(ind_str, 4, doc_type=ind_str_doc_type, body=doc4_update_missing_doc)).data, NotFoundError))
+
+        # doc delete
+        self.assertEqual("deleted", self.wes.doc_delete_result(self.wes.doc_delete(ind_str, 3, doc_type=ind_str_doc_type)).data['result'])
         self.assertTrue(isinstance(self.wes.doc_get_result(self.wes.doc_get(ind_str, 3, doc_type=ind_str_doc_type)).data, NotFoundError))
         self.assertTrue(isinstance(self.wes.doc_delete_result(self.wes.doc_delete(ind_str, 3, doc_type=ind_str_doc_type)).data, NotFoundError))
 

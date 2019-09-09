@@ -560,31 +560,110 @@ class MockEs(MockEsCommon):
             '_shards': {'total': 2, 'successful': 1, 'failed': 0}  # keep hardcoded
         }
 
-    #
-    # @query_params(
-    #     "_source",
-    #     "_source_exclude",
-    #     "_source_excludes",
-    #     "_source_include",
-    #     "_source_includes",
-    #     "fields",
-    #     "if_seq_no",
-    #     "if_primary_term",
-    #     "lang",
-    #     "parent",
-    #     "refresh",
-    #     "retry_on_conflict",
-    #     "routing",
-    #     "timeout",
-    #     "timestamp",
-    #     "ttl",
-    #     "version",
-    #     "version_type",
-    #     "wait_for_active_shards",)
-    # @MockEsCommon.Decor.operation_mock(WesDefs.OP_DOC_UPDATE)
-    # def doc_update(self, index, id, doc_type="_doc", body=None, params=None):
-    #     # TODO petee 'doc_type' is important for get - shouldn't be mandatory???
-    #     return self.es.update(index, id, doc_type=doc_type, body=body, params=params)
+    @query_params(
+        "_source",
+        "_source_exclude",
+        "_source_excludes",
+        "_source_include",
+        "_source_includes",
+        "fields",
+        "if_seq_no",
+        "if_primary_term",
+        "lang",
+        "parent",
+        "refresh",
+        "retry_on_conflict",
+        "routing",
+        "timeout",
+        "timestamp",
+        "ttl",
+        "version",
+        "version_type",
+        "wait_for_active_shards",)
+    @MockEsCommon.Decor.operation_mock(WesDefs.OP_DOC_UPDATE)
+    def update(self, index, id, doc_type="_doc", body=None, params=None):
+        """
+        Update a document based on a script or partial data provided.
+        `<http://www.elastic.co/guide/en/elasticsearch/reference/current/docs-update.html>`_
+
+        :arg index: The name of the index
+        :arg id: Document ID
+        :arg body: The request definition using either `script` or partial `doc`
+        :arg _source: True or false to return the _source field or not, or a
+            list of fields to return
+        :arg _source_exclude: A list of fields to exclude from the returned
+            _source field
+        :arg _source_include: A list of fields to extract and return from the
+            _source field
+        :arg fields: A comma-separated list of fields to return in the response
+        :arg if_seq_no:
+        :arg if_primary_term:
+        :arg lang: The script language (default: painless)
+        :arg parent: ID of the parent document. Is is only used for routing and
+            when for the upsert request
+        :arg refresh: If `true` then refresh the effected shards to make this
+            operation visible to search, if `wait_for` then wait for a refresh
+            to make this operation visible to search, if `false` (the default)
+            then do nothing with refreshes., valid choices are: 'true', 'false',
+            'wait_for'
+        :arg retry_on_conflict: Specify how many times should the operation be
+            retried when a conflict occurs (default: 0)
+        :arg routing: Specific routing value
+        :arg timeout: Explicit operation timeout
+        :arg timestamp: Explicit timestamp for the document
+        :arg ttl: Expiration time for the document
+        :arg version: Explicit version number for concurrency control
+        :arg version_type: Specific version type, valid choices are: 'internal',
+            'force'
+        :arg wait_for_active_shards: Sets the number of shard copies that must
+            be active before proceeding with the update operation. Defaults to
+            1, meaning the primary shard only. Set to `all` for all shard
+            copies, otherwise set to any non-negative value less than or equal
+            to the total number of copies for the shard (number of replicas + 1)
+        """
+        for param in (index, id):
+            if param in SKIP_IN_PATH:
+                raise ValueError("Empty value passed for a required argument.")
+
+        doc = self.db.db_dtype_field_doc_key_get(index, doc_type, id)
+        if doc is None:
+            error_data = {
+                '_index': index,
+                '_type': doc_type,
+                '_id': id,
+                'found': False
+            }
+            MockEsCommon.raiseNotFoundDoc(error_data)
+        else:
+            Log.warn3(f"----- {str(body)}")
+            doc_data = body.get('doc', None)
+            script_data = body.get('script', None)
+            if (doc_data is None) and (script_data is None):
+                MockEsCommon.raiseRequestError(["'doc' or 'script' not specified for update"],
+                                                "'doc' or 'script' not specified for update", index)
+            else:
+                if isinstance(doc_data, dict):
+                    doc_backup = doc.copy()
+                    doc_backup.update(body['doc'])
+                    if doc == doc_backup:
+                        result_str = 'noop'
+                    else:
+                        doc_backup['_version'] = doc_backup['_version'] + 1
+                        doc = self.db.db_dtype_field_doc_key_set(index, doc_type, id, doc_backup)
+                        result_str = 'updated'
+
+                    return {
+                        '_type': doc['_type'],
+                        '_id': doc['_id'],
+                        # 'created':  True if version == 1 else False,
+                        '_version': doc['_version'],
+                        '_index': doc['_index'],
+                        'result': result_str,
+                        '_shards': {'total': 2, 'successful': 1, 'failed': 0}  # keep hardcoded
+                        }
+                else:
+                    raise ValueError("'script' not supported not")
+
 
     @query_params(
         "_source",
