@@ -1,4 +1,5 @@
 import unittest
+from collections import namedtuple
 
 from log import Log
 
@@ -32,6 +33,7 @@ class TestCommon(unittest.TestCase):
                         Log.log(res)
                     self.assertEqual(rc_sub, wes_sub)
 
+ExecCode = namedtuple('ExecCode', 'status data fnc_params')
 
 class WesDefs():
     # Elasticsearch version

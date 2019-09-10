@@ -28,7 +28,7 @@ import json
 from elasticsearch.client.utils import SKIP_IN_PATH
 from elasticmock.utilities import get_random_id, get_random_scroll_id
 
-from common import WesDefs
+from common import WesDefs, ExecCode
 from log import Log
 
 __all__ = ["MockEs"]
@@ -36,7 +36,7 @@ __all__ = ["MockEs"]
 from mock_db import MockDb
 from mock_query import MockEsQuery
 
-class MockEsCommon():
+class MockEsCommon:
 
     def __init__(self, version):
         self.ES_VERSION_RUNNING = version

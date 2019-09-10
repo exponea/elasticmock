@@ -20,16 +20,11 @@ from elasticsearch.helpers.errors import BulkIndexError
 from elasticsearch.helpers.errors import ScanError
 from elasticsearch.helpers.actions import expand_action
 
-from collections import namedtuple
-
 from log import Log
 from mock_es import MockEs
-from common import WesDefs
+from common import WesDefs, ExecCode
 
-
-__all__ = ["Wes", "ExecCode"]
-
-ExecCode = namedtuple('ExecCode', 'status data fnc_params')
+__all__ = ["Wes"]
 
 class WesCommon():
 
