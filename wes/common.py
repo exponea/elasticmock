@@ -84,12 +84,12 @@ class WesDefs():
     RC_OK      = "RC_OK"
 
     @staticmethod
-    def dump2string_result_ind_mappings(mappings_data, obj_with_running, prefix=''):
+    def dump2string_result_ind_mappings(mappings_data, obj_with_running, prefix):
         mappings = mappings_data.get('mappings', None)
         rec = ''
         if mappings is None or len(mappings) == 0:
             # mappings not exist
-            rec += prefix + " - Missing mappings"
+            rec += '\n' + f"{prefix}Missing mappings"
         else:
             if obj_with_running.ES_VERSION_RUNNING == WesDefs.ES_VERSION_5_6_5:
                 for dtype_name in mappings:

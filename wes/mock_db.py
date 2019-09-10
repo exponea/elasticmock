@@ -121,31 +121,30 @@ class MockDb:
         return self._check_lookup_chain(False, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_SET])
 
     # ### SET/REM ###
-    def db_dtype_create_default(self, idx, dtype):
-        if self.db_idx_field_dtype_dict_has(idx):
-            self.db_idx_field_dtype_dict_get(idx)[dtype] = self._default_dtype_structure(None, None)
-            return True
-        else:
-            return False
+    def db_dtype_field_doc_key_set(self, idx, dtype, doc_id, doc_body):
 
-    def db_dtype_field_doc_key_set(self, idx, dtype, doc_id, body):
-        #Log.notice(' 1. --------------------------------------------------')
-        doc_old = self.db_dtype_field_doc_key_get(idx, dtype, doc_id)
-        version = (doc_old['_version']+1) if doc_old else 1
-
-        #Log.notice(' 2. --------------------------------------------------')
+        # index level
         if not self.db_idx_has(idx):
             self.db_idx_set(idx, None)
 
+        # dtype level
         if not self.db_idx_field_dtype_key_has(idx, dtype):
-            if not self.db_dtype_create_default(idx, dtype):
+            if not self.db_idx_field_dtype_key_create(idx, dtype):
                 raise ValueError(f"{idx} - {dtype}")
 
-        #Log.notice(' 3. --------------------------------------------------')
+        mapsprop = self.db_dtype_field_mapsprop_get(idx, dtype)
+        if not mapsprop:
+            self.db_dtype_field_mapsprop_set(idx, dtype,
+                                             self.mappings_properties_from_doc_body(doc_body))
+
+        # doc level
+        doc_old = self.db_dtype_field_doc_key_get(idx, dtype, doc_id)
+        version = (doc_old['_version']+1) if doc_old else 1
+
         self.db_dtype_field_doc_dict_get(idx, dtype).update({doc_id: {
             '_type': dtype,
             '_id': doc_id,
-            '_source': body,
+            '_source': doc_body,
             '_index': idx,
             '_version': version,
         }})
@@ -159,6 +158,14 @@ class MockDb:
             return True
         else:
             return False
+
+    def db_dtype_field_mapsprop_set(self, idx, dtype, mapsprop):
+        if self.db_idx_field_dtype_key_has(idx, dtype):
+            self.db_idx_field_dtype_key_get(idx, dtype)[MockDb.K_DT_MAPSPROP] = mapsprop
+            return True
+        else:
+            return False
+
 
     ############################################################################
     ############################################################################
@@ -218,6 +225,13 @@ class MockDb:
         return self._check_lookup_chain(False, [idx, MockDb.K_IDX_SET])
 
     ### SET ###
+    def db_idx_field_dtype_key_create(self, idx, dtype):
+        if self.db_idx_field_dtype_dict_has(idx):
+            self.db_idx_field_dtype_dict_get(idx)[dtype] = self._default_dtype_structure(None, None)
+            return True
+        else:
+            return False
+
     def db_idx_field_mappings_set(self, idx, mappings) -> bool:
         if self.db_idx_field_mappings_has(idx):
             self.db_idx_field_mappings_get(idx).update(mappings)
@@ -277,13 +291,13 @@ class MockDb:
             dict_print += idx_level
             setting = self.db_idx_field_settings_get(index)
             if setting:
-                setting_level = f"{idx_level} SET[{str(setting)}]"
+                setting_level = f"{idx_level} SETTINGS[{str(setting)}]"
                 dict_print += '\n'
                 dict_print += setting_level
 
             map = self.db_idx_field_mappings_get(index)
             if map:
-                map_level = f"{idx_level} MAP"
+                map_level = f"{idx_level} MAPPINGS"
                 dict_print += '\n'
                 dict_print += WesDefs.dump2string_result_ind_mappings(map, self, map_level)
 
@@ -359,11 +373,3 @@ class MockDb:
                 raise ValueError(f"{type(data)} is not handled")
 
         return {"properties": properties}
-
-    def mappings_settings_build_from_doc_body_data(self, doc_body) -> dict:
-        create_body = {
-            'mappings': self.mappings_properties_from_doc_body(doc_body),
-            'settings': {}
-        }
-
-        return create_body

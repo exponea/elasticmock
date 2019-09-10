@@ -240,7 +240,6 @@ class MockEsIndicesClient:
         else:
             self.db.db_idx_set(searchable_indexes[0], body)
 
-        # TODO - add handling - maybe override is ok
         return {'acknowledged': 'True', 'shards_acknowledged': 'True'}
 
     @query_params(
@@ -333,19 +332,57 @@ class MockEsIndicesClient:
             else:
                 MockEsCommon.raiseNotFoundIdx(err_list, first_idx)
 
-    # @query_params(
-    #     "allow_no_indices",
-    #     "expand_wildcards",
-    #     "flat_settings",
-    #     "ignore_unavailable",
-    #     "include_defaults",
-    #     "local",
-    #     "include_type_name",
-    #     "master_timeout",)
-    # @MockEsCommon.Decor.operation_mock(WesDefs.OP_IND_GET)
-    # def ind_get(self, index, feature=None, params=None):
-    #     return self.es.indices.get(index, feature=feature, params=params)
+    @query_params(
+        "allow_no_indices",
+        "expand_wildcards",
+        "flat_settings",
+        "ignore_unavailable",
+        "include_defaults",
+        "local",
+        "include_type_name",
+        "master_timeout",)
+    @MockEsCommon.Decor.operation_mock(WesDefs.OP_IND_GET)
+    def get(self, index, feature=None, params=None):
+        """
+        The get index API allows to retrieve information about one or more indexes.
+        `<http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-get-index.html>`_
 
+        :arg index: A comma-separated list of index names
+        :arg allow_no_indices: Ignore if a wildcard expression resolves to no
+            concrete indices (default: false)
+        :arg expand_wildcards: Whether wildcard expressions should get expanded
+            to open or closed indices (default: open), default 'open', valid
+            choices are: 'open', 'closed', 'none', 'all'
+        :arg flat_settings: Return settings in flat format (default: false)
+        :arg ignore_unavailable: Ignore unavailable indexes (default: false)
+        :arg include_defaults: Whether to return all default setting for each of
+            the indices., default False
+        :arg local: Return local information, do not retrieve the state from
+            master node (default: false)
+        :arg include_type_name: Specify whether requests and responses should include a
+            type name (default: depends on Elasticsearch version).
+        :arg master_timeout: Specify timeout for connection to master
+        """
+        if index in SKIP_IN_PATH:
+            raise ValueError("Empty value passed for a required argument 'index'.")
+
+        result = {}
+        searchable_indexes = self.db.normalize_index_to_list(index)
+        for search_idx in searchable_indexes:
+            if self.db.db_idx_has(search_idx):
+                mappings = { }
+                dtype_dict = self.db.db_idx_field_dtype_dict_get(search_idx)
+                for si_dtype in dtype_dict.keys():
+                    mappings[si_dtype] = self.db.db_dtype_field_mapsprop_get(search_idx, si_dtype)
+
+                result[search_idx] = {
+                    'aliases': {},  # TODO
+                    'mappings': mappings,
+                    'settings': self.db.db_idx_field_settings_get(search_idx)
+                }
+            else:
+                MockEsCommon.raiseNotFoundIdx(['not found'], index)
+        return result
 
     @query_params(
         "allow_no_indices",
@@ -605,13 +642,6 @@ class MockEs(MockEsCommon):
         "wait_for_active_shards",)
     @MockEsCommon.Decor.operation_mock(WesDefs.OP_DOC_ADD_UP)
     def index(self, index, body, doc_type="_doc", id=None, params=None):
-
-        if self.db.db_idx_has(index):
-            # change only if empty
-            if len(self.db.db_api_docs_all(index)) == 0 and \
-               len(self.db.db_idx_field_mappings_get(index)) == 0:
-                self.db.db_idx_field_mappings_set(index, self.db.mappings_settings_build_from_doc_body_data(body))
-            # TODO settings ???
 
         if id is None:
             id = get_random_id()

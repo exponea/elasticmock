@@ -296,9 +296,8 @@ class Wes(WesCommon):
         def fmt_fnc_ok(rcv: ExecCode) -> str:
             rec = ''
             for rc_index in rcv.data.keys():
-                prefix = f"IND[{rc_index}]"
-                rec += '\n' + prefix
-                rec += WesDefs.dump2string_result_ind_mappings(rcv.data[rc_index].get('mappings', None), self)
+                prefix = f"IND[{rc_index}] {'mappings':>9} <-> "
+                rec += WesDefs.dump2string_result_ind_mappings(rcv.data[rc_index].get('mappings', None), self, prefix)
 
             return f"{key_str} MAPPING: {rec}"
 

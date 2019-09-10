@@ -81,27 +81,42 @@ class TestWes(TestWesHelper):
     def test_indice_basic(self):
 
         global ind_str
+        global ind_str2
         self.indice_cleanup_all(self.wes)
 
         # create
         self.indice_create_exists(self.wes, ind_str)
+        # get - UNKNOWN idx
+        self.assertTrue(isinstance(self.wes.ind_get_result(self.wes.ind_get(ind_str2)).data, NotFoundError))
+
         # get - aliases <-> {} , mappings <-> {} , settings <-> { DATA }
-        self.wes.ind_get_result(self.wes.ind_get(ind_str))
+        rc = self.wes.ind_get_result(self.wes.ind_get(ind_str))
+        self.assertEqual({}, rc.data[ind_str]['aliases'])
+        self.assertEqual({}, rc.data[ind_str]['mappings'])
+        self.assertNotEqual({}, rc.data[ind_str]['settings'])
 
         # get - aliases <-> {} , mappings <-> {DATA} , settings <-> { DATA }
         doc3 = {"city": "Bratislava3", "country": "SLOVAKIA",  "sentence": "The slovakia is a country"}
         self.assertEqual("created", self.wes.doc_addup_result(self.wes.doc_addup(ind_str, doc3, doc_type=ind_str_doc_type, id=3)).data['result'])  # MSE_NOTES: 'result': 'created' '_seq_no': 2  '_version': 1,    '_shards': {'total': 2, 'successful': 1, 'failed': 0},
-        self.wes.ind_get_result(self.wes.ind_get(ind_str))
+        map_new = {
+            'properties': {'city': {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}},
+                           'country': {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}},
+                           'sentence': {'type': 'text',
+                                        'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}}}
+          }
+        rc = self.wes.ind_get_result(self.wes.ind_get(ind_str))
+        self.assertEqual({}, rc.data[ind_str]['aliases'])
+        self.assertEqual(map_new, rc.data[ind_str]['mappings'][ind_str_doc_type])
+        self.assertNotEqual({}, rc.data[ind_str]['settings'])
 
-
-        # # re-create
-        # self.assertTrue(isinstance(self.wes.ind_create_result(self.wes.ind_create(ind_str)).data, RequestError))
-        # # unknown
-        # self.assertEqual(False, self.wes.ind_exist_result(self.wes.ind_exist("unknown ind_str")).data)
-        # # delete
-        # self.assertEqual(True, self.wes.ind_delete_result(self.wes.ind_delete(ind_str)).data.get('acknowledged', False))
-        # self.assertEqual(False, self.wes.ind_exist_result(self.wes.ind_exist(ind_str)).data)
-        # self.assertTrue(isinstance(self.wes.ind_delete_result(self.wes.ind_delete(ind_str)).data, NotFoundError))
+        # re-create
+        self.assertTrue(isinstance(self.wes.ind_create_result(self.wes.ind_create(ind_str)).data, RequestError))
+        # unknown
+        self.assertEqual(False, self.wes.ind_exist_result(self.wes.ind_exist("unknown ind_str")).data)
+        # delete
+        self.assertEqual(True, self.wes.ind_delete_result(self.wes.ind_delete(ind_str)).data.get('acknowledged', False))
+        self.assertEqual(False, self.wes.ind_exist_result(self.wes.ind_exist(ind_str)).data)
+        self.assertTrue(isinstance(self.wes.ind_delete_result(self.wes.ind_delete(ind_str)).data, NotFoundError))
 
     def test_documents_basic_single_create_update(self):
 
