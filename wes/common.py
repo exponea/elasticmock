@@ -84,7 +84,7 @@ class WesDefs():
     RC_OK      = "RC_OK"
 
     @staticmethod
-    def mappings_dump2str(mappings_data, obj_with_running, prefix=''):
+    def dump2string_result_ind_mappings(mappings_data, obj_with_running, prefix=''):
         mappings = mappings_data.get('mappings', None)
         rec = ''
         if mappings is None or len(mappings) == 0:
@@ -92,11 +92,48 @@ class WesDefs():
             rec += prefix + " - Missing mappings"
         else:
             if obj_with_running.ES_VERSION_RUNNING == WesDefs.ES_VERSION_5_6_5:
-                for maps in mappings:
-                    rec += '\n' + prefix + str(maps) + '\n'
-                    for int_map in mappings[maps]:
-                        rec += '-> ' + '{:>12}: '.format(int_map) + str(mappings[maps][int_map]) + '\n'
+                for dtype_name in mappings:
+                    prefix_dtype = f"{prefix} DTYPE[{dtype_name}]"
+                    for internal_dtype in mappings[dtype_name]:
+                        if internal_dtype == 'properties':
+                            properties_dict = mappings[dtype_name][internal_dtype]
+                            # TOO GENERIC tmp_str = f"{prefix_dtype} {internal_dtype} {str(properties_dict)}"
+                            # TOO GENERIC rec += '\n' + tmp_str
+                            for prop in properties_dict:
+                                tmp_str = f"{prefix_dtype} {internal_dtype} PROP[{prop:>12} - {str(properties_dict[prop])}]"
+                                rec += '\n' + tmp_str
+                        elif internal_dtype == 'dynamic' or \
+                             internal_dtype == 'date_detection' or \
+                             internal_dtype == 'dynamic_templates':
+                            general_dict = mappings[dtype_name][internal_dtype]
+                            tmp_str = f"{prefix_dtype} {internal_dtype} {str(general_dict)}"
+                            rec += '\n' + tmp_str
+                        else:
+                            raise ValueError(f"unknown internal_dtype '{internal_dtype}'")
             else:
                 WesDefs.es_version_mismatch(obj_with_running.ES_VERSION_RUNNING)
 
         return rec
+
+    @staticmethod
+    def dump2string_result_ind(data: dict, obj_with_running) -> str:
+        res = ''
+        cnt = 0
+        for ind_name in data.keys():
+            cnt += 1
+            ind_dict = data[ind_name]
+            #res += '\n' + ind_name + ' <-> ' + str(ind_dict)
+            for ind_field in ind_dict.keys():
+                prefix_ind_fields = f"IND[{ind_name}] {ind_field:>9} <-> "
+                ind_field_dict = ind_dict[ind_field]
+                # TOO GENERIC res += '\n' + prefix_ind_fields + str(ind_field_dict)
+                if ind_field == 'aliases':
+                    res += '\n' + prefix_ind_fields + str(ind_field_dict)
+                elif ind_field == 'mappings':
+                    res += WesDefs.dump2string_result_ind_mappings(ind_dict, obj_with_running, prefix=prefix_ind_fields)
+                elif ind_field == 'settings':
+                    res += '\n' + prefix_ind_fields + str(ind_field_dict)
+                else:
+                    ValueError(f"unknown ind_field {ind_field} ")
+
+        return f"COUNT[{cnt}] {res}"

@@ -277,7 +277,7 @@ class MockDb:
             if map:
                 map_level = f"{idx_level} MAP"
                 dict_print += '\n'
-                dict_print += WesDefs.mappings_dump2str(map, self, map_level)
+                dict_print += WesDefs.dump2string_result_ind_mappings(map, self, map_level)
 
             docid2types_dict = self.db_idx_field_did2dtypes_dict_get(index)
             if docid2types_dict:

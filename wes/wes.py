@@ -163,7 +163,6 @@ class WesCommon():
             # use what is inside positional
             return str(rc.fnc_params[0])
 
-
 class Wes(WesCommon):
 
     def __init__(self, use_mocked: bool = False):
@@ -239,18 +238,9 @@ class Wes(WesCommon):
         key_str = f"KEY[{rc.fnc_params[0]}]"
 
         def fmt_fnc_ok(rcv: ExecCode) -> str:
-            return f"{key_str} {self. ind_get_result_dump_to_string(rc)}"
+            return f"{key_str} {WesDefs.dump2string_result_ind(rc.data, self)}"
 
         return self._operation_result(WesDefs.OP_IND_GET, key_str, rc, fmt_fnc_ok)
-
-    def ind_get_result_dump_to_string(self, rc: ExecCode):
-        res = ''
-        cnt = 0
-        for k in rc.data.keys():
-            res += '\n' + k + ' <-> ' + str(rc.data[k])
-            cnt += 1
-
-        return f"COUNT[{cnt}] {res}"
 
     @query_params(
         "allow_no_indices",
@@ -308,7 +298,7 @@ class Wes(WesCommon):
             for rc_index in rcv.data.keys():
                 prefix = f"IND[{rc_index}]"
                 rec += '\n' + prefix
-                rec += WesDefs.mappings_dump2str(rcv.data[rc_index].get('mappings', None), self)
+                rec += WesDefs.dump2string_result_ind_mappings(rcv.data[rc_index].get('mappings', None), self)
 
             return f"{key_str} MAPPING: {rec}"
 
