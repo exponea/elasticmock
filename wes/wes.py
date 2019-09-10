@@ -357,7 +357,8 @@ class Wes(WesCommon):
         key_str = f"KEY{rc.fnc_params[0]}"
 
         def fmt_fnc_ok(rcv: ExecCode) -> str:
-            return f"TEMPLATE: <-> {str(rcv.data)}"
+            res = WesDefs.dump2string_result_templates(rcv.data, self)
+            return f"TEMPLATE: <-> {res}"
 
         return self._operation_result(WesDefs.OP_IND_GET_TMP, key_str, rc, fmt_fnc_ok)
 
