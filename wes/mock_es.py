@@ -117,7 +117,7 @@ class MockEsCommon:
         searchable_indexes = self.db.normalize_index_to_list(index)
 
         if MockEsCommon.apply_all_indicies(query.q_oper, searchable_indexes):
-            searchable_indexes = self.db.db_idx_dict().keys()
+            searchable_indexes = self.db.db_db_indices_dict_get().keys()
 
         matches = []
         docs = self.db.db_api_docs_all(searchable_indexes, doc_type)
@@ -487,7 +487,7 @@ class MockEsIndicesClient:
         for_all = MockEsCommon.apply_all_indicies(WesDefs.OP_IND_GET_MAP, searchable_indexes)
 
         ret_dict = {}
-        for idx in self.db.db_idx_dict().keys():
+        for idx in self.db.db_db_indices_dict_get().keys():
             if for_all or idx in searchable_indexes:
                 ret_dict[idx] = {
                     'mappings': self.db.db_idx_field_mappings_get(idx),
@@ -542,7 +542,7 @@ class MockEsIndicesClient:
 
         searchable_indexes = self.db.normalize_index_to_list( index)
         if MockEsCommon.apply_all_indicies(WesDefs.OP_IND_PUT_MAP, searchable_indexes):
-            searchable_indexes = self.db.db_idx_dict().keys()
+            searchable_indexes = self.db.db_db_indices_dict_get().keys()
 
         for idx in searchable_indexes:
             if MockEsCommon.check_running_version(self, WesDefs.ES_VERSION_5_6_5):
@@ -570,13 +570,32 @@ class MockEsIndicesClient:
     # def ind_put_template(self, name, body, params=None):
     #     return self.es.indices.put_template(name=name, body=body, params=params)
     #
-    # @query_params("flat_settings",
-    #               "local",
-    #               "master_timeout",
-    #               "include_type_name")
-    # @MockEsCommon.Decor.operation_mock(WesDefs.OP_IND_GET_TMP)
-    # def ind_get_template(self, name=None, params=None):
-    #     return self.es.indices.get_template(name=name, params=params)
+    @query_params("flat_settings",
+                  "local",
+                  "master_timeout",
+                  "include_type_name")
+    @MockEsCommon.Decor.operation_mock(WesDefs.OP_IND_GET_TMP)
+    def get_template(self, name=None, params=None):
+        """
+        Retrieve an index template by its name.
+        `<http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-templates.html>`_
+
+        :arg name: The name of the template
+        :arg flat_settings: Return settings in flat format (default: false)
+        :arg local: Return local information, do not retrieve the state from
+            master node (default: false)
+        :arg master_timeout: Explicit operation timeout for connection to master
+            node
+        :arg include_type_name: Specify whether requests and responses should include a
+            type name (default: depends on Elasticsearch version).
+        """
+        if name:
+            if self.db.db_tmpl_has(name):
+                return self.db.db_tmpl_get(name)
+            else:
+                MockEsCommon.raiseNotFoundIdx(['template not found'], name)
+        else:
+            return self.db.db_db_templates_dict_get()
     #
     # @query_params("allow_no_indices", "expand_wildcards", "ignore_unavailable", "local")
     # @MockEsCommon.Decor.operation_mock(WesDefs.OP_IND_GET_ALIAS)

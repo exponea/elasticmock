@@ -758,6 +758,8 @@ class TestWes(TestWesHelper):
 
         Log.notice("--------------------------------------------------------------------------------------")
         self.assertEqual(WesDefs.RC_OK, self.wes.ind_get_template_result(self.wes.ind_get_template()).status)
+        self.assertTrue(isinstance(self.wes.ind_get_template_result(self.wes.ind_get_template("uknown")).data, NotFoundError))
+
         self.assertEqual(WesDefs.RC_OK, self.wes.ind_put_template_result(self.wes.ind_put_template(**body_exponea)).status)
         self.assertEqual(WesDefs.RC_OK, self.wes.ind_get_template_result(self.wes.ind_get_template()).status)
 
@@ -803,6 +805,8 @@ if __name__ == '__main__':
         # suite.addTest(TestWesMock("test_mappings_get_put"))
         # suite.addTest(TestWesReal("test_aggregations"))
         # suite.addTest(TestWesMock("test_aggregations"))
+        # suite.addTest(TestWesReal("test_templates_get_put"))
+        # suite.addTest(TestWesMock("test_templates_get_put"))
         #
         # suite.addTest(TestWesReal("test_count"))
         # suite.addTest(TestWesMock("test_count"))

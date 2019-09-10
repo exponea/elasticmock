@@ -20,7 +20,9 @@ class MockDb:
 
     def __init__(self, running_version):
         self.documents_dict = {}
+        self.db_db_clear()
         self.scrolls = {}
+
 
         self.ES_VERSION_RUNNING = running_version
         self.log_prefix = '>>DB<<'
@@ -283,8 +285,18 @@ class MockDb:
 
     ############################################################################
     ############################################################################
+    def db_tmpl_has(self, tmlp_name):
+        return self._check_lookup_chain(True, [MockDb.K_DB_TMPL_D, tmlp_name])
+
+    def db_tmpl_get(self, tmlp_name):
+        return self._check_lookup_chain(False, [MockDb.K_DB_TMPL_D, tmlp_name])
+    ############################################################################
+    ############################################################################
     def db_db_indices_dict_get(self):
         return self._check_lookup_chain(False, [MockDb.K_DB_INDICE_D])
+
+    def db_db_templates_dict_get(self):
+        return self._check_lookup_chain(False, [MockDb.K_DB_TMPL_D])
 
     def db_db_clear(self):
         self.documents_dict = self._default_db_structure()
