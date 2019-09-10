@@ -183,22 +183,19 @@ class MockEsCommon:
             try:
                 item = next(rc.data)
                 if dbg_bulk_int:
-                    Log.log(f'BULK_INT cont OK ... {str(item)}')
+                    Log.log(f'BULK_STR_INT cont OK ... {str(item)}')
                 data.append(item)
             except StopIteration as e:
                 if dbg_bulk_int:
-                    Log.err(f'BULK_INT break {str(type(e))} === {str(e)}')
+                    Log.err(f'BULK_STR_INT break {str(type(e))} === {str(e)}')
                 break
             except BulkIndexError as e:
                 if dbg_bulk_int:
-                    Log.warn(f'BULK cont ERR ... {str(type(e))} === {str(e)}')
+                    Log.warn(f'BULK_STR_INT cont ERR ... {str(type(e))} === {str(e)}')
                 status = WesDefs.RC_NOK
                 data.append((False, e))
 
-        rc = ExecCode(status, data, rc.fnc_params)
-
-        return rc
-
+        return ExecCode(status, data, rc.fnc_params)
 
 class MockEsIndicesClient:
 
@@ -1161,25 +1158,75 @@ class MockEs(MockEsCommon):
 
         return result
 
-    # @MockEsCommon.Decor.operation_mock(WesDefs.OP_DOC_BULK)
-    # def doc_bulk(self, actions, stats_only=False, *args, **kwargs):
-    #     # The bulk() api accepts 'index', 'create', 'delete', 'update' actions.
-    #     # '_op_type' field to specify an action ( DEFAULTS to 'index'):
-    #     # -> 'index' and 'create' expect a 'source' on the next line, and have the same semantics as the 'op_type' parameter to the standard index API
-    #     #    - 'create' will fail if a document with the same index exists already,
-    #     #    - 'index' will add or replace a document as necessary.
-    #     # -> 'delete' does not expect a source on the following line, and has the same semantics as the standard delete API.
-    #     # -> 'update' expects that the partial doc, upsert and script and its options are specified on the next line.
-    #     #
-    #     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    #     # MSE_NOTES: - exception behavior should be SUPPRESSED - some operations in batch could PASS
-    #     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    #     # It returns a tuple with summary information:
-    #     # - number of successfully executed actions
-    #     # - and either list of errors or number of errors if ``stats_only`` is set to ``True``.
-    #     # Note: that by default we raise a ``BulkIndexError`` when we encounter an error so
-    #     #  options like ``stats_only`` only apply when ``raise_on_error`` is set to ``False``.
-    #     return helpers.bulk(self.es, actions, raise_on_error=False, stats_only=stats_only, *args, **kwargs)
+    @MockEsCommon.Decor.operation_mock(WesDefs.OP_DOC_BULK)
+    def bulk(self, actions, stats_only=False, *args, **kwargs):
+        # The bulk() api accepts 'index', 'create', 'delete', 'update' actions.
+        # '_op_type' field to specify an action ( DEFAULTS to 'index'):
+        # -> 'index' and 'create' expect a 'source' on the next line, and have the same semantics as the 'op_type' parameter to the standard index API
+        #    - 'create' will fail if a document with the same index exists already,
+        #    - 'index' will add or replace a document as necessary.
+        # -> 'delete' does not expect a source on the following line, and has the same semantics as the standard delete API.
+        # -> 'update' expects that the partial doc, upsert and script and its options are specified on the next line.
+        #
+        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # MSE_NOTES: - exception behavior should be SUPPRESSED - some operations in batch could PASS
+        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # It returns a tuple with summary information:
+        # - number of successfully executed actions
+        # - and either list of errors or number of errors if ``stats_only`` is set to ``True``.
+        # Note: that by default we raise a ``BulkIndexError`` when we encounter an error so
+        #  options like ``stats_only`` only apply when ``raise_on_error`` is set to ``False``.
+        """
+        Helper for the :meth:`~elasticsearch.Elasticsearch.bulk` api that provides
+        a more human friendly interface - it consumes an iterator of actions and
+        sends them to elasticsearch in chunks. It returns a tuple with summary
+        information - number of successfully executed actions and either list of
+        errors or number of errors if ``stats_only`` is set to ``True``. Note that
+        by default we raise a ``BulkIndexError`` when we encounter an error so
+        options like ``stats_only`` only apply when ``raise_on_error`` is set to
+        ``False``.
+
+        When errors are being collected original document data is included in the
+        error dictionary which can lead to an extra high memory usage. If you need
+        to process a lot of data and want to ignore/collect errors please consider
+        using the :func:`~elasticsearch.helpers.streaming_bulk` helper which will
+        just return the errors and not store them in memory.
+
+
+        :arg client: instance of :class:`~elasticsearch.Elasticsearch` to use
+        :arg actions: iterator containing the actions
+        :arg stats_only: if `True` only report number of successful/failed
+            operations instead of just number of successful and a list of error responses
+
+        Any additional keyword arguments will be passed to
+        :func:`~elasticsearch.helpers.streaming_bulk` which is used to execute
+        the operation, see :func:`~elasticsearch.helpers.streaming_bulk` for more
+        accepted parameters.
+        """
+        success, failed = 0, 0
+
+        # list of errors to be collected is not stats_only
+        errors = []
+
+        # make streaming_bulk yield successful results so we can count them
+        kwargs["yield_ok"] = True
+
+        rc = ExecCode(WesDefs.RC_OK,
+                      self.bulk_streaming(actions, *args, **kwargs),
+                      ('Fake', 'Fake'))
+        rc = MockEs.bulk_streaming_result_repack_gen2list(rc)
+        for ok, item in rc.data:
+            # go through request-response pairs and detect failures
+            if not ok:
+                if not stats_only:
+                    errors.append(item)
+                failed += 1
+            else:
+                success += 1
+
+        rc = success, failed if stats_only else errors
+
+        return rc
 
     @MockEsCommon.Decor.operation_mock(WesDefs.OP_DOC_BULK_STR)
     def bulk_streaming(self,

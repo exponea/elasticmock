@@ -739,13 +739,11 @@ class Wes(WesCommon):
         # - and either list of errors or number of errors if ``stats_only`` is set to ``True``.
         # Note: that by default we raise a ``BulkIndexError`` when we encounter an error so
         #  options like ``stats_only`` only apply when ``raise_on_error`` is set to ``False``.
-        fnc2exec = None
         if isinstance(self.es, MockEs):
             # MSE_NOTES: decision to not make 'helpers' nesting e.g. 'es.helpers.bulk'
-            fnc2exec = self.es.bulk
+            return self.es.bulk(actions, raise_on_error=False, stats_only=stats_only, *args, **kwargs)
         else:
-            fnc2exec = helpers.bulk
-        return fnc2exec(self.es, actions, raise_on_error=False, stats_only=stats_only, *args, **kwargs)
+            return helpers.bulk(self.es, actions, raise_on_error=False, stats_only=stats_only, *args, **kwargs)
 
     def doc_bulk_result(self, rc: ExecCode) -> ExecCode:
         #key_str = f"KEY{rc.fnc_params[0]}"
