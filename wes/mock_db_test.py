@@ -55,6 +55,8 @@ class TestMockDbHelper(TestCommon):
     def get_init_db(self):
 
         db = {
+            MockDb.K_DB_TMPL_D  : {},
+            MockDb.K_DB_INDICE_D: {
                 test_idx_1: {
                     MockDb.K_IDX_MAP: idx_1_mapping_data,
                     MockDb.K_IDX_SET: idx_1_setting_data,
@@ -81,6 +83,7 @@ class TestMockDbHelper(TestCommon):
                         },
                     }
                 }
+            }
         }
 
         return db
@@ -106,12 +109,12 @@ class TestMockDb(TestMockDbHelper):
         self.db.db_db_clear()
 
         self.assertEqual(self.db.documents_dict, self.db.db_db_get())
-        self.assertEqual({}, self.db.db_idx_dict())
+        self.assertEqual({}, self.db.db_db_indices_dict_get())
         # check if cleanup works
         self.db.documents_dict = {'not_empty': 'not_empty'}
         self.db.db_db_clear()
         # L0
-        self.assertEqual({}, self.db.db_idx_dict())
+        self.assertEqual({}, self.db.db_db_indices_dict_get())
         self.assertEqual(False, self.db.db_idx_del(test_idx_1))
         self.assertEqual(False, self.db.db_idx_has( test_idx_1))
         self.assertEqual(None, self.db.db_idx_get( test_idx_1))
@@ -192,7 +195,7 @@ class TestMockDb(TestMockDbHelper):
         DB = self.get_init_db()
 
         # L0
-        self.assertEqual(DB, self.db.db_idx_dict())
+        self.assertEqual(DB, self.db.db_db_get())
         self.assertEqual(True, self.db.db_idx_has(test_idx_1))
         self.assertEqual(True, self.db.db_idx_del(test_idx_1))
         self.assertEqual(False, self.db.db_idx_has(test_idx_1))
@@ -215,27 +218,27 @@ class TestMockDb(TestMockDbHelper):
         self.assertEqual(True, self.db.db_idx_field_mappings_has(test_idx_1))
         self.assertEqual(True, self.db.db_idx_field_settings_has(test_idx_1))
         # L1 - get
-        check_val = DB[test_idx_1][self.db.K_IDX_DTYPE_D][doc_type_11]
+        check_val = DB[MockDb.K_DB_INDICE_D][test_idx_1][MockDb.K_IDX_DTYPE_D][doc_type_11]
         self.assertEqual(check_val, self.db.db_idx_field_dtype_key_get(test_idx_1, doc_type_11))
         self.assertEqual(None, self.db.db_idx_field_dtype_key_get(test_idx_1, doc_type_bad))
 
-        check_val = DB[test_idx_1][self.db.K_IDX_DTYPE_D]
+        check_val = DB[MockDb.K_DB_INDICE_D][test_idx_1][MockDb.K_IDX_DTYPE_D]
         self.assertEqual(check_val, self.db.db_idx_field_dtype_dict_get(test_idx_1))
         self.assertEqual(None, self.db.db_idx_field_dtype_dict_get(doc_type_bad))
 
-        check_val = DB[test_idx_1][self.db.K_IDX_DID2DTYPES_D][id_doc12]
+        check_val = DB[MockDb.K_DB_INDICE_D][test_idx_1][self.db.K_IDX_DID2DTYPES_D][id_doc12]
         self.assertEqual(check_val, self.db.db_idx_field_did2dtypes_key_get(test_idx_1, id_doc12))
-        check_val = DB[test_idx_1][self.db.K_IDX_DID2DTYPES_D]
+        check_val = DB[MockDb.K_DB_INDICE_D][test_idx_1][self.db.K_IDX_DID2DTYPES_D]
         self.assertEqual(check_val, self.db.db_idx_field_did2dtypes_dict_get(test_idx_1))
-        check_val = DB[test_idx_1][self.db.K_IDX_MAP]
+        check_val = DB[MockDb.K_DB_INDICE_D][test_idx_1][self.db.K_IDX_MAP]
         self.assertEqual(check_val, self.db.db_idx_field_mappings_get(test_idx_1))
         self.assertEqual(True, self.db.db_idx_field_mappings_set(test_idx_1, idx_1_mapping_data_set))
-        check_val = DB[test_idx_1][self.db.K_IDX_MAP]
+        check_val = DB[MockDb.K_DB_INDICE_D][test_idx_1][self.db.K_IDX_MAP]
         self.assertEqual(check_val, self.db.db_idx_field_mappings_get(test_idx_1))
-        check_val = DB[test_idx_1][self.db.K_IDX_SET]
+        check_val = DB[MockDb.K_DB_INDICE_D][test_idx_1][self.db.K_IDX_SET]
         self.assertEqual(check_val, self.db.db_idx_field_settings_get(test_idx_1))
         self.assertEqual(True, self.db.db_idx_field_settings_set(test_idx_1, idx_1_setting_data_set))
-        check_val = DB[test_idx_1][self.db.K_IDX_SET]
+        check_val = DB[MockDb.K_DB_INDICE_D][test_idx_1][self.db.K_IDX_SET]
         self.assertEqual(check_val, self.db.db_idx_field_settings_get(test_idx_1))
 
         # # L2 - dtype - has
@@ -245,16 +248,16 @@ class TestMockDb(TestMockDbHelper):
         self.assertEqual(True, self.db.db_dtype_field_sets_has(test_idx_1, doc_type_11))
         # L2 - dtype - get
         Log.notice2('----------------------------')
-        check_val = DB[test_idx_1][MockDb.K_IDX_DTYPE_D][doc_type_11][MockDb.K_DT_DOC_D][id_doc12]
+        check_val = DB[MockDb.K_DB_INDICE_D][test_idx_1][MockDb.K_IDX_DTYPE_D][doc_type_11][MockDb.K_DT_DOC_D][id_doc12]
         self.assertEqual(check_val, self.db.db_dtype_field_doc_key_get(test_idx_1, doc_type_11, id_doc12))
         self.assertEqual(None, self.db.db_dtype_field_doc_key_get(test_idx_1, doc_type_11, id_doc_bad))
-        check_val = DB[test_idx_1][MockDb.K_IDX_DTYPE_D][doc_type_11][MockDb.K_DT_DOC_D]
+        check_val = DB[MockDb.K_DB_INDICE_D][test_idx_1][MockDb.K_IDX_DTYPE_D][doc_type_11][MockDb.K_DT_DOC_D]
         self.assertEqual(check_val, self.db.db_dtype_field_doc_dict_get(test_idx_1, doc_type_11))
         self.assertEqual(None, self.db.db_dtype_field_doc_dict_get(test_idx_1, id_doc_bad))
 
-        check_val = DB[test_idx_1][MockDb.K_IDX_DTYPE_D][doc_type_11][MockDb.K_DT_MAPSPROP]
+        check_val = DB[MockDb.K_DB_INDICE_D][test_idx_1][MockDb.K_IDX_DTYPE_D][doc_type_11][MockDb.K_DT_MAPSPROP]
         self.assertEqual(check_val, self.db.db_dtype_field_mapsprop_get(test_idx_1, doc_type_11))
-        check_val = DB[test_idx_1][MockDb.K_IDX_DTYPE_D][doc_type_11][MockDb.K_DT_SET]
+        check_val = DB[MockDb.K_DB_INDICE_D][test_idx_1][MockDb.K_IDX_DTYPE_D][doc_type_11][MockDb.K_DT_SET]
         self.assertEqual(check_val, self.db.db_dtype_field_sets_get(test_idx_1, doc_type_11))
 
     def db_operations_on_existing_idx__check_nb(self, nb_db, nb_list, idx):

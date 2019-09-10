@@ -8,7 +8,8 @@ if PY3:
     unicode = str
 
 class MockDb:
-
+    K_DB_TMPL_D    = 'K_DB_TMPL_D'
+    K_DB_INDICE_D  = 'K_DB_INDICE_D'
     K_IDX_MAP      = 'K_IDX_MAP'
     K_IDX_SET      = 'K_IDX_SET'
     K_IDX_DID2DTYPES_D    = 'K_IDX_DID2DTYPES_D'
@@ -24,6 +25,8 @@ class MockDb:
         self.ES_VERSION_RUNNING = running_version
         self.log_prefix = '>>DB<<'
         # db = {
+        #   MockDb.K_DB_TMPL_D  : {},
+        #   MockDb.K_DB_INDICE_D: {
         #         'INDEX_1': {
         #             MockDb.K_IDX_MAP: idx_mapping_data,
         #             MockDb.K_IDX_SET: idx_setting_data,
@@ -50,7 +53,14 @@ class MockDb:
         #                 },
         #             }
         #         }
+        #     }
         # }
+
+    def _default_db_structure(self):
+        return {
+            MockDb.K_DB_TMPL_D  : {},
+            MockDb.K_DB_INDICE_D: {},
+        }
 
     def _default_idx_structure(self, mappings, settings):
         return {
@@ -87,7 +97,7 @@ class MockDb:
                 Log.log(f"{self.log_prefix} LOOKUP({int_oper})  ok: {str(keys)} key[{str(k)}] in {str(d)}")
             return True if check_if_has else d[k]
 
-        d = self.db_idx_dict()
+        d = self.db_db_get()
         for k in keys:
             if k in d:
                 if k == keys[-1]:
@@ -102,23 +112,23 @@ class MockDb:
     ############################################################################
     ### HAS ###
     def db_dtype_field_doc_key_has(self, idx, dtype, doc_id):
-        return self._check_lookup_chain(True, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_DOC_D, doc_id])
+        return self._check_lookup_chain(True, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_DOC_D, doc_id])
     def db_dtype_field_doc_dict_has(self, idx, dtype):
-        return self._check_lookup_chain(True, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_DOC_D])
+        return self._check_lookup_chain(True, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_DOC_D])
     def db_dtype_field_mapsprop_has(self, idx, dtype):
-        return self._check_lookup_chain(True, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_MAPSPROP])
+        return self._check_lookup_chain(True, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_MAPSPROP])
     def db_dtype_field_sets_has(self, idx, dtype):
-        return self._check_lookup_chain(True, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_SET])
+        return self._check_lookup_chain(True, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_SET])
 
     ### GET ###
     def db_dtype_field_doc_key_get(self, idx, dtype, doc_id):
-        return self._check_lookup_chain(False, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_DOC_D, doc_id])
+        return self._check_lookup_chain(False, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_DOC_D, doc_id])
     def db_dtype_field_doc_dict_get(self, idx, dtype):
-        return self._check_lookup_chain(False, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_DOC_D])
+        return self._check_lookup_chain(False, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_DOC_D])
     def db_dtype_field_mapsprop_get(self, idx, dtype):
-        return self._check_lookup_chain(False, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_MAPSPROP])
+        return self._check_lookup_chain(False, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_MAPSPROP])
     def db_dtype_field_sets_get(self, idx, dtype):
-        return self._check_lookup_chain(False, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_SET])
+        return self._check_lookup_chain(False, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_SET])
 
     # ### SET/REM ###
     def db_dtype_field_doc_key_set(self, idx, dtype, doc_id, doc_body):
@@ -171,7 +181,7 @@ class MockDb:
     ############################################################################
     def db_api_docs_all(self, indexes: list = None, dtype=None, not_empty: bool = False) -> list:
         doc_all = []
-        db_dict = self.db_idx_dict()
+        db_dict = self.db_db_indices_dict_get()
 
         for db_idx in db_dict:
             if indexes is not None and (not (db_idx in indexes)):
@@ -198,31 +208,35 @@ class MockDb:
     #############################################################
     ### HAS ###
     def db_idx_field_dtype_key_has(self, idx, dtype_key):
-        return self._check_lookup_chain(True, [idx, MockDb.K_IDX_DTYPE_D, dtype_key])
+        return self._check_lookup_chain(True, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_DTYPE_D, dtype_key])
     def db_idx_field_dtype_dict_has(self, idx):
-        return self._check_lookup_chain(True, [idx, MockDb.K_IDX_DTYPE_D])
+        return self._check_lookup_chain(True, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_DTYPE_D])
     def db_idx_field_did2dtypes_key_has(self, idx, doc_id):
-        return self._check_lookup_chain(True, [idx, MockDb.K_IDX_DID2DTYPES_D, doc_id])
+        return self._check_lookup_chain(True, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_DID2DTYPES_D, doc_id])
     def db_idx_field_did2dtypes_dict_has(self, idx):
-        return self._check_lookup_chain(True, [idx, MockDb.K_IDX_DID2DTYPES_D])
+        return self._check_lookup_chain(True, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_DID2DTYPES_D])
     def db_idx_field_mappings_has(self, idx):
-        return self._check_lookup_chain(True, [idx, MockDb.K_IDX_MAP])
+        return self._check_lookup_chain(True, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_MAP])
     def db_idx_field_settings_has(self, idx):
-        return self._check_lookup_chain(True, [idx, MockDb.K_IDX_SET])
+        return self._check_lookup_chain(True, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_SET])
+    def db_idx_has(self, idx) -> bool:
+        return self._check_lookup_chain(True, [MockDb.K_DB_INDICE_D, idx])
 
     ### GET ###
     def db_idx_field_dtype_key_get(self, idx, dtype_key):
-        return self._check_lookup_chain(False, [idx, MockDb.K_IDX_DTYPE_D, dtype_key])
+        return self._check_lookup_chain(False, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_DTYPE_D, dtype_key])
     def db_idx_field_dtype_dict_get(self, idx):
-        return self._check_lookup_chain(False, [idx, MockDb.K_IDX_DTYPE_D])
+        return self._check_lookup_chain(False, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_DTYPE_D])
     def db_idx_field_did2dtypes_key_get(self, idx, doc_id):
-        return self._check_lookup_chain(False, [idx, MockDb.K_IDX_DID2DTYPES_D, doc_id])
+        return self._check_lookup_chain(False, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_DID2DTYPES_D, doc_id])
     def db_idx_field_did2dtypes_dict_get(self, idx):
-        return self._check_lookup_chain(False, [idx, MockDb.K_IDX_DID2DTYPES_D])
+        return self._check_lookup_chain(False, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_DID2DTYPES_D])
     def db_idx_field_mappings_get(self, idx):
-        return self._check_lookup_chain(False, [idx, MockDb.K_IDX_MAP])
+        return self._check_lookup_chain(False, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_MAP])
     def db_idx_field_settings_get(self, idx):
-        return self._check_lookup_chain(False, [idx, MockDb.K_IDX_SET])
+        return self._check_lookup_chain(False, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_SET])
+    def db_idx_get(self, idx):
+        return self._check_lookup_chain(False, [MockDb.K_DB_INDICE_D, idx])
 
     ### SET ###
     def db_idx_field_dtype_key_create(self, idx, dtype):
@@ -238,22 +252,13 @@ class MockDb:
             return True
         else:
             return False
+
     def db_idx_field_settings_set(self, idx, settings) -> bool:
         if self.db_idx_field_settings_has(idx):
             self.db_idx_field_settings_get(idx).update(settings)
             return True
         else:
             return False
-
-    def db_idx_get(self, idx):
-        return self._check_lookup_chain(False, [idx])
-
-    def db_idx_has(self, idx) -> bool:
-        return self._check_lookup_chain(True, [idx])
-
-    #############################################################
-    def db_idx_dict(self):
-        return self.db_db_get()
 
     def db_idx_set(self, idx, map_set_body):
         int_settings = {'index': {
@@ -266,17 +271,23 @@ class MockDb:
         }
         mappings = map_set_body.get('mappings', {}) if map_set_body else {}
         settings = map_set_body.get('settings', {}) if map_set_body else int_settings
-        self.db_db_get()[idx] = self._default_idx_structure(mappings, settings)
+        self.db_db_indices_dict_get()[idx] = self._default_idx_structure(mappings, settings)
 
+    ### SET ###
     def db_idx_del(self, idx) -> bool:
         if self.db_idx_has(idx):
-            del self.db_db_get()[idx]
+            del self.db_db_indices_dict_get()[idx]
             return True
         else:
             return False
 
+    ############################################################################
+    ############################################################################
+    def db_db_indices_dict_get(self):
+        return self._check_lookup_chain(False, [MockDb.K_DB_INDICE_D])
+
     def db_db_clear(self):
-        self.db_db_get().clear()
+        self.documents_dict = self._default_db_structure()
 
     def db_db_get(self):
         return self.documents_dict
@@ -285,7 +296,7 @@ class MockDb:
     ############################################################################
     def db_db_dump(self, oper):
         dict_print = ''
-        for index in self.db_idx_dict().keys():
+        for index in self.db_db_indices_dict_get().keys():
             idx_level = f"IND[{str(index)}]"
             dict_print += '\n'
             dict_print += idx_level
@@ -321,7 +332,7 @@ class MockDb:
 
     def db_db_dump_per_idx(self, oper):
         dict_print = ''
-        db = self.db_db_get()
+        db = self.db_db_indices_dict_get()
         db_print = ''
         for index in db.keys():
             db_print += '\n' + str(index) + ' IND: ' + str(db[index])
@@ -333,7 +344,7 @@ class MockDb:
     def normalize_index_to_list(self, index):
         # Ensure to have a list of index
         if index is None:
-            searchable_indexes = self.db_idx_dict().keys()
+            searchable_indexes = self.db_db_indices_dict_get().keys()
         elif isinstance(index, str) or isinstance(index, unicode):
             searchable_indexes = [index]
         elif isinstance(index, list):
