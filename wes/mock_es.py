@@ -168,6 +168,37 @@ class MockEsCommon:
         else:
             return action, data.get("_source", data)
 
+    @staticmethod
+    def bulk_streaming_result_repack_gen2list(rc: ExecCode) -> ExecCode:
+        # MSE NOTES:
+        # !!! returns generator    !!!
+        # !!! can't iterate again  !!!
+        # repack to 'list'
+        data = []
+        status = WesDefs.RC_OK
+
+        dbg_bulk_int = True
+
+        while True:
+            try:
+                item = next(rc.data)
+                if dbg_bulk_int:
+                    Log.log(f'BULK_INT cont OK ... {str(item)}')
+                data.append(item)
+            except StopIteration as e:
+                if dbg_bulk_int:
+                    Log.err(f'BULK_INT break {str(type(e))} === {str(e)}')
+                break
+            except BulkIndexError as e:
+                if dbg_bulk_int:
+                    Log.warn(f'BULK cont ERR ... {str(type(e))} === {str(e)}')
+                status = WesDefs.RC_NOK
+                data.append((False, e))
+
+        rc = ExecCode(status, data, rc.fnc_params)
+
+        return rc
+
 
 class MockEsIndicesClient:
 
