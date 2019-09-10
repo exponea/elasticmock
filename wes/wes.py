@@ -795,19 +795,35 @@ class Wes(WesCommon):
                            *args,
                            **kwargs):
         # !!! it returns generator !!!
-        return helpers.streaming_bulk(self.es,
-                                      actions,
-                                      chunk_size=chunk_size,
-                                      max_chunk_bytes=max_chunk_bytes,
-                                      raise_on_error=raise_on_error,
-                                      expand_action_callback=expand_action_callback,
-                                      raise_on_exception=raise_on_exception,
-                                      max_retries=max_retries,
-                                      initial_backoff=initial_backoff,
-                                      max_backoff=max_backoff,
-                                      yield_ok=yield_ok,
-                                      *args,
-                                      **kwargs)
+        if isinstance(self.es, MockEs):
+            # MSE_NOTES: decision to not make 'helpers' nesting e.g. 'es.helpers.bulk'
+            return self.es.bulk_streaming(
+                          actions,
+                          chunk_size=chunk_size,
+                          max_chunk_bytes=max_chunk_bytes,
+                          raise_on_error=raise_on_error,
+                          expand_action_callback=expand_action_callback,
+                          raise_on_exception=raise_on_exception,
+                          max_retries=max_retries,
+                          initial_backoff=initial_backoff,
+                          max_backoff=max_backoff,
+                          yield_ok=yield_ok,
+                          *args,
+                          **kwargs)
+        else:
+            return helpers.streaming_bulk(self.es,
+                          actions,
+                          chunk_size=chunk_size,
+                          max_chunk_bytes=max_chunk_bytes,
+                          raise_on_error=raise_on_error,
+                          expand_action_callback=expand_action_callback,
+                          raise_on_exception=raise_on_exception,
+                          max_retries=max_retries,
+                          initial_backoff=initial_backoff,
+                          max_backoff=max_backoff,
+                          yield_ok=yield_ok,
+                          *args,
+                          **kwargs)
 
     def doc_bulk_streaming_result(self, rc: ExecCode) -> ExecCode:
         #key_str = f"KEY{rc.fnc_params[0]}"
@@ -823,13 +839,13 @@ class Wes(WesCommon):
             data = []
             status = WesDefs.RC_OK
 
-            dbg_bulk_int = False
+            dbg_bulk_int = True
 
             while True:
                 try:
                     item = next(rc.data)
                     if dbg_bulk_int:
-                        Log.log(f'BULK_INT cont ... {str(item)}')
+                        Log.log(f'BULK_INT cont OK ... {str(item)}')
                     data.append(item)
                 except StopIteration as e:
                     if dbg_bulk_int:
@@ -837,7 +853,7 @@ class Wes(WesCommon):
                     break
                 except BulkIndexError as e:
                     if dbg_bulk_int:
-                        Log.warn(f'BULK cont ... {str(type(e))} === {str(e)}')
+                        Log.warn(f'BULK cont ERR ... {str(type(e))} === {str(e)}')
                     status = WesDefs.RC_NOK
                     data.append((False, e))
 

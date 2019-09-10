@@ -782,11 +782,12 @@ if __name__ == '__main__':
         #
         # suite.addTest(TestWesReal("test_count"))
         # suite.addTest(TestWesMock("test_count"))
+        # suite.addTest(TestWesReal("test_bulk_streaming"))
+        # suite.addTest(TestWesMock("test_bulk_streaming"))
+        #
         # UNFINISHED:
         # suite.addTest(TestWesReal("test_bulk"))
         # suite.addTest(TestWesMock("test_bulk"))
-        # suite.addTest(TestWesReal("test_bulk_streaming"))
-        # suite.addTest(TestWesMock("test_bulk_streaming"))
         # suite.addTest(TestWesReal("test_scan"))
         # suite.addTest(TestWesReal("test_templates_get_put"))
 

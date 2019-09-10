@@ -127,6 +127,47 @@ class MockEsCommon():
 
         return matches, searchable_indexes
 
+    @staticmethod
+    def expand_action(data):
+        """
+        From one document or action definition passed in by the user extract the
+        action/data lines needed for elasticsearch's
+        :meth:`~elasticsearch.Elasticsearch.bulk` api.
+        """
+        # when given a string, assume user wants to index raw json
+        if isinstance(data, (str, bytes)):
+            return '{"index":{}}', data
+
+        # make sure we don't alter the action
+        data = data.copy()
+        op_type = data.pop("_op_type", "index")
+        action = {op_type: {}}
+        for key in (
+                "_index",
+                "_parent",
+                "_percolate",
+                "_routing",
+                "_timestamp",
+                "routing",
+                "_type",
+                "_version",
+                "_version_type",
+                "_id",
+                "retry_on_conflict",
+                "pipeline",
+        ):
+            if key in data:
+                if key == "_routing":
+                    action[op_type]["routing"] = data.pop(key)
+                else:
+                    action[op_type][key] = data.pop(key)
+
+        # no data payload for delete
+        if op_type == "delete":
+            return action, None
+        else:
+            return action, data.get("_source", data)
+
 
 class MockEsIndicesClient:
 
@@ -1109,34 +1150,145 @@ class MockEs(MockEsCommon):
     #     #  options like ``stats_only`` only apply when ``raise_on_error`` is set to ``False``.
     #     return helpers.bulk(self.es, actions, raise_on_error=False, stats_only=stats_only, *args, **kwargs)
 
-    # @MockEsCommon.Decor.operation_mock(WesDefs.OP_DOC_BULK_STR)
-    # def doc_bulk_streaming(self,
-    #                        actions,
-    #                        chunk_size=500,
-    #                        max_chunk_bytes=100 * 1024 * 1024,
-    #                        raise_on_error=True,
-    #                        expand_action_callback=expand_action,
-    #                        raise_on_exception=True,
-    #                        max_retries=0,
-    #                        initial_backoff=2,
-    #                        max_backoff=600,
-    #                        yield_ok=True,
-    #                        *args,
-    #                        **kwargs):
-    #     # !!! it returns generator !!!
-    #     return helpers.streaming_bulk(self.es,
-    #                                   actions,
-    #                                   chunk_size=chunk_size,
-    #                                   max_chunk_bytes=max_chunk_bytes,
-    #                                   raise_on_error=raise_on_error,
-    #                                   expand_action_callback=expand_action_callback,
-    #                                   raise_on_exception=raise_on_exception,
-    #                                   max_retries=max_retries,
-    #                                   initial_backoff=initial_backoff,
-    #                                   max_backoff=max_backoff,
-    #                                   yield_ok=yield_ok,
-    #                                   *args,
-    #                                   **kwargs)
+    @MockEsCommon.Decor.operation_mock(WesDefs.OP_DOC_BULK_STR)
+    def bulk_streaming(self,
+                       actions,
+                       chunk_size=500,
+                       max_chunk_bytes=100 * 1024 * 1024,
+                       raise_on_error=True,
+                       expand_action_callback=MockEsCommon.expand_action,
+                       raise_on_exception=True,
+                       max_retries=0,
+                       initial_backoff=2,
+                       max_backoff=600,
+                       yield_ok=True,
+                       *args,
+                       **kwargs):
+        """
+        Streaming bulk consumes actions from the iterable passed in and yields
+        results per action. For non-streaming usecases use
+        :func:`~elasticsearch.helpers.bulk` which is a wrapper around streaming
+        bulk that returns summary information about the bulk operation once the
+        entire input is consumed and sent.
+
+        If you specify ``max_retries`` it will also retry any documents that were
+        rejected with a ``429`` status code. To do this it will wait (**by calling
+        time.sleep which will block**) for ``initial_backoff`` seconds and then,
+        every subsequent rejection for the same chunk, for double the time every
+        time up to ``max_backoff`` seconds.
+
+        :arg client: instance of :class:`~elasticsearch.Elasticsearch` to use
+        :arg actions: iterable containing the actions to be executed
+        :arg chunk_size: number of docs in one chunk sent to es (default: 500)
+        :arg max_chunk_bytes: the maximum size of the request in bytes (default: 100MB)
+        :arg raise_on_error: raise ``BulkIndexError`` containing errors (as `.errors`)
+            from the execution of the last chunk when some occur. By default we raise.
+        :arg raise_on_exception: if ``False`` then don't propagate exceptions from
+            call to ``bulk`` and just report the items that failed as failed.
+        :arg expand_action_callback: callback executed on each action passed in,
+            should return a tuple containing the action line and the data line
+            (`None` if data line should be omitted).
+        :arg max_retries: maximum number of times a document will be retried when
+            ``429`` is received, set to 0 (default) for no retries on ``429``
+        :arg initial_backoff: number of seconds we should wait before the first
+            retry. Any subsequent retries will be powers of ``initial_backoff *
+            2**retry_number``
+        :arg max_backoff: maximum number of seconds a retry will wait
+        :arg yield_ok: if set to False will skip successful documents in the output
+        """
+
+        dbg_level = False
+
+        actions = list(map(expand_action_callback, actions))
+        result_ok = []
+        result_nok = []
+
+        for item in actions:
+            meta, data = item
+
+            mi = meta.get('index', None)
+            md = meta.get('delete', None)
+            mc = meta.get('create', None)
+            mu = meta.get('update', None)
+
+            m_index  = None
+            m_type   = None
+            m_id     = None
+            m_doc    = data
+            for m in [mi, md, mc, mu]:
+                if m:
+                    m_index = m.get('_index', None)
+                    m_type  = m.get('_type', None)
+                    m_id    = m.get('_id', None)
+                    break
+
+            if dbg_level:
+                Log.log(f"{WesDefs.OP_DOC_BULK_STR} mi({mi}) md({md}) mc({mc}) mu({mu}) - {m_doc}")
+
+            if mi or md or mc or mu:
+                if mi or mc:
+                    if mc:
+                        doc_create = self.db.db_dtype_field_doc_key_get(m_index, m_type, m_id)
+                        if doc_create:
+                            result_nok.append({'create': {'_index': mc['_index'],
+                                                          '_type': mc['_type'],
+                                                          '_id': mc['_id'],
+                                                          'status': 409,
+                                                          'error': {
+                                                              'type': 'version_conflict_engine_exception',
+                                                              'reason': f"[{mc['_type']}] [{mc['_id']}]: version conflict, document already exists (current version [{doc_create['_version']}]",
+                                                              'index_uuid': '????',
+                                                              'shard': '3', 'index': f"{m_index}"
+                                                          },
+                                                          'data': f"{m_doc}"}})
+                            continue
+                    try:
+                        rc_index = self.index(m_index, m_doc, doc_type=m_type, id=m_id)
+                        if isinstance(rc_index, dict):
+                            result_ok.append((True, rc_index))
+                        else:
+                            ValueError("'delete' return wrong type format")
+                    except Exception as e:
+                            result_nok.append(str(e))
+                elif md:
+                    try:
+                        rc_delete = self.delete(m_index, m_id, doc_type=m_type)
+                        if isinstance(rc_delete, dict):
+                            result_ok.append((True, rc_delete))
+                        else:
+                            ValueError("'delete' return wrong type format")
+                    except Exception as e:
+                            result_nok.append(str(e))
+                elif mu:
+                    try:
+                        rc_update = self.update(m_index, m_id, doc_type=m_type, body=m_doc)
+                        if isinstance(rc_update, dict):
+                            result_ok.append((True, rc_update))
+                        else:
+                            ValueError("'delete' return wrong type format")
+                    except Exception as e:
+                            result_nok.append(str(e))
+            else:
+                ValueError('unsupported data in action')
+
+        len_ok = len(result_ok)
+        len_nok = len(result_nok)
+        if len_nok:
+            result_ok.append((False, result_nok))
+
+        if dbg_level:
+            Log.log(f"{WesDefs.OP_DOC_BULK_STR} RESULT ok({len_ok}) nok({len_nok})")
+
+        # !!! it returns generator !!!
+        def gen_result(data_list):
+            for state, value in data_list:
+                if state:
+                    yield (state, value)
+                else:
+                    raise BulkIndexError(value)
+
+        return gen_result(result_ok)
+
 
     # @MockEsCommon.Decor.operation_mock(WesDefs.OP_DOC_SCAN)
     # def doc_scan(self,
