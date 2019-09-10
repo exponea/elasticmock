@@ -66,17 +66,17 @@ class TestMockDbHelper(TestCommon):
                     MockDb.K_IDX_DTYPE_D: {
                         doc_type_11: {
                             MockDb.K_DT_DOC_D: {id_doc11: doc11, id_doc12: doc12_a},
-                            MockDb.K_DT_MAP:   doc_type_11_mappings,
+                            MockDb.K_DT_MAPSPROP:   doc_type_11_mappings,
                             MockDb.K_DT_SET:   doc_type_11_settings,
                         },
                         doc_type_12: {
                             MockDb.K_DT_DOC_D: {id_doc13: doc13},
-                            MockDb.K_DT_MAP: doc_type_12_mappings,
+                            MockDb.K_DT_MAPSPROP: doc_type_12_mappings,
                             MockDb.K_DT_SET: doc_type_12_settings,
                         },
                         doc_type_13: {
                             MockDb.K_DT_DOC_D: {id_doc13: doc13, id_doc12: doc12_b},
-                            MockDb.K_DT_MAP: doc_type_13_mappings,
+                            MockDb.K_DT_MAPSPROP: doc_type_13_mappings,
                             MockDb.K_DT_SET: doc_type_13_settings,
                         },
                     }
@@ -134,12 +134,12 @@ class TestMockDb(TestMockDbHelper):
         # L2 - dtype - has
         self.assertEqual(False, self.db.db_dtype_field_doc_key_has(test_idx_1, doc_type_11, id_doc12))
         self.assertEqual(False, self.db.db_dtype_field_doc_dict_has(test_idx_1, doc_type_11))
-        self.assertEqual(False, self.db.db_dtype_field_maps_has(test_idx_1, doc_type_11))
+        self.assertEqual(False, self.db.db_dtype_field_mapsprop_has(test_idx_1, doc_type_11))
         self.assertEqual(False, self.db.db_dtype_field_sets_has(test_idx_1, doc_type_11))
         # L2 - dtype - get
         self.assertEqual(None, self.db.db_dtype_field_doc_key_get(test_idx_1, doc_type_11, id_doc12))
         self.assertEqual(None, self.db.db_dtype_field_doc_dict_get(test_idx_1, doc_type_11))
-        self.assertEqual(None, self.db.db_dtype_field_maps_get(test_idx_1, doc_type_11))
+        self.assertEqual(None, self.db.db_dtype_field_mapsprop_get(test_idx_1, doc_type_11))
         self.assertEqual(None, self.db.db_dtype_field_sets_get(test_idx_1, doc_type_11))
 
     def test_db_basic(self):
@@ -241,7 +241,7 @@ class TestMockDb(TestMockDbHelper):
         # # L2 - dtype - has
         self.assertEqual(True, self.db.db_dtype_field_doc_key_has(test_idx_1, doc_type_11, id_doc12))
         self.assertEqual(True, self.db.db_dtype_field_doc_dict_has(test_idx_1, doc_type_11))
-        self.assertEqual(True, self.db.db_dtype_field_maps_has(test_idx_1, doc_type_11))
+        self.assertEqual(True, self.db.db_dtype_field_mapsprop_has(test_idx_1, doc_type_11))
         self.assertEqual(True, self.db.db_dtype_field_sets_has(test_idx_1, doc_type_11))
         # L2 - dtype - get
         Log.notice2('----------------------------')
@@ -252,8 +252,8 @@ class TestMockDb(TestMockDbHelper):
         self.assertEqual(check_val, self.db.db_dtype_field_doc_dict_get(test_idx_1, doc_type_11))
         self.assertEqual(None, self.db.db_dtype_field_doc_dict_get(test_idx_1, id_doc_bad))
 
-        check_val = DB[test_idx_1][MockDb.K_IDX_DTYPE_D][doc_type_11][MockDb.K_DT_MAP]
-        self.assertEqual(check_val, self.db.db_dtype_field_maps_get(test_idx_1, doc_type_11))
+        check_val = DB[test_idx_1][MockDb.K_IDX_DTYPE_D][doc_type_11][MockDb.K_DT_MAPSPROP]
+        self.assertEqual(check_val, self.db.db_dtype_field_mapsprop_get(test_idx_1, doc_type_11))
         check_val = DB[test_idx_1][MockDb.K_IDX_DTYPE_D][doc_type_11][MockDb.K_DT_SET]
         self.assertEqual(check_val, self.db.db_dtype_field_sets_get(test_idx_1, doc_type_11))
 

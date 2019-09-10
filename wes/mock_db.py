@@ -14,7 +14,7 @@ class MockDb:
     K_IDX_DID2DTYPES_D    = 'K_IDX_DID2DTYPES_D'
     K_IDX_DTYPE_D  = 'K_IDX_DTYPE_D'
     K_DT_DOC_D     = 'K_DT_DOC_D'
-    K_DT_MAP       = 'K_DT_MAP'
+    K_DT_MAPSPROP       = 'K_DT_MAPSPROP'
     K_DT_SET       = 'K_DT_SET'
 
     def __init__(self, running_version):
@@ -35,17 +35,17 @@ class MockDb:
         #             MockDb.K_IDX_DTYPE_D: {
         #                 doc_type_11: {
         #                     MockDb.K_DT_DOC_D: {id_doc11: doc11, id_doc12: doc12_a},
-        #                     MockDb.K_DT_MAP:   doc_type_11_mappings,
+        #                     MockDb.K_DT_MAPSPROP:   doc_type_11_mappings,
         #                     MockDb.K_DT_SET:   doc_type_11_settings,
         #                 },
         #                 doc_type_12: {
         #                     MockDb.K_DT_DOC_D: {id_doc13: doc13},
-        #                     MockDb.K_DT_MAP: doc_type_12_mappings,
+        #                     MockDb.K_DT_MAPSPROP: doc_type_12_mappings,
         #                     MockDb.K_DT_SET: doc_type_12_settings,
         #                 },
         #                 doc_type_13: {
         #                     MockDb.K_DT_DOC_D: {id_doc13: doc13, id_doc12: doc12_b},
-        #                     MockDb.K_DT_MAP: doc_type_13_mappings,
+        #                     MockDb.K_DT_MAPSPROP: doc_type_13_mappings,
         #                     MockDb.K_DT_SET: doc_type_13_settings,
         #                 },
         #             }
@@ -63,7 +63,7 @@ class MockDb:
     def _default_dtype_structure(self, dtype_mappings, dtype_settings):
         return {
             MockDb.K_DT_DOC_D: {},
-            MockDb.K_DT_MAP: dtype_mappings,
+            MockDb.K_DT_MAPSPROP: dtype_mappings,
             MockDb.K_DT_SET: dtype_settings,
          }
 
@@ -105,8 +105,8 @@ class MockDb:
         return self._check_lookup_chain(True, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_DOC_D, doc_id])
     def db_dtype_field_doc_dict_has(self, idx, dtype):
         return self._check_lookup_chain(True, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_DOC_D])
-    def db_dtype_field_maps_has(self, idx, dtype):
-        return self._check_lookup_chain(True, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_MAP])
+    def db_dtype_field_mapsprop_has(self, idx, dtype):
+        return self._check_lookup_chain(True, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_MAPSPROP])
     def db_dtype_field_sets_has(self, idx, dtype):
         return self._check_lookup_chain(True, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_SET])
 
@@ -115,8 +115,8 @@ class MockDb:
         return self._check_lookup_chain(False, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_DOC_D, doc_id])
     def db_dtype_field_doc_dict_get(self, idx, dtype):
         return self._check_lookup_chain(False, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_DOC_D])
-    def db_dtype_field_maps_get(self, idx, dtype):
-        return self._check_lookup_chain(False, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_MAP])
+    def db_dtype_field_mapsprop_get(self, idx, dtype):
+        return self._check_lookup_chain(False, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_MAPSPROP])
     def db_dtype_field_sets_get(self, idx, dtype):
         return self._check_lookup_chain(False, [idx, MockDb.K_IDX_DTYPE_D, dtype, MockDb.K_DT_SET])
 
@@ -135,7 +135,7 @@ class MockDb:
 
         #Log.notice(' 2. --------------------------------------------------')
         if not self.db_idx_has(idx):
-            self.db_idx_set(idx, self.mappings_settings_build_from_doc_body_data(body))
+            self.db_idx_set(idx, None)
 
         if not self.db_idx_field_dtype_key_has(idx, dtype):
             if not self.db_dtype_create_default(idx, dtype):
@@ -242,8 +242,16 @@ class MockDb:
         return self.db_db_get()
 
     def db_idx_set(self, idx, map_set_body):
+        int_settings = {'index': {
+                'creation_date': f"{str(datetime.datetime.now().timestamp())}",
+                'number_of_shards': '2',
+                'number_of_replicas': '1',
+                'uuid': '???',
+                'version': {'created': '?????'},
+                'provided_name': idx}
+        }
         mappings = map_set_body.get('mappings', {}) if map_set_body else {}
-        settings = map_set_body.get('settings', {}) if map_set_body else {}
+        settings = map_set_body.get('settings', {}) if map_set_body else int_settings
         self.db_db_get()[idx] = self._default_idx_structure(mappings, settings)
 
     def db_idx_del(self, idx) -> bool:
