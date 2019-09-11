@@ -117,19 +117,16 @@ class TestMockDbHelper(TestCommon):
                     },
                     MockDb.K_IDX_DTYPE_D: {
                         doc_type_11: {
-                            MockDb.K_IDX_ALIAS_L: [],
                             MockDb.K_DT_DOC_D: {id_doc11: doc11, id_doc12: doc12_a},
                             MockDb.K_DT_MAPSPROP:   doc_type_11_mappings,
                             MockDb.K_DT_SET:   doc_type_11_settings,
                         },
                         doc_type_12: {
-                            MockDb.K_IDX_ALIAS_L: [],
                             MockDb.K_DT_DOC_D: {id_doc13: doc13},
                             MockDb.K_DT_MAPSPROP: doc_type_12_mappings,
                             MockDb.K_DT_SET: doc_type_12_settings,
                         },
                         doc_type_13: {
-                            MockDb.K_IDX_ALIAS_L: [],
                             MockDb.K_DT_DOC_D: {id_doc13: doc13, id_doc12: doc12_b},
                             MockDb.K_DT_MAPSPROP: doc_type_13_mappings,
                             MockDb.K_DT_SET: doc_type_13_settings,

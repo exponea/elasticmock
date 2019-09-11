@@ -121,6 +121,27 @@ class TestWes(TestWesHelper):
 
         Log.tests_STOP()
 
+
+    def test_alias_get(self):
+        Log.tests_STOP()
+        global ind_str
+        global ind_str2
+        self.indice_cleanup_all(self.wes)
+
+        self.assertEqual({}, self.wes.ind_get_alias_result(self.wes.ind_get_alias()).data)
+
+        alias_1 = {ind_str: {'aliases': {}}}
+        alias_2 = {ind_str2: {'aliases': {}}}
+        # create
+        self.indice_create_exists(self.wes, ind_str)
+        self.assertEqual({**alias_1}, self.wes.ind_get_alias_result(self.wes.ind_get_alias()).data)
+
+        self.indice_create_exists(self.wes, ind_str2)
+        self.assertEqual({**alias_1, **alias_2}, self.wes.ind_get_alias_result(self.wes.ind_get_alias()).data)
+
+        Log.tests_STOP()
+
+
     def test_documents_basic_single_create_update(self):
         Log.tests_START()
         global ind_str

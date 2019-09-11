@@ -193,6 +193,8 @@ class MockDb:
         return self._check_lookup_chain(True, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_MAP])
     def db_idx_field_settings_has(self, idx):
         return self._check_lookup_chain(True, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_SET])
+    def db_idx_field_alias_has(self, idx):
+        return self._check_lookup_chain(True, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_ALIAS_L])
     def db_idx_has(self, idx) -> bool:
         return self._check_lookup_chain(True, [MockDb.K_DB_INDICE_D, idx])
 
@@ -209,6 +211,9 @@ class MockDb:
         return self._check_lookup_chain(False, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_MAP])
     def db_idx_field_settings_get(self, idx):
         return self._check_lookup_chain(False, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_SET])
+    def db_idx_field_alias_get(self, idx):
+        return self._check_lookup_chain(False, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_ALIAS_L])
+
     def db_idx_get(self, idx):
         return self._check_lookup_chain(False, [MockDb.K_DB_INDICE_D, idx])
 

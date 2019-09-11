@@ -594,7 +594,7 @@ class MockEsIndicesClient:
             if param in SKIP_IN_PATH:
                 raise ValueError("Empty value passed for a required argument.")
 
-        self.db.db_tmpl_set(name, body)
+        self.db.db_templ_set(name, body)
 
         return {'acknowledged': True}
 
@@ -618,18 +618,55 @@ class MockEsIndicesClient:
             type name (default: depends on Elasticsearch version).
         """
         if name:
-            if self.db.db_tmpl_has(name):
-                return {name: self.db.db_tmpl_get(name)}
+            if self.db.db_templ_has(name):
+                return {name: self.db.db_templ_get(name)}
             else:
                 MockEsCommon.raiseNotFoundIdx(['template not found'], name)
         else:
             return self.db.db_db_templates_dict_get()
-    #
-    # @query_params("allow_no_indices", "expand_wildcards", "ignore_unavailable", "local")
-    # @MockEsCommon.Decor.operation_mock(WesDefs.OP_IND_GET_ALIAS)
-    # def ind_get_alias(self, index=None, name=None, params=None):
-    #     return self.es.indices.get_alias(index=index, name=name, params=params)
-    #
+
+    @query_params("allow_no_indices", "expand_wildcards", "ignore_unavailable", "local")
+    @MockEsCommon.Decor.operation_mock(WesDefs.OP_IND_GET_ALIAS)
+    def get_alias(self, index=None, name=None, params=None):
+        """
+        Retrieve a specified alias.
+        `<http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-aliases.html>`_
+
+        :arg index: A comma-separated list of index names to filter aliases
+        :arg name: A comma-separated list of alias names to return
+        :arg allow_no_indices: Whether to ignore if a wildcard indices
+            expression resolves into no concrete indices. (This includes `_all`
+            string or when no indices have been specified)
+        :arg expand_wildcards: Whether to expand wildcard expression to concrete
+            indices that are open, closed or both., default 'all', valid choices
+            are: 'open', 'closed', 'none', 'all'
+        :arg ignore_unavailable: Whether specified concrete indices should be
+            ignored when unavailable (missing or closed)
+        :arg local: Return local information, do not retrieve the state from
+            master node (default: false)
+        """
+        result = {}
+        idict = self.db.db_db_indices_dict_get()
+        for k in idict.keys():
+            if index:
+                cnt = True
+                for ad_index in ad[k]:
+                    if ad_index in index:
+                        cnt = False
+                        break
+                if not cnt:
+                    continue
+
+            alias_list = self.db.db_idx_field_alias_get(k)
+            if name and not(k in alias_list):
+                continue
+
+            result[k] = {'aliases': {}}
+            for a in alias_list:
+                result[k]['aliases'][a] = a  # TODO data for alias
+
+        return result
+
     # @query_params("master_timeout", "request_timeout", "timeout")
     # @MockEsCommon.Decor.operation_mock(WesDefs.OP_IND_DEL_ALIAS)
     # def ind_delete_alias(self, index, name, params=None):
