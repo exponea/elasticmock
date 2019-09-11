@@ -9,7 +9,9 @@ if PY3:
 
 class MockDb:
     K_DB_TMPL_D    = 'K_DB_TMPL_D'
+    K_DB_ALIAS_D   = 'K_DB_ALIAS_D'
     K_DB_INDICE_D  = 'K_DB_INDICE_D'
+    K_IDX_ALIAS_L  = 'K_IDX_ALIAS_L'
     K_IDX_MAP      = 'K_IDX_MAP'
     K_IDX_SET      = 'K_IDX_SET'
     K_IDX_DID2DTYPES_D    = 'K_IDX_DID2DTYPES_D'
@@ -23,49 +25,19 @@ class MockDb:
         self.db_db_clear()
         self.scrolls = {}
 
-
         self.ES_VERSION_RUNNING = running_version
         self.log_prefix = '>>DB<<'
-        # db = {
-        #   MockDb.K_DB_TMPL_D  : {},
-        #   MockDb.K_DB_INDICE_D: {
-        #         'INDEX_1': {
-        #             MockDb.K_IDX_MAP: idx_mapping_data,
-        #             MockDb.K_IDX_SET: idx_setting_data,
-        #             MockDb.K_IDX_DID2DTYPES_D: {
-        #                 id_doc11: [doc_type_11, ],
-        #                 id_doc12: [doc_type_11, doc_type_13],
-        #                 id_doc13: [doc_type_11, ],
-        #             },
-        #             MockDb.K_IDX_DTYPE_D: {
-        #                 doc_type_11: {
-        #                     MockDb.K_DT_DOC_D: {id_doc11: doc11, id_doc12: doc12_a},
-        #                     MockDb.K_DT_MAPSPROP:   doc_type_11_mappings,
-        #                     MockDb.K_DT_SET:   doc_type_11_settings,
-        #                 },
-        #                 doc_type_12: {
-        #                     MockDb.K_DT_DOC_D: {id_doc13: doc13},
-        #                     MockDb.K_DT_MAPSPROP: doc_type_12_mappings,
-        #                     MockDb.K_DT_SET: doc_type_12_settings,
-        #                 },
-        #                 doc_type_13: {
-        #                     MockDb.K_DT_DOC_D: {id_doc13: doc13, id_doc12: doc12_b},
-        #                     MockDb.K_DT_MAPSPROP: doc_type_13_mappings,
-        #                     MockDb.K_DT_SET: doc_type_13_settings,
-        #                 },
-        #             }
-        #         }
-        #     }
-        # }
 
     def _default_db_structure(self):
         return {
-            MockDb.K_DB_TMPL_D  : {},
+            MockDb.K_DB_TMPL_D:   {},
+            MockDb.K_DB_ALIAS_D:  {},
             MockDb.K_DB_INDICE_D: {},
         }
 
     def _default_idx_structure(self, mappings, settings):
         return {
+            MockDb.K_IDX_ALIAS_L: [],
             MockDb.K_IDX_MAP: mappings,
             MockDb.K_IDX_SET: settings,
             MockDb.K_IDX_DID2DTYPES_D: {},
@@ -285,21 +257,73 @@ class MockDb:
 
     ############################################################################
     ############################################################################
-    def db_tmpl_has(self, tmlp_name):
+
+    def db_alias_has(self, alias_name):
+        return self._check_lookup_chain(True, [MockDb.K_DB_ALIAS_D, alias_name])
+
+    def db_alias_get(self, alias_name):
+        return self._check_lookup_chain(False, [MockDb.K_DB_ALIAS_D, alias_name])
+
+    def db_alias_idx_set(self, alias_name, index_name):
+        if not self.db_alias_has(alias_name):
+            self.db_db_alias_dict_get()[alias_name] = []
+        if not (index_name in self.db_db_alias_dict_get()[alias_name]):
+            self.db_db_alias_dict_get()[alias_name].append(index_name)
+            # TODO check if index exist - could be alias set before idx exist?
+            return True
+        else:
+            # TODO should be re-set sameidx considered as True or False
+            return True
+
+    def db_alias_idx_rem(self, alias_name, index_name):
+        alias_list = self.db_db_alias_dict_get()[alias_name]
+        if alias_list is None:
+            return False
+        if index_name in alias_list:
+            alias_list.remove(index_name)
+            if len(alias_list) == 0:
+                del self.db_db_alias_dict_get()[alias_name]
+            return True
+        else:
+            return 2
+
+    def db_alias_rem(self, alias_name):
+        if self.db_alias_has(alias_name):
+            del self.db_db_alias_dict_get()[alias_name]
+            return True
+        else:
+            return False
+
+    ############################################################################
+    ############################################################################
+
+    def db_templ_has(self, tmlp_name):
         return self._check_lookup_chain(True, [MockDb.K_DB_TMPL_D, tmlp_name])
 
-    def db_tmpl_get(self, tmlp_name):
+    def db_templ_get(self, tmlp_name):
         return self._check_lookup_chain(False, [MockDb.K_DB_TMPL_D, tmlp_name])
 
-    def db_tmpl_set(self, tmlp_name, body):
+    def db_templ_set(self, tmlp_name, body):
         self.db_db_templates_dict_get()[tmlp_name] = body
+        return True
+
+    def db_templ_rem(self, tmlp_name):
+        if self.db_templ_has(tmlp_name):
+            del self.db_db_templates_dict_get()[tmlp_name]
+            return True
+        else:
+            return False
+
     ############################################################################
     ############################################################################
-    def db_db_indices_dict_get(self):
-        return self._check_lookup_chain(False, [MockDb.K_DB_INDICE_D])
+    def db_db_alias_dict_get(self):
+        return self._check_lookup_chain(False, [MockDb.K_DB_ALIAS_D])
 
     def db_db_templates_dict_get(self):
         return self._check_lookup_chain(False, [MockDb.K_DB_TMPL_D])
+
+    def db_db_indices_dict_get(self):
+        return self._check_lookup_chain(False, [MockDb.K_DB_INDICE_D])
 
     def db_db_clear(self):
         self.documents_dict = self._default_db_structure()
