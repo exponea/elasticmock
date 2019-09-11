@@ -94,7 +94,9 @@ class MockEsCommon:
                 if ind in all_ind_values:
                     return True
             return False
-        elif operation == WesDefs.OP_DOC_SEARCH or operation == WesDefs.OP_DOC_COUNT:
+        elif operation == WesDefs.OP_DOC_SEARCH or \
+                operation == WesDefs.OP_DOC_COUNT or \
+                operation == WesDefs.OP_DOC_DEL_QUERY:
             all_ind_values = ['_all', '']
             for ind in indices:
                 if ind in all_ind_values:
@@ -125,7 +127,7 @@ class MockEsCommon:
             if query.q_exec_on_doc(None,
                                    query_doc_meta.docs_idx, query_doc_meta.docs_doc,
                                    query.q_query_name, query.q_query_rules):
-                matches.append(query_doc_meta.docs_doc)
+                matches.append(query_doc_meta)
 
         return matches, searchable_indexes
 
@@ -977,50 +979,149 @@ class MockEs(MockEsCommon):
         else:
             MockEsCommon.raiseNotFoundDoc(result)
 
-    #
-    # #####################
-    # # batch operations
-    # #####################
-    # @query_params(
-    #     "_source",
-    #     "_source_exclude",
-    #     "_source_excludes",
-    #     "_source_include",
-    #     "_source_includes",
-    #     "allow_no_indices",
-    #     "analyze_wildcard",
-    #     "analyzer",
-    #     "conflicts",
-    #     "default_operator",
-    #     "df",
-    #     "expand_wildcards",
-    #     "from_",
-    #     "ignore_unavailable",
-    #     "lenient",
-    #     "preference",
-    #     "q",
-    #     "refresh",
-    #     "request_cache",
-    #     "requests_per_second",
-    #     "routing",
-    #     "scroll",
-    #     "scroll_size",
-    #     "search_timeout",
-    #     "search_type",
-    #     "size",
-    #     "slices",
-    #     "sort",
-    #     "stats",
-    #     "terminate_after",
-    #     "timeout",
-    #     "version",
-    #     "wait_for_active_shards",
-    #     "wait_for_completion",)
-    # @MockEsCommon.Decor.operation_mock(WesDefs.OP_DOC_DEL_QUERY)
-    # def doc_delete_by_query(self, index, body, params=None):
-    #     return self.es.delete_by_query(index, body, params=params)
-    #
-    #
+
+    #####################
+    # batch operations
+    #####################
+    @query_params(
+        "_source",
+        "_source_exclude",
+        "_source_excludes",
+        "_source_include",
+        "_source_includes",
+        "allow_no_indices",
+        "analyze_wildcard",
+        "analyzer",
+        "conflicts",
+        "default_operator",
+        "df",
+        "expand_wildcards",
+        "from_",
+        "ignore_unavailable",
+        "lenient",
+        "preference",
+        "q",
+        "refresh",
+        "request_cache",
+        "requests_per_second",
+        "routing",
+        "scroll",
+        "scroll_size",
+        "search_timeout",
+        "search_type",
+        "size",
+        "slices",
+        "sort",
+        "stats",
+        "terminate_after",
+        "timeout",
+        "version",
+        "wait_for_active_shards",
+        "wait_for_completion",)
+    @MockEsCommon.Decor.operation_mock(WesDefs.OP_DOC_DEL_QUERY)
+    def delete_by_query(self, index, body, params=None):
+        """
+        Delete all documents matching a query.
+        `<https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-delete-by-query.html>`_
+
+        :arg index: A list of index names to search, or a string containing a
+            comma-separated list of index names to search; use `_all` or the
+            empty string to perform the operation on all indices
+        :arg body: The search definition using the Query DSL
+        :arg _source: True or false to return the _source field or not, or a
+            list of fields to return
+        :arg _source_exclude: A list of fields to exclude from the returned
+            _source field
+        :arg _source_include: A list of fields to extract and return from the
+            _source field
+        :arg allow_no_indices: Whether to ignore if a wildcard indices
+            expression resolves into no concrete indices. (This includes `_all`
+            string or when no indices have been specified)
+        :arg analyze_wildcard: Specify whether wildcard and prefix queries
+            should be analyzed (default: false)
+        :arg analyzer: The analyzer to use for the query string
+        :arg conflicts: What to do when the delete-by-query hits version
+            conflicts?, default 'abort', valid choices are: 'abort', 'proceed'
+        :arg default_operator: The default operator for query string query (AND
+            or OR), default 'OR', valid choices are: 'AND', 'OR'
+        :arg df: The field to use as default where no field prefix is given in
+            the query string
+        :arg expand_wildcards: Whether to expand wildcard expression to concrete
+            indices that are open, closed or both., default 'open', valid
+            choices are: 'open', 'closed', 'none', 'all'
+        :arg from\\_: Starting offset (default: 0)
+        :arg ignore_unavailable: Whether specified concrete indices should be
+            ignored when unavailable (missing or closed)
+        :arg lenient: Specify whether format-based query failures (such as
+            providing text to a numeric field) should be ignored
+        :arg preference: Specify the node or shard the operation should be
+            performed on (default: random)
+        :arg q: Query in the Lucene query string syntax
+        :arg refresh: Should the effected indexes be refreshed?
+        :arg request_cache: Specify if request cache should be used for this
+            request or not, defaults to index level setting
+        :arg requests_per_second: The throttle for this request in sub-requests
+            per second. -1 means no throttle., default 0
+        :arg routing: A comma-separated list of specific routing values
+        :arg scroll: Specify how long a consistent view of the index should be
+            maintained for scrolled search
+        :arg scroll_size: Size on the scroll request powering the
+            update_by_query
+        :arg search_timeout: Explicit timeout for each search request. Defaults
+            to no timeout.
+        :arg search_type: Search operation type, valid choices are:
+            'query_then_fetch', 'dfs_query_then_fetch'
+        :arg size: Number of hits to return (default: 10)
+        :arg slices: The number of slices this task should be divided into.
+            Defaults to 1 meaning the task isn't sliced into subtasks., default
+            1
+        :arg sort: A comma-separated list of <field>:<direction> pairs
+        :arg stats: Specific 'tag' of the request for logging and statistical
+            purposes
+        :arg terminate_after: The maximum number of documents to collect for
+            each shard, upon reaching which the query execution will terminate
+            early.
+        :arg timeout: Time each individual bulk request should wait for shards
+            that are unavailable., default '1m'
+        :arg version: Specify whether to return document version as part of a
+            hit
+        :arg wait_for_active_shards: Sets the number of shard copies that must
+            be active before proceeding with the delete by query operation.
+            Defaults to 1, meaning the primary shard only. Set to `all` for all
+            shard copies, otherwise set to any non-negative value less than or
+            equal to the total number of copies for the shard (number of
+            replicas + 1)
+        :arg wait_for_completion: Should the request should block until the
+            delete-by-query is complete., default True
+        """
+        for param in (index, body):
+            if param in SKIP_IN_PATH:
+                raise ValueError("Empty value passed for a required argument.")
+
+        query = MockEsQuery(WesDefs.OP_DOC_DEL_QUERY, body)
+        matches_query_doc_meta, searchable_indexes = self.query_helper(query,
+                                                                       index=index,
+                                                                       doc_type=None,  # search API does not have???
+                                                                       body=body,
+                                                                       params=params)
+        for query_doc_meta in matches_query_doc_meta:
+            self.delete(query_doc_meta.docs_idx, query_doc_meta.docs_id, doc_type=query_doc_meta.docs_dtype)
+
+        return {'took': 1,
+                'timed_out': False,
+                'total': len(matches_query_doc_meta),
+                'deleted': len(matches_query_doc_meta),
+                'batches': 1,
+                'version_conflicts': 0,
+                'noops': 0,
+                'retries': {'bulk': 0, 'search': 0},
+                'throttled_millis': 0,
+                'requests_per_second': -1.0,
+                'throttled_until_millis': 0,
+                'failures': []  # TODO meaning - is it miss on idx ???
+            }
+
+
     @query_params(
         "_source",
         "_source_exclude",
@@ -1171,15 +1272,15 @@ class MockEs(MockEsCommon):
             params["from"] = params.pop("from_")
 
         query = MockEsQuery(WesDefs.OP_DOC_SEARCH, body)
-        matches, searchable_indexes = self.query_helper(query,
-                                                        index=index,
-                                                        doc_type=None,  # search API does not have???
-                                                        body=body,
-                                                        params=params)
+        matches_query_doc_meta, searchable_indexes = self.query_helper(query,
+                                                                       index=index,
+                                                                       doc_type=None,  # search API does not have???
+                                                                       body=body,
+                                                                       params=params)
 
         result = {
             'hits': {
-                'total': len(matches),
+                'total': len(matches_query_doc_meta),
                 'max_score': 1.0
             },
             '_shards': {
@@ -1193,15 +1294,15 @@ class MockEs(MockEsCommon):
         }
 
         hits = []
-        for counter, match in enumerate(matches):
+        for counter, match in enumerate(matches_query_doc_meta):
             # print(counter, " --- BEFORE: size", query.q_size, " from ", query.q_from,  match)
             if query.q_size and len(hits) >= query.q_size:
                 break
             if query.q_from and counter < query.q_from:
                 continue
             # print(counter, " --- AFTER  ", match)
-            match['_score'] = 1.0
-            hits.append(match)
+            match.docs_doc['_score'] = 1.0
+            hits.append(match.docs_doc)
 
         # build aggregations
         if query.q_aggs:
@@ -1533,13 +1634,13 @@ class MockEs(MockEsCommon):
 
 
         query = MockEsQuery(WesDefs.OP_DOC_COUNT, body)
-        matches, searchable_indexes = self.query_helper(query,
-                                                        index=index,
-                                                        doc_type=doc_type,  # search API does not have???
-                                                        body=body,
-                                                        params=params)
+        matches_query_doc_meta, searchable_indexes = self.query_helper(query,
+                                                                       index=index,
+                                                                       doc_type=doc_type,  # search API does not have???
+                                                                       body=body,
+                                                                       params=params)
         result = {
-            'count': len(matches),
+            'count': len(matches_query_doc_meta),
             '_shards': {
                 'successful': 1,
                 'failed': 0,
