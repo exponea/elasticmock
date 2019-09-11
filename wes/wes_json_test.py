@@ -23,10 +23,6 @@ import json
 
 class TestWesJsonHelper(TestCommon):
 
-    def setUp(self):
-        self.wes = Wes()
-        self.binder = {}
-
     def binder_set(self, operation, key, data):
         if operation not in self.binder:
             self.binder[operation] = {}
@@ -437,9 +433,24 @@ class TestWesJson(TestWesJsonHelper):
         self.helper_json_parser(zip_path, tests)
 
 
+class TestWesJsonReal(TestWesJson):
+
+    def setUp(self):
+        self.wes = Wes(False)
+        self.binder = {}
+
+class TestWesJsonMock(TestWesJson):
+
+    def setUp(self):
+        self.wes = Wes(True)
+        self.binder = {}
+
+
 if __name__ == '__main__':
     if True:
-        unittest.main()
+        unittest.main(TestWesJsonReal())
+        # unittest.main(TestWesJsonMock())
+        # unittest.main()
     else:
         suite = unittest.TestSuite()
         suite.addTest(TestWesJson("json_parser_todo"))
