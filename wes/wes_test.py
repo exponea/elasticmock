@@ -354,6 +354,37 @@ class TestWes(TestWesHelper):
 
         Log.tests_STOP()
 
+    def test_delete_by_query(self):
+        Log.tests_START()
+        global ind_str
+        global ind_str_doc_type
+        self.indice_cleanup_all(self.wes)
+
+        self.documents_create(self.wes, ind_str, ind_str_doc_type)
+
+        # 1 QUERY(match) MATCH(subSentence+wholeWord) CASE(in-sensitive)
+        q2 = {"match": {"sentence": "small"}}                                                   # MSE_NOTES:
+        rc = self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body={"query": q2}))
+        self.assertEqual(2, self.wes.doc_search_result_hits_nb(rc))
+        documents = self.wes.doc_search_result_hits_sources(rc)
+        for doc in documents:
+            self.assertTrue(int(doc['_id']) in [4, 5])
+
+        # 2 QUERY(delete- match) MATCH(subSentence+wholeWord) CASE(in-sensitive)
+        rc = self.wes.doc_delete_by_query_result(self.wes.doc_delete_by_query(index=ind_str, body={"query": q2}))
+        self.assertEqual(2, self.wes.doc_delete_by_query_result_total(rc))
+        self.assertEqual(2, self.wes.doc_delete_by_query_result_deleted(rc))
+
+        self.force_reindex(self.wes)
+
+        # 3 QUERY(match_all) should be 3
+        q2 = {"match_all": {}}
+        rc = self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body={"query": q2}))
+        self.assertEqual(3, self.wes.doc_search_result_hits_nb(rc))
+        documents = self.wes.doc_search_result_hits_sources(rc)
+        for doc in documents:
+            self.assertTrue(int(doc['_id']) in [1, 2, 3])
+
     def test_mappings_get(self):
         Log.tests_START()
         # MSE_NOTES: mapping is process of defining how documents looks like (which fields contains, field types, how is filed indexed)
@@ -844,10 +875,12 @@ if __name__ == '__main__':
         # suite.addTest(TestWesMock("test_bulk_streaming"))
         # suite.addTest(TestWesReal("test_bulk"))
         # suite.addTest(TestWesMock("test_bulk"))
+        # suite.addTest(TestWesReal("test_delete_by_query"))
+        # suite.addTest(TestWesMock("test_delete_by_query"))
         #
         # UNFINISHED:
+        #
         # suite.addTest(TestWesReal("test_scan"))
-        # suite.addTest(TestWesReal("test_templates_get_put"))
 
         runner = unittest.TextTestRunner()
         runner.run(suite)

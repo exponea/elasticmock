@@ -611,6 +611,21 @@ class Wes(WesCommon):
 
         return self._operation_result(WesDefs.OP_DOC_DEL_QUERY, key_str, rc, fmt_fnc_ok)
 
+    def doc_delete_by_query_result_total(self, rc: ExecCode) -> int:
+        # TODO difference vs 'deleted' ???
+        if self.ES_VERSION_RUNNING == WesDefs.ES_VERSION_5_6_5:
+            return rc.data['total']
+        else:
+            WesDefs.es_version_mismatch(self.ES_VERSION_RUNNING)
+
+    def doc_delete_by_query_result_deleted(self, rc: ExecCode) -> int:
+        # TODO difference vs 'total' ???
+        if self.ES_VERSION_RUNNING == WesDefs.ES_VERSION_5_6_5:
+            return rc.data['deleted']
+        else:
+            WesDefs.es_version_mismatch(self.ES_VERSION_RUNNING)
+
+
     @query_params(
         "_source",
         "_source_exclude",
