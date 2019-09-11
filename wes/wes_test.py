@@ -723,6 +723,10 @@ class TestWes(TestWesHelper):
         Log.tests_START()
         # MSE_NOTES: for 'bulk' and 'scan' API IMPORT 'from elasticsearch import helpers'
 
+        if isinstance(self, TestWesMock):
+            Log.err2("SKIPPED FOR NOW ---------------------------------------")
+            return
+
         global ind_str
         global ind_str_doc_type
         self.indice_cleanup_all(self.wes)
@@ -843,9 +847,11 @@ class TestWesMock(TestWes):
 if __name__ == '__main__':
     if True:
         unittest.main(TestWesReal())
+        #unittest.main(TestWesMock())
+        #unittest.main()
     else:
         suite = unittest.TestSuite()
-
+        #
         # suite.addTest(TestWesReal("test_general"))
         # suite.addTest(TestWesMock("test_general"))
         # suite.addTest(TestWesReal("test_indice_basic"))
