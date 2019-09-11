@@ -869,9 +869,9 @@ class TestWesMock(TestWes):
 
 if __name__ == '__main__':
     if True:
-        unittest.main(TestWesReal())
+        #unittest.main(TestWesReal())
         #unittest.main(TestWesMock())
-        #unittest.main()
+        unittest.main()
     else:
         suite = unittest.TestSuite()
         #
