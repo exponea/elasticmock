@@ -70,16 +70,17 @@ class TestWes(TestWesHelper):
         self.wes = Wes()
 
     def test_general(self):
-
+        Log.tests_STOP()
         global ind_str
         self.indice_cleanup_all(self.wes)
 
         self.assertEqual(True, self.wes.gen_ping_result(self.wes.gen_ping()).data)
         self.assertEqual(WesDefs.RC_OK, self.wes.gen_info_result(self.wes.gen_info()).status)
 
+        Log.tests_STOP()
 
     def test_indice_basic(self):
-
+        Log.tests_START()
         global ind_str
         global ind_str2
         self.indice_cleanup_all(self.wes)
@@ -118,8 +119,10 @@ class TestWes(TestWesHelper):
         self.assertEqual(False, self.wes.ind_exist_result(self.wes.ind_exist(ind_str)).data)
         self.assertTrue(isinstance(self.wes.ind_delete_result(self.wes.ind_delete(ind_str)).data, NotFoundError))
 
-    def test_documents_basic_single_create_update(self):
+        Log.tests_STOP()
 
+    def test_documents_basic_single_create_update(self):
+        Log.tests_START()
         global ind_str
         global ind_str_doc_type
         self.indice_cleanup_all(self.wes)
@@ -160,9 +163,11 @@ class TestWes(TestWesHelper):
         self.assertTrue(isinstance(self.wes.doc_get_result(self.wes.doc_get(ind_str, 3, doc_type=ind_str_doc_type)).data, NotFoundError))
         self.assertTrue(isinstance(self.wes.doc_delete_result(self.wes.doc_delete(ind_str, 3, doc_type=ind_str_doc_type)).data, NotFoundError))
 
+        Log.tests_STOP()
+
 
     def test_documents_basic_5_docs(self):
-
+        Log.tests_START()
         global ind_str
         global ind_str_doc_type
         self.indice_cleanup_all(self.wes)
@@ -198,9 +203,10 @@ class TestWes(TestWesHelper):
         else:
             WesDefs.es_version_mismatch(self.ES_VERSION_RUNNING)
 
+        Log.tests_STOP()
 
     def test_documents_basic_unique_id(self):
-
+        Log.tests_START()
         global ind_str
         global ind_str_doc_type
         self.indice_cleanup_all(self.wes)
@@ -223,9 +229,11 @@ class TestWes(TestWesHelper):
         self.force_reindex(self.wes)
         self.assertEqual(7, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search())))
 
+        Log.tests_STOP()
+
 
     def test_query_basic(self):
-
+        Log.tests_START()
         global ind_str
         global ind_str_doc_type
         self.indice_cleanup_all(self.wes)
@@ -295,9 +303,11 @@ class TestWes(TestWesHelper):
                 "query": {"term": {"sentence": "slovakia is"}}}
         self.assertEqual(0, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
 
+        Log.tests_STOP()
+
 
     def test_complex_queries(self):
-
+        Log.tests_START()
         global ind_str
         global ind_str_doc_type
         self.indice_cleanup_all(self.wes)
@@ -342,8 +352,10 @@ class TestWes(TestWesHelper):
         for doc in documents:
             self.assertTrue(int(doc['_id']) in [4, 5])
 
+        Log.tests_STOP()
 
     def test_mappings_get(self):
+        Log.tests_START()
         # MSE_NOTES: mapping is process of defining how documents looks like (which fields contains, field types, how is filed indexed)
         # types of mapping fileds:
         # - keyword
@@ -387,7 +399,10 @@ class TestWes(TestWesHelper):
         else:
             self.wes.es_version_mismatch(self.ES_VERSION_RUNNING)
 
+        Log.tests_STOP()
+
     def test_mappings_get_put(self):
+        Log.tests_START()
         # MSE_NOTES: mapping is process of defining how documents looks like (which fields contains, field types, how is filed indexed)
         # It enables in faster search retrieval and aggregations. Hence, your mapping defines how effectively you can handle your data.
         # A bad mapping can have severe consequences on the performance of your system."
@@ -468,8 +483,11 @@ class TestWes(TestWesHelper):
         rc = self.wes.ind_get_mapping_result(self.wes.ind_get_mapping())
         self.assertEqual(2, len(rc.data.keys()))
 
+        Log.tests_STOP()
+
 
     def test_aggregations(self):
+        Log.tests_START()
         # MSE_NOTES: Date Histogram Aggregations,
         #     Aggregations are one of the most important application of Elasticsearch.
         #     It provides you with quick powerful analysis of your data! Below we have discussed aggregations over date values.,
@@ -577,7 +595,10 @@ class TestWes(TestWesHelper):
         else:
             self.assertEqual(2, len(rc.data['aggregations']['country']['buckets']))
 
+        Log.tests_STOP()
+
     def bulk_operation_helper(self, bulk_type):
+        Log.tests_START()
         # MSE_NOTES: for 'bulk' and 'scan' API IMPORT 'from elasticsearch import helpers'
 
         global ind_str
@@ -659,6 +680,7 @@ class TestWes(TestWesHelper):
 
         # FINAL 0,1,2,3
         self.assertEqual(4, self.wes.doc_search_result_hits_nb(self.wes.doc_search_result(self.wes.doc_search(index=ind_str, body=body))))
+        Log.tests_STOP()
 
     def test_bulk(self):
         self.bulk_operation_helper('bulk')
@@ -667,6 +689,7 @@ class TestWes(TestWesHelper):
         self.bulk_operation_helper('bulk_streaming')
 
     def test_scan(self):
+        Log.tests_START()
         # MSE_NOTES: for 'bulk' and 'scan' API IMPORT 'from elasticsearch import helpers'
 
         global ind_str
@@ -698,7 +721,10 @@ class TestWes(TestWesHelper):
         Log.notice("--------------------------------------------------------------------------------------")
         self.assertEqual(WesDefs.RC_EXCE, self.wes.doc_scan_result(self.wes.doc_scan(index='pako', query=body)).status)
 
+        Log.tests_STOP()
+
     def test_count(self):
+        Log.tests_START()
 
         global ind_str
         global ind_str_doc_type
@@ -725,16 +751,19 @@ class TestWes(TestWesHelper):
         # 4.
         body = {"query": {"match": {"country": "slovakia"}}}
         self.assertEqual(2, self.wes.doc_count_result(self.wes.doc_count(index=ind_str, body=body)).data['count'])
+        Log.tests_STOP()
 
     def test_templates_get_put(self):
+        Log.tests_START()
 
         #ind_str = 'test_def_catalogs'
         global ind_str
 
-        ind_special_cleanup = 'test_def_*'
-        ind_special_NEW = 'test_def_catalog_new_v2'
-        self.wes.ind_delete_result(self.wes.ind_delete(ind_special_cleanup))
+        global ind_str
+        global ind_str_doc_type
+        self.indice_cleanup_all(self.wes)
 
+        ind_special_NEW = 'test_def_catalog_new_v2'
         template_name = 'def_catalog_v2'
         body_exponea = {'body':
                             { 'mappings':
@@ -768,7 +797,7 @@ class TestWes(TestWesHelper):
         self.indice_create_exists(self.wes, ind_special_NEW)
         self.assertEqual(WesDefs.RC_OK, self.wes.ind_get_template_result(self.wes.ind_get_template()).status)
 
-        self.wes.ind_delete_result(self.wes.ind_delete(ind_special_cleanup))
+        Log.tests_STOP()
 
 class TestWesReal(TestWes):
 
