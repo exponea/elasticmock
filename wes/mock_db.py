@@ -193,7 +193,7 @@ class MockDb:
         return self._check_lookup_chain(True, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_MAP])
     def db_idx_field_settings_has(self, idx):
         return self._check_lookup_chain(True, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_SET])
-    def db_idx_field_alias_has(self, idx):
+    def db_idx_field_alias_list_has(self, idx):
         return self._check_lookup_chain(True, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_ALIAS_L])
     def db_idx_has(self, idx) -> bool:
         return self._check_lookup_chain(True, [MockDb.K_DB_INDICE_D, idx])
@@ -211,7 +211,7 @@ class MockDb:
         return self._check_lookup_chain(False, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_MAP])
     def db_idx_field_settings_get(self, idx):
         return self._check_lookup_chain(False, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_SET])
-    def db_idx_field_alias_get(self, idx):
+    def db_idx_field_alias_list_get(self, idx):
         return self._check_lookup_chain(False, [MockDb.K_DB_INDICE_D, idx, MockDb.K_IDX_ALIAS_L])
 
     def db_idx_get(self, idx):
@@ -236,6 +236,28 @@ class MockDb:
         if self.db_idx_field_settings_has(idx):
             self.db_idx_field_settings_get(idx).update(settings)
             return True
+        else:
+            return False
+
+    def db_idx_field_alias_list_set(self, idx, alias_name) -> bool:
+        if self.db_idx_field_alias_list_has(idx):
+            alias_list = self.db_idx_field_alias_list_get(idx)
+            if alias_name in alias_list:
+                return False
+            else:
+                alias_list.append(alias_name)
+                return True
+        else:
+            return False
+
+    def db_idx_field_alias_list_rem(self, idx, alias_name) -> bool:
+        if self.db_idx_field_alias_list_has(idx):
+            alias_list = self.db_idx_field_alias_list_get(idx)
+            if alias_name in alias_list:
+                alias_list.remove(alias_name)
+                return True
+            else:
+                return False
         else:
             return False
 

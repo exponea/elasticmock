@@ -122,7 +122,7 @@ class TestWes(TestWesHelper):
         Log.tests_STOP()
 
 
-    def test_alias_get(self):
+    def test_alias(self):
         Log.tests_STOP()
         global ind_str
         global ind_str2
@@ -130,14 +130,16 @@ class TestWes(TestWesHelper):
 
         self.assertEqual({}, self.wes.ind_get_alias_result(self.wes.ind_get_alias()).data)
 
-        alias_1 = {ind_str: {'aliases': {}}}
-        alias_2 = {ind_str2: {'aliases': {}}}
+        rc_alias_1 = {ind_str: {'aliases': {}}}
+        rc_alias_2 = {ind_str2: {'aliases': {}}}
         # create
         self.indice_create_exists(self.wes, ind_str)
-        self.assertEqual({**alias_1}, self.wes.ind_get_alias_result(self.wes.ind_get_alias()).data)
+        self.assertEqual({**rc_alias_1}, self.wes.ind_get_alias_result(self.wes.ind_get_alias()).data)
 
         self.indice_create_exists(self.wes, ind_str2)
-        self.assertEqual({**alias_1, **alias_2}, self.wes.ind_get_alias_result(self.wes.ind_get_alias()).data)
+        self.assertEqual({**rc_alias_1, **rc_alias_2}, self.wes.ind_get_alias_result(self.wes.ind_get_alias()).data)
+
+        self.assertTrue(isinstance(self.wes.ind_delete_alias_result(self.wes.ind_delete_alias(ind_str, "alias_unknown")).data, NotFoundError))
 
         Log.tests_STOP()
 
@@ -875,6 +877,8 @@ if __name__ == '__main__':
         #
         # suite.addTest(TestWesReal("test_general"))
         # suite.addTest(TestWesMock("test_general"))
+        # suite.addTest(TestWesReal("test_alias"))
+        # suite.addTest(TestWesMock("test_alias"))
         # suite.addTest(TestWesReal("test_indice_basic"))
         # suite.addTest(TestWesMock("test_indice_basic"))
         # suite.addTest(TestWesReal("test_documents_basic_single_create_update"))

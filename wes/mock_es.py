@@ -96,7 +96,8 @@ class MockEsCommon:
             return False
         elif operation == WesDefs.OP_DOC_SEARCH or \
                 operation == WesDefs.OP_DOC_COUNT or \
-                operation == WesDefs.OP_DOC_DEL_QUERY:
+                operation == WesDefs.OP_DOC_DEL_QUERY or \
+                operation == WesDefs.OP_IND_DEL_ALIAS:
             all_ind_values = ['_all', '']
             for ind in indices:
                 if ind in all_ind_values:
@@ -657,7 +658,7 @@ class MockEsIndicesClient:
                 if not cnt:
                     continue
 
-            alias_list = self.db.db_idx_field_alias_get(k)
+            alias_list = self.db.db_idx_field_alias_list_get(k)
             if name and not(k in alias_list):
                 continue
 
@@ -667,10 +668,40 @@ class MockEsIndicesClient:
 
         return result
 
-    # @query_params("master_timeout", "request_timeout", "timeout")
-    # @MockEsCommon.Decor.operation_mock(WesDefs.OP_IND_DEL_ALIAS)
-    # def ind_delete_alias(self, index, name, params=None):
-    #     return self.es.indices.delete_alias(index, name, params=params)
+    @query_params("master_timeout", "request_timeout", "timeout")
+    @MockEsCommon.Decor.operation_mock(WesDefs.OP_IND_DEL_ALIAS)
+    def delete_alias(self, index, name, params=None):
+        """
+        Delete specific alias.
+        `<http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-aliases.html>`_
+
+        :arg index: A comma-separated list of index names (supports wildcards);
+            use `_all` for all indices
+        :arg name: A comma-separated list of aliases to delete (supports
+            wildcards); use `_all` to delete all aliases for the specified
+            indices.
+        :arg master_timeout: Specify timeout for connection to master
+        :arg request_timeout: Explicit timeout for the operation (for pre 7.x ES clusters)
+        :arg timeout: Explicit timeout for the operation
+        """
+        for param in (index, name):
+            if param in SKIP_IN_PATH:
+                raise ValueError("Empty value passed for a required argument.")
+
+        searchable_indexes = self.db.normalize_index_to_list(index)
+
+        if MockEsCommon.apply_all_indicies(WesDefs.OP_IND_DEL_ALIAS, searchable_indexes):
+            searchable_indexes = self.db.db_db_indices_dict_get().keys()
+
+        name_list = name.split(',')
+
+        for db_idx in searchable_indexes:
+            if db_idx in index:
+                alias_list = self.db.db_idx_field_alias_list_get(db_idx)
+                for nl in name_list:
+                    if not self.db.db_idx_field_alias_list_rem(db_idx, nl):
+                        MockEsCommon.raiseNotFoundIdx(f"alias '{nl} 'not found", db_idx)
+
 
 class MockEs(MockEsCommon):
 
