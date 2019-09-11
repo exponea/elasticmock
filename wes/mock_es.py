@@ -567,7 +567,7 @@ class MockEsIndicesClient:
         "timeout",
         "include_type_name",)
     @MockEsCommon.Decor.operation_mock(WesDefs.OP_IND_PUT_TMP)
-    def ind_put_template(self, name, body, params=None):
+    def put_template(self, name, body, params=None):
         """
         Create an index template that will automatically be applied to new
         indices created.
@@ -615,7 +615,7 @@ class MockEsIndicesClient:
         """
         if name:
             if self.db.db_tmpl_has(name):
-                return self.db.db_tmpl_get(name)
+                return {name: self.db.db_tmpl_get(name)}
             else:
                 MockEsCommon.raiseNotFoundIdx(['template not found'], name)
         else:

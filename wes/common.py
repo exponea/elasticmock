@@ -140,11 +140,9 @@ class WesDefs():
 
     @staticmethod
     def dump2string_result_templates(data: dict, obj_with_running) -> str:
-        res = ''
-        cnt = 0
-        for tmpl_name in data.keys():
-            cnt += 1
-            tmpl_dict = data[tmpl_name]
+
+        def dump2string_result_templates_single(tmpl_name, tmpl_dict):
+            res = ''
             # res += '\n' + tmpl_name + ' <-> ' + str(tmpl_dict)
             for tmpl_field in tmpl_dict.keys():
                 prefix_tmpl_fields = f"TMPL[{tmpl_name}] {tmpl_field:>9} <-> "
@@ -165,5 +163,12 @@ class WesDefs():
                     res += '\n' + prefix_tmpl_fields + str(tmpl_field_dict)
                 else:
                     ValueError(f"TEMPLATE unknown tmpl_field {tmpl_field} ")
+            return res
+
+        res = ''
+        cnt = 0
+        for tmpl_name in data.keys():
+            cnt += 1
+            res += dump2string_result_templates_single(tmpl_name, data[tmpl_name])
 
         return f"COUNT[{cnt}] {res}"
