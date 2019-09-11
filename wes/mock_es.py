@@ -28,7 +28,7 @@ import json
 from elasticsearch.client.utils import SKIP_IN_PATH
 from elasticmock.utilities import get_random_id, get_random_scroll_id
 
-from common import WesDefs, ExecCode
+from common import WesDefs, ExecCode, QueryDocMeta
 from log import Log
 
 __all__ = ["MockEs"]
@@ -121,9 +121,11 @@ class MockEsCommon:
 
         matches = []
         docs = self.db.db_api_docs_all(searchable_indexes, doc_type)
-        for docs_idx, docs_dtype, docs_id, docs_doc in docs:
-            if query.q_exec_on_doc(None, docs_idx, docs_doc, query.q_query_name, query.q_query_rules):
-                matches.append(docs_doc)
+        for query_doc_meta in docs:
+            if query.q_exec_on_doc(None,
+                                   query_doc_meta.docs_idx, query_doc_meta.docs_doc,
+                                   query.q_query_name, query.q_query_rules):
+                matches.append(query_doc_meta.docs_doc)
 
         return matches, searchable_indexes
 

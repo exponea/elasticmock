@@ -1,5 +1,5 @@
 from log import Log
-from common import WesDefs
+from common import WesDefs, QueryDocMeta
 
 import datetime
 import sys
@@ -198,7 +198,7 @@ class MockDb:
                     if self.db_dtype_field_doc_dict_has(db_idx, db_dtype):
                         d_docs = self.db_dtype_field_doc_dict_get(db_idx, db_dtype)
                         for doc_id in d_docs.keys():
-                            doc_all.append([db_idx, db_dtype, doc_id, d_docs[doc_id]])
+                            doc_all.append(QueryDocMeta(db_idx, db_dtype, doc_id, d_docs[doc_id]))
                             if not_empty:
                                 # exit ASAP
                                 return doc_all

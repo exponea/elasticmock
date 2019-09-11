@@ -34,6 +34,7 @@ class TestCommon(unittest.TestCase):
                     self.assertEqual(rc_sub, wes_sub)
 
 ExecCode = namedtuple('ExecCode', 'status data fnc_params')
+QueryDocMeta = namedtuple('QueryDocMeta', 'docs_idx, docs_dtype, docs_id, docs_doc')
 
 class WesDefs():
     # Elasticsearch version
