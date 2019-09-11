@@ -558,18 +558,42 @@ class MockEsIndicesClient:
 
         return {'acknowledged': True}
 
-    # @query_params(
-    #     "create",
-    #     "flat_settings",
-    #     "master_timeout",
-    #     "order",
-    #     "request_timeout",
-    #     "timeout",
-    #     "include_type_name",)
-    # @MockEsCommon.Decor.operation_mock(WesDefs.OP_IND_PUT_TMP)
-    # def ind_put_template(self, name, body, params=None):
-    #     return self.es.indices.put_template(name=name, body=body, params=params)
-    #
+    @query_params(
+        "create",
+        "flat_settings",
+        "master_timeout",
+        "order",
+        "request_timeout",
+        "timeout",
+        "include_type_name",)
+    @MockEsCommon.Decor.operation_mock(WesDefs.OP_IND_PUT_TMP)
+    def ind_put_template(self, name, body, params=None):
+        """
+        Create an index template that will automatically be applied to new
+        indices created.
+        `<http://www.elastic.co/guide/en/elasticsearch/reference/current/indices-templates.html>`_
+
+        :arg name: The name of the template
+        :arg body: The template definition
+        :arg create: Whether the index template should only be added if new or
+            can also replace an existing one, default False
+        :arg flat_settings: Return settings in flat format (default: false)
+        :arg master_timeout: Specify timeout for connection to master
+        :arg order: The order for this template when merging multiple matching
+            ones (higher numbers are merged later, overriding the lower numbers)
+        :arg request_timeout: Explicit operation timeout (For pre ES 6 clusters)
+        :arg timeout: Explicit operation timeout
+        :arg include_type_name: Specify whether requests and responses should include a
+            type name (default: depends on Elasticsearch version).
+        """
+        for param in (name, body):
+            if param in SKIP_IN_PATH:
+                raise ValueError("Empty value passed for a required argument.")
+
+        self.db.db_tmpl_set(name, body)
+
+        return {'acknowledged': True}
+
     @query_params("flat_settings",
                   "local",
                   "master_timeout",

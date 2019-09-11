@@ -109,7 +109,7 @@ class WesDefs():
                             tmp_str = f"{prefix_dtype} {internal_dtype} {str(general_dict)}"
                             rec += '\n' + tmp_str
                         else:
-                            raise ValueError(f"unknown internal_dtype '{internal_dtype}'")
+                            raise ValueError(f"MAPPINGS unknown internal_dtype '{internal_dtype}'")
             else:
                 WesDefs.es_version_mismatch(obj_with_running.ES_VERSION_RUNNING)
 
@@ -134,7 +134,7 @@ class WesDefs():
                 elif ind_field == 'settings':
                     res += '\n' + prefix_ind_fields + str(ind_field_dict)
                 else:
-                    ValueError(f"unknown ind_field {ind_field} ")
+                    ValueError(f"INDICE unknown ind_field {ind_field} ")
 
         return f"COUNT[{cnt}] {res}"
 
@@ -144,20 +144,26 @@ class WesDefs():
         cnt = 0
         for tmpl_name in data.keys():
             cnt += 1
-            ind_dict = data[tmpl_name]
-            res += '\n' + tmpl_name + ' <-> ' + str(ind_dict)
-
-            # for ind_field in ind_dict.keys():
-            #     prefix_ind_fields = f"IND[{tmpl_name}] {ind_field:>9} <-> "
-            #     ind_field_dict = ind_dict[ind_field]
-            #     # TOO GENERIC res += '\n' + prefix_ind_fields + str(ind_field_dict)
-            #     if ind_field == 'aliases':
-            #         res += '\n' + prefix_ind_fields + str(ind_field_dict)
-            #     elif ind_field == 'mappings':
-            #         res += WesDefs.dump2string_result_ind_mappings(ind_dict, obj_with_running, prefix=prefix_ind_fields)
-            #     elif ind_field == 'settings':
-            #         res += '\n' + prefix_ind_fields + str(ind_field_dict)
-            #     else:
-            #         ValueError(f"unknown ind_field {ind_field} ")
+            tmpl_dict = data[tmpl_name]
+            # res += '\n' + tmpl_name + ' <-> ' + str(tmpl_dict)
+            for tmpl_field in tmpl_dict.keys():
+                prefix_tmpl_fields = f"TMPL[{tmpl_name}] {tmpl_field:>9} <-> "
+                tmpl_field_dict = tmpl_dict[tmpl_field]
+                # TOO GENERIC res += '\n' + prefix_tmpl_fields + str(tmpl_field_dict)
+                if tmpl_field == 'aliases':
+                    res += '\n' + prefix_tmpl_fields + str(tmpl_field_dict)
+                elif tmpl_field == 'mappings':
+                    res += '\n' + prefix_tmpl_fields + str(tmpl_field_dict)
+                    #res += WesDefs.dump2string_result_ind_mappings(tmpl_dict, obj_with_running, prefix=prefix_tmpl_fields)
+                elif tmpl_field == 'settings':
+                    res += '\n' + prefix_tmpl_fields + str(tmpl_field_dict)
+                elif tmpl_field == 'order':
+                    res += '\n' + prefix_tmpl_fields + str(tmpl_field_dict)
+                elif tmpl_field == 'version':
+                    res += '\n' + prefix_tmpl_fields + str(tmpl_field_dict)
+                elif tmpl_field == 'template':
+                    res += '\n' + prefix_tmpl_fields + str(tmpl_field_dict)
+                else:
+                    ValueError(f"TEMPLATE unknown tmpl_field {tmpl_field} ")
 
         return f"COUNT[{cnt}] {res}"

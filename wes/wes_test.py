@@ -735,6 +735,7 @@ class TestWes(TestWesHelper):
         ind_special_NEW = 'test_def_catalog_new_v2'
         self.wes.ind_delete_result(self.wes.ind_delete(ind_special_cleanup))
 
+        template_name = 'def_catalog_v2'
         body_exponea = {'body':
                             { 'mappings':
                                   {'catalog_item':
@@ -751,17 +752,17 @@ class TestWes(TestWesHelper):
                                    },
                               'template': 'test_def_catalog_*_v2'
                             },
-                        'name': 'def_catalog_v2'
+                        'name': template_name
                         }
 
         self.indice_create_exists(self.wes, ind_str)
 
         Log.notice("--------------------------------------------------------------------------------------")
         self.assertEqual(WesDefs.RC_OK, self.wes.ind_get_template_result(self.wes.ind_get_template()).status)
-        self.assertTrue(isinstance(self.wes.ind_get_template_result(self.wes.ind_get_template("uknown")).data, NotFoundError))
+        self.assertTrue(isinstance(self.wes.ind_get_template_result(self.wes.ind_get_template("mse_uknown")).data, NotFoundError))
 
-        self.assertEqual(WesDefs.RC_OK, self.wes.ind_put_template_result(self.wes.ind_put_template(**body_exponea)).status)
-        self.assertEqual(WesDefs.RC_OK, self.wes.ind_get_template_result(self.wes.ind_get_template()).status)
+        self.assertEqual(True, self.wes.ind_put_template_result(self.wes.ind_put_template(**body_exponea)).data['acknowledged'])
+        self.assertEqual(WesDefs.RC_OK, self.wes.ind_get_template_result(self.wes.ind_get_template(template_name)).status)
 
         Log.notice("--------------------------------------------------------------------------------------")
         self.indice_create_exists(self.wes, ind_special_NEW)
