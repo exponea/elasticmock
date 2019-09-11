@@ -11,8 +11,8 @@ class LogInternal:
         return datetime.now().strftime('%H:%m:%S.%f')[:-3]
 
     @staticmethod
-    def _generate_caller_name():
-        return sys._getframe(3).f_code.co_name
+    def _generate_caller_name(level):
+        return sys._getframe(level).f_code.co_name
 
     @staticmethod
     def _flush_io():
@@ -169,6 +169,18 @@ class Log(LogInternal):
             Log.log(" RE NOK [%s] pattern '%s' not found >> NOTHING ..." % (help_str, pattern))
             Log.log(" ------\n")
 
+    @staticmethod
+    def tests_START():
+            Log.log("-" * 80)
+            Log.log(f"{LogInternal._generate_caller_name(2)} - START")
+            Log.log("-" * 80)
+
+    def tests_STOP():
+            Log.log("-" * 80)
+            Log.log(f"{LogInternal._generate_caller_name(2)} - STOP")
+            Log.log("-" * 80)
+
+
 ############################################################################################
 # TEST
 ############################################################################################
@@ -197,6 +209,9 @@ class TestClog(unittest.TestCase):
         Log.border_re(r1, "help_str", "pattern")
         r1.append("one element")
         Log.border_re(r1, "help_str", "pattern")
+
+        Log.tests_START()
+        Log.tests_STOP()
 
 if __name__ == '__main__':
      unittest.main()
