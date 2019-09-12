@@ -407,7 +407,32 @@ class MockDb:
 
     ############################################################################
     ############################################################################
-    def normalize_index_to_list(self, index):
+    def apply_all_indicies(self, operation, indices: list):
+        if operation == WesDefs.OP_IND_GET_MAP:
+            return True if len(indices) == 0 else False
+        elif operation == WesDefs.OP_IND_DELETE or operation == WesDefs.OP_IND_PUT_MAP:
+            all_ind_values = ['_all', '*']
+            for ind in indices:
+                if ind in all_ind_values:
+                    return True
+            return False
+        elif operation == WesDefs.OP_DOC_SEARCH or \
+                operation == WesDefs.OP_DOC_COUNT or \
+                operation == WesDefs.OP_DOC_DEL_QUERY or \
+                operation == WesDefs.OP_IND_DEL_ALIAS:
+            all_ind_values = ['_all', '']
+            for ind in indices:
+                if ind in all_ind_values:
+                    return True
+            return False
+        elif operation == WesDefs.OP_IND_CREATE or \
+             operation == WesDefs.OP_IND_EXIST or \
+             operation == WesDefs.OP_IND_GET:
+            return False
+        else:
+            raise ValueError(f"{operation} no handling provided")
+
+    def normalize_index_to_list(self, operation, index):
         # Ensure to have a list of index
         if index is None:
             searchable_indexes = self.db_db_indices_dict_get().keys()
@@ -419,12 +444,12 @@ class MockDb:
             # Is it the correct exception to use ?
             raise ValueError("Invalid param 'index'")
 
-        # # Check index(es) exists
-        # for searchable_index in searchable_indexes:
-        #     if searchable_index not in MockEsCommon.db_get_idx_all(self):
-        #         raise NotFoundError(404, 'IndexMissingException[[{0}] missing]'.format(searchable_index))
+        # Check all indices
+        apply_all = self.apply_all_indicies(operation, searchable_indexes)
+        if apply_all:
+            searchable_indexes = self.db_db_indices_dict_get().keys()
 
-        return searchable_indexes
+        return searchable_indexes, apply_all
 
     def mappings_properties_from_doc_body(self, doc_body) -> dict:
         mapping_dict = {

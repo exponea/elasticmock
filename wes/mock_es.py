@@ -109,28 +109,6 @@ class MockEsCommon:
             return wrapper_mk
 
     @staticmethod
-    def apply_all_indicies(operation, indices: list):
-        if operation == WesDefs.OP_IND_GET_MAP:
-            return True if len(indices) == 0 else False
-        elif operation == WesDefs.OP_IND_DELETE or operation == WesDefs.OP_IND_PUT_MAP:
-            all_ind_values = ['_all', '*']
-            for ind in indices:
-                if ind in all_ind_values:
-                    return True
-            return False
-        elif operation == WesDefs.OP_DOC_SEARCH or \
-                operation == WesDefs.OP_DOC_COUNT or \
-                operation == WesDefs.OP_DOC_DEL_QUERY or \
-                operation == WesDefs.OP_IND_DEL_ALIAS:
-            all_ind_values = ['_all', '']
-            for ind in indices:
-                if ind in all_ind_values:
-                    return True
-            return False
-        else:
-            raise ValueError(f"{operation} no handling provided")
-
-    @staticmethod
     def check_running_version(obj, version) -> bool:
         return MockEsCommon.get_parent(obj).ES_VERSION_RUNNING == version
 
@@ -141,10 +119,8 @@ class MockEsCommon:
     def query_helper(self, query, index=None, doc_type=None, body=None, params=None):
         if not index:
             index = "_all"
-        searchable_indexes = self.db.normalize_index_to_list(index)
 
-        if MockEsCommon.apply_all_indicies(query.q_oper, searchable_indexes):
-            searchable_indexes = self.db.db_db_indices_dict_get().keys()
+        searchable_indexes, apply_all = self.db.normalize_index_to_list(query.q_oper, index)
 
         matches = []
         docs = self.db.db_api_docs_all(searchable_indexes, doc_type)
@@ -259,10 +235,10 @@ class MockEsIndicesClient:
         if index in SKIP_IN_PATH:
             raise ValueError("Empty value passed for a required argument 'index'.")
 
-        searchable_indexes = self.db.normalize_index_to_list(index)
+        searchable_indexes, apply_all = self.db.normalize_index_to_list(WesDefs.OP_IND_CREATE, index)
 
         if len(searchable_indexes) > 1:
-            raise ValueError("'index' contains more indexes - it cannot be list ")
+            raise ValueError(f"'index' contains more indexes - it cannot be list {str(searchable_indexes)}")
 
         if self.db.db_idx_has(searchable_indexes[0]):
             MockEsCommon.raiseRequestError(['???'], 'index_already_exists_exception', searchable_indexes[0])
@@ -300,10 +276,10 @@ class MockEsIndicesClient:
         if index in SKIP_IN_PATH:
             raise ValueError("Empty value passed for a required argument 'index'.")
 
-        searchable_indexes = self.db.normalize_index_to_list( index)
+        searchable_indexes, apply_all = self.db.normalize_index_to_list(WesDefs.OP_IND_EXIST, index)
 
         if len(searchable_indexes) > 1:
-            raise ValueError("'index' contains more indexes - it cannot be list for now")
+            raise ValueError(f"'index' contains more indexes - it cannot be list {str(searchable_indexes)}")
 
         return self.db.db_idx_has(searchable_indexes[0])
 
@@ -336,9 +312,9 @@ class MockEsIndicesClient:
         if index in SKIP_IN_PATH:
             raise ValueError("Empty value passed for a required argument 'index'.")
 
-        searchable_indexes = self.db.normalize_index_to_list( index)
+        searchable_indexes, apply_all = self.db.normalize_index_to_list(WesDefs.OP_IND_DELETE, index)
 
-        if MockEsCommon.apply_all_indicies(WesDefs.OP_IND_DELETE, searchable_indexes):
+        if apply_all:
             self.db.db_db_clear()
             return {'acknowledged': True}
         else:
@@ -396,7 +372,7 @@ class MockEsIndicesClient:
             raise ValueError("Empty value passed for a required argument 'index'.")
 
         result = {}
-        searchable_indexes = self.db.normalize_index_to_list(index)
+        searchable_indexes, apply_all = self.db.normalize_index_to_list(WesDefs.OP_IND_GET, index)
         for search_idx in searchable_indexes:
             if self.db.db_idx_has(search_idx):
                 mappings = { }
@@ -511,13 +487,11 @@ class MockEsIndicesClient:
         else:
             WesDefs.es_version_mismatch(MockEsCommon.get_parent(self).ES_VERSION_RUNNING)
 
-        searchable_indexes = self.db.normalize_index_to_list( index)
-
-        for_all = MockEsCommon.apply_all_indicies(WesDefs.OP_IND_GET_MAP, searchable_indexes)
+        searchable_indexes, apply_all = self.db.normalize_index_to_list(WesDefs.OP_IND_GET_MAP, index)
 
         ret_dict = {}
         for idx in self.db.db_db_indices_dict_get().keys():
-            if for_all or idx in searchable_indexes:
+            if apply_all or idx in searchable_indexes:
                 ret_dict[idx] = {
                     'mappings': self.db.db_idx_field_mappings_get(idx),
                     'settings': self.db.db_idx_field_settings_get(idx)
@@ -569,9 +543,7 @@ class MockEsIndicesClient:
         else:
             WesDefs.es_version_mismatch(MockEsCommon.get_parent(self).ES_VERSION_RUNNING)
 
-        searchable_indexes = self.db.normalize_index_to_list( index)
-        if MockEsCommon.apply_all_indicies(WesDefs.OP_IND_PUT_MAP, searchable_indexes):
-            searchable_indexes = self.db.db_db_indices_dict_get().keys()
+        searchable_indexes, apply_all = self.db.normalize_index_to_list(WesDefs.OP_IND_PUT_MAP, index)
 
         for idx in searchable_indexes:
             if MockEsCommon.check_running_version(self, WesDefs.ES_VERSION_5_6_5):
@@ -712,13 +684,9 @@ class MockEsIndicesClient:
             if param in SKIP_IN_PATH:
                 raise ValueError("Empty value passed for a required argument.")
 
-        searchable_indexes = self.db.normalize_index_to_list(index)
-
-        if MockEsCommon.apply_all_indicies(WesDefs.OP_IND_DEL_ALIAS, searchable_indexes):
-            searchable_indexes = self.db.db_db_indices_dict_get().keys()
+        searchable_indexes, apply_all = self.db.normalize_index_to_list(WesDefs.OP_IND_DEL_ALIAS, index)
 
         name_list = name.split(',')
-
         for db_idx in searchable_indexes:
             if db_idx in index:
                 alias_list = self.db.db_idx_field_alias_list_get(db_idx)
