@@ -428,8 +428,8 @@ class TestWes(TestWesHelper):
         ind_str2 = "first_ind2"
         self.indice_create_exists(self.wes, ind_str2)
 
-        self.assertEqual(2, len(self.wes.ind_get_mapping_result(self.wes.ind_get_mapping()).data.keys()))
-        self.assertEqual(1, len(self.wes.ind_get_mapping_result(self.wes.ind_get_mapping(ind_str)).data.keys()))
+        self.assertEqual(2, len(self.wes.ind_get_mapping_result_strip_es_internal_idx(self.wes.ind_get_mapping_result(self.wes.ind_get_mapping())).data))
+        self.assertEqual(1, len(self.wes.ind_get_mapping_result_strip_es_internal_idx(self.wes.ind_get_mapping_result(self.wes.ind_get_mapping(ind_str))).data))
 
         Log.notice("--------------------------------------------------------------------------------------")
 
@@ -446,7 +446,7 @@ class TestWes(TestWesHelper):
             self.wes.es_version_mismatch(self.ES_VERSION_RUNNING)
 
         if self.wes.ES_VERSION_RUNNING == WesDefs.ES_VERSION_7_3_0:
-            self.assertEqual(1, len(self.wes.ind_get_mapping_result(self.wes.ind_get_mapping(ind_str, doc_type=ind_str_doc_type, include_type_name=True)).data.keys()))
+            self.assertEqual(1, len(self.wes.ind_get_mapping_result_strip_es_internal_idx(self.wes.ind_get_mapping_result(self.wes.ind_get_mapping(ind_str, doc_type=ind_str_doc_type, include_type_name=True))).data))
         elif self.wes.ES_VERSION_RUNNING == WesDefs.ES_VERSION_5_6_5:
             # TODO - 400 - illegal_argument_exception - request [/first_ind1/_mapping/first_ind2_docT] contains unrecognized parameter: [include_type_name]
             self.assertTrue(isinstance(self.wes.ind_get_mapping_result(self.wes.ind_get_mapping(ind_str, doc_type=ind_str_doc_type, include_type_name=True)).data, RequestError))
@@ -534,8 +534,7 @@ class TestWes(TestWesHelper):
         # sentence: {'type': 'text', 'fields': {'keyword': {'type': 'keyword', 'ignore_above': 256}}}
         #
         # IND[first_ind2]: Missing mappings
-        rc = self.wes.ind_get_mapping_result(self.wes.ind_get_mapping())
-        self.assertEqual(2, len(rc.data.keys()))
+        self.assertEqual(2, len(self.wes.ind_get_mapping_result_strip_es_internal_idx(self.wes.ind_get_mapping_result(self.wes.ind_get_mapping())).data))
 
         Log.tests_STOP()
 

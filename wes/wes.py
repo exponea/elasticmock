@@ -305,6 +305,16 @@ class Wes(WesCommon):
 
         return self._operation_result(WesDefs.OP_IND_GET_MAP, key_str, rc, fmt_fnc_ok)
 
+    def ind_get_mapping_result_strip_es_internal_idx(self, rc: ExecCode) -> None:
+        if rc.status == WesDefs.RC_OK:
+            keys = list(rc.data.keys())
+            for k in keys:
+                Log.warn2(f"STRIPPING internal index[{k}] candidate ")
+                if k[0] == '.':
+                    Log.warn(f"STRIPPING internal index[{k}] from result")
+                    del rc.data[k]
+        return rc
+
     @query_params(
         "allow_no_indices",
         "expand_wildcards",

@@ -280,15 +280,8 @@ class TestWesJsonHelper(TestCommon):
                 # print(wes.ind_get_result_dump_to_string(rc_result))
                 # print(wes.ind_get_result_dump_to_string(rc_wes))
 
-                keys = list(rc_result.data.keys())
-                for k in keys:
-                    if k[0] == '.':
-                        del rc_result.data[k]
-
-                keys = list(rc_wes.data.keys())
-                for k in keys:
-                    if k[0] == '.':
-                        del rc_wes.data[k]
+                rc_result = wes.ind_get_mapping_result_strip_es_internal_idx(rc_result)
+                rc_wes = wes.ind_get_mapping_result_strip_es_internal_idx(rc_wes)
 
                 # print(wes.ind_get_result_dump_to_string(rc_result))
                 # print(wes.ind_get_result_dump_to_string(rc_wes))
