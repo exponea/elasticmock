@@ -20,13 +20,13 @@ from elasticsearch.helpers.errors import BulkIndexError
 from elasticsearch.helpers.errors import ScanError
 from elasticsearch.helpers.actions import expand_action
 
-
-import re
+import random
+import string
+import base64
 import json
 
 
 from elasticsearch.client.utils import SKIP_IN_PATH
-from elasticmock.utilities import get_random_id, get_random_scroll_id
 
 from common import WesDefs, ExecCode, QueryDocMeta
 from log import Log
@@ -36,10 +36,34 @@ __all__ = ["MockEs"]
 from mock_db import MockDb
 from mock_query import MockEsQuery
 
+######################################################
+############## code from elasticmock #################
+######################################################
+DEFAULT_ELASTICSEARCH_ID_SIZE = 20
+CHARSET_FOR_ELASTICSEARCH_ID = string.ascii_letters + string.digits
+
+DEFAULT_ELASTICSEARCH_SEARCHRESULTPHASE_COUNT = 6
+
+######################################################
+############## code from elasticmock #################
+######################################################
+
 class MockEsCommon:
 
     def __init__(self, version):
         self.ES_VERSION_RUNNING = version
+
+    ######################################################
+    ############## code from elasticmock #################
+    ######################################################
+    def get_random_id(self, size=DEFAULT_ELASTICSEARCH_ID_SIZE):
+        return ''.join(random.choice(CHARSET_FOR_ELASTICSEARCH_ID) for _ in range(size))
+
+    def get_random_scroll_id(self, size=DEFAULT_ELASTICSEARCH_SEARCHRESULTPHASE_COUNT):
+        return base64.b64encode(''.join(self.get_random_id() for _ in range(size)).encode())
+    ######################################################
+    ############## code from elasticmock #################
+    ######################################################
 
     @staticmethod
     def raiseNotFoundIdx(e_list, idx):
@@ -759,7 +783,7 @@ class MockEs(MockEsCommon):
     def index(self, index, body, doc_type="_doc", id=None, params=None):
 
         if id is None:
-            id = get_random_id()
+            id = self.get_random_id()
 
         doc = self.db.db_dtype_field_doc_key_set(index, doc_type, id, body)
 
