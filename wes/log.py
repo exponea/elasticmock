@@ -45,6 +45,11 @@ class LogInternal:
         print("\33[1;37;44m%s%s NOTI::\33[0m %s" % (prefix, LogInternal._time(),  str(msg)))
         LogInternal._flush_io()
 
+    @staticmethod
+    def _log_invert_background(prefix, msg):
+        print("\33[7m%s%s DBG::\33[0m %s" % (prefix, LogInternal._time(),  str(msg)))
+        LogInternal._flush_io()
+
     # print colored long
     @staticmethod
     def _log_red_background_long(prefix, msg):
@@ -66,6 +71,10 @@ class LogInternal:
         print("\33[1;37;44m%s%s NOTI:: %s\33[0m" % (prefix, LogInternal._time(),  str(msg)))
         LogInternal._flush_io()
 
+    @staticmethod
+    def _log_invert_background_long(prefix, msg):
+        print("\33[7m%s%s DBG:: %s\33[0m" % (prefix, LogInternal._time(),  str(msg)))
+        LogInternal._flush_io()
 
     # print colored msg
     @staticmethod
@@ -87,6 +96,12 @@ class LogInternal:
     def _log_blue_background_msg(prefix, msg):
         print("%s%s NOTI:: \33[1;37;44m%s\33[0m" % (prefix, LogInternal._time(),  str(msg)))
         LogInternal._flush_io()
+
+    @staticmethod
+    def _log_invert_background_msg(prefix, msg):
+        print("%s%s DBG:: \33[7m%s\33[0m" % (prefix, LogInternal._time(),  str(msg)))
+        LogInternal._flush_io()
+
 
     # cmd border
     MSELINE = 80
@@ -119,6 +134,9 @@ class Log(LogInternal):
     @staticmethod
     def notice(msg):
         LogInternal._log_blue_background("", msg)
+    @staticmethod
+    def dbg(msg):
+        LogInternal._log_invert_background("", msg)
 
     # API time + full background colours
     @staticmethod
@@ -133,6 +151,9 @@ class Log(LogInternal):
     @staticmethod
     def notice2(msg):
         LogInternal._log_blue_background_long("", msg)
+    @staticmethod
+    def dbg2(msg):
+        LogInternal._log_invert_background_long("", msg)
 
     # API time + msg background colours
     @staticmethod
@@ -147,7 +168,9 @@ class Log(LogInternal):
     @staticmethod
     def notice3(msg):
         LogInternal._log_blue_background_msg("", msg)
-
+    @staticmethod
+    def dbg3(msg):
+        LogInternal._log_invert_background_msg("", msg)
 
     # API cmd border
     @staticmethod
@@ -201,6 +224,9 @@ class TestClog(unittest.TestCase):
         Log.notice(log_me)
         Log.notice2(log_me)
         Log.notice3(log_me)
+        Log.dbg(log_me)
+        Log.dbg2(log_me)
+        Log.dbg3(log_me)
 
         Log.border_ok("CALLER", "RES", "CMD", "NAME")
         Log.border_err("CALLER", "RES", "CMD", "NAME")
