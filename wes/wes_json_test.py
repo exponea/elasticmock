@@ -305,7 +305,12 @@ class TestWesJsonHelper(TestCommon):
                 self.assertDictEqual(rc_result.data, rc_wes.data)
 
         elif rc_wes.status == WesDefs.RC_NOK:
-            raise ValueError("not handled - now")
+            if operation == WesDefs.OP_DOC_BULK_STR:
+                # TODO '126.json' provided only simple check - different formats exports VS 'pip list elasticsearch 7.0.2'
+                self.assertTrue(rc_result.data['errors'])
+                self.assertFalse(rc_wes.data[-1][0])
+            else:
+                raise ValueError("not handled - now")
         elif rc_wes.status == WesDefs.RC_EXCE:
             # TODO peete pass exception status number - for T[1.json] L[ 11] there is result(None)
             self.assertEqual(rc_result.status, rc_wes.status)
@@ -409,13 +414,12 @@ class TestWesJson(TestWesJsonHelper):
         def test_case_avoided(nb: int):
             self.assertTrue(nb < 207)
 
-            if nb in (27,  34,  67, 79,  94, 126, 153, 166, 169):
+            if nb in (27,  34,  67, 79,  94, 153, 166, 169):
                 #  27 - OP_DOC_SEARCH - AssertionError: {'_id': '4', '_index': 'test_def_catalogs', '[1321 chars]1dd'} != {'_index': 'test_def_catalogs', '_type': 'pro[1323 chars]ng'}}
                 #  34 - OP_DOC_SEARCH - AssertionError: 3 != 4
                 #  76 - OP_DOC_SEARCH - ssertionError: {'_id': '5', '_index': 'test_def_catalogs', '[1323 chars]1cc'} != {'_index': 'test_def_catalogs', '_type': 'pro[1320 chars]ng'}}
                 #  79 - OP_DOC_SEARCH - AssertionError: 5 != 10
                 #  94 - OP_DOC_SEARCH - AssertionError: 2 != 3
-                # 126 - File "... /elasticmock/wes/wes.py", line 761, in doc_bulk_streaming_result PROBLEM IN WES!
                 # 153 - OP_DOC_SEARCH - AssertionError: 1 != 2
                 # 166 - OP_DOC_SEARCH - AssertionError: 3 != 4
                 # 169 - OP_DOC_SEARCH - AssertionError: 3 != 4
@@ -453,6 +457,7 @@ if __name__ == '__main__':
         # unittest.main()
     else:
         suite = unittest.TestSuite()
-        suite.addTest(TestWesJson("json_parser_todo"))
+        # suite.addTest(TestWesJsonReal("json_parser_todo"))
+        # suite.addTest(TestWesJsonMock("json_parser_todo"))
         runner = unittest.TextTestRunner()
         runner.run(suite)
