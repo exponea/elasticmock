@@ -394,7 +394,7 @@ class MockDb:
                     dict_print += '\n'
                     dict_print += str(index_types_dict[index_type])
 
-        Log.notice(f"{oper} is mock {dict_print}")
+        Log.dbg2(f"{oper} is mock {dict_print}")
 
     def db_db_dump_per_idx(self, oper):
         dict_print = ''

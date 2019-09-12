@@ -77,7 +77,7 @@ class MockEsCommon:
         def operation_mock(oper):
             def wrapper_mk(fnc):
                 def wrapper(self, *args, **kwargs):
-                        Log.log(f"{oper} is mock")
+                        Log.dbg(f"{oper} is mock")
                         rc = fnc(self, *args, **kwargs)
                         self.db.db_db_dump(oper)
                         return rc
